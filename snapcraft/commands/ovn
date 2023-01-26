@@ -1,0 +1,4 @@
+#!/bin/sh
+export OVN_RUNDIR="${SNAP_COMMON}/run/switch/"
+
+exec "$(basename ${0})" "${@}"
