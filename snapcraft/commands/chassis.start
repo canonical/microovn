@@ -1,0 +1,6 @@
+#!/bin/sh
+export OVS_RUNDIR="${SNAP_DATA}/run/switch/"
+export OVN_RUNDIR="${SNAP_DATA}/run/chassis/"
+export OVN_LOGDIR="${SNAP_COMMON}/logs/"
+
+exec ovn-controller unix:"${OVS_RUNDIR}/db.sock" -vconsole:emer -vsyslog:err -vfile:info --no-chdir

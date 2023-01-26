@@ -1,0 +1,209 @@
+name: microovn
+base: core22
+version: git
+grade: stable
+source-code: https://github.com/canonical/microovn.git
+summary: Simple clustered OVN deployment
+description: |-
+ Self-contained self-deployment with clustering.
+
+confinement: strict
+
+apps:
+  # Service
+  daemon:
+    command: commands/daemon.start
+    daemon: simple
+    plugs:
+      - network
+      - network-bind
+    slots:
+      - microovn
+  central:
+    command: commands/central.start
+    daemon: simple
+    install-mode: disable
+    plugs:
+      - network
+      - network-bind
+  chassis:
+    command: commands/chassis.start
+    daemon: simple
+    install-mode: disable
+    refresh-mode: endure
+    plugs:
+      - network
+      - network-bind
+      - network-control
+      - process-control
+      - system-trace
+      - hardware-observe
+  switch:
+    command: commands/switch.start
+    daemon: simple
+    install-mode: disable
+    refresh-mode: endure
+    plugs:
+      - firewall-control
+      - hardware-observe
+      - hugepages-control
+      - network
+      - network-bind
+      - network-control
+      - openvswitch-support
+      - process-control
+      - system-trace
+
+  # Commands
+  microovn:
+    command: commands/microovn
+    plugs:
+      - network
+
+  ovn-appctl:
+    command: commands/ovn
+    plugs:
+      - network
+  ovn-nbctl:
+    command: commands/ovn
+    plugs:
+      - network
+  ovn-sbctl:
+    command: commands/ovn
+    plugs:
+      - network
+
+  ovs-appctl:
+    command: commands/ovs-appctl
+    plugs:
+      - network
+  ovs-dpctl:
+    command: commands/ovs-dpctl
+    plugs:
+      - network
+  ovs-ofctl:
+    command: commands/ovs-ofctl
+    plugs:
+      - network
+  ovs-vsctl:
+    command: commands/ovs-vsctl
+    plugs:
+      - network
+  ovsdb-server:
+    command: commands/ovsdb-server
+    plugs:
+      - network
+      - network-bind
+
+parts:
+  # Dependencies
+  dqlite:
+    after:
+      - raft
+    source: https://github.com/canonical/dqlite
+    source-type: git
+    source-depth: 1
+    plugin: autotools
+    autotools-configure-parameters:
+      - --prefix=
+    stage-packages:
+      - libuv1
+      - libsqlite3-0
+    build-packages:
+      - libuv1-dev
+      - libsqlite3-dev
+      - pkg-config
+    organize:
+      usr/lib/: lib/
+    prime:
+      - lib/libdqlite*so*
+      - lib/*/libuv*
+
+  raft:
+    source: https://github.com/canonical/raft
+    source-type: git
+    source-depth: 1
+    plugin: autotools
+    autotools-configure-parameters:
+      - --prefix=
+    stage-packages:
+      - libuv1
+      - liblz4-1
+    build-packages:
+      - libuv1-dev
+      - liblz4-dev
+      - pkg-config
+    organize:
+      usr/lib/: lib/
+    prime:
+      - lib/libraft*so*
+      - lib/*/libuv.so*
+
+  ovn:
+    plugin: nil
+    stage-packages:
+      - ovn-host
+    organize:
+      usr/bin/: bin/
+    prime:
+     - bin/ovn-controller
+
+  ovs:
+    plugin: nil
+    stage-packages:
+      - openvswitch-switch
+    organize:
+      usr/bin/: bin/
+      usr/sbin/: bin/
+      usr/lib/: lib/
+      usr/share/: share/
+    prime:
+     - bin/ovs-appctl
+     - bin/ovs-dpctl
+     - bin/ovs-ofctl
+     - bin/ovs-vsctl
+     - bin/ovs-vswitchd
+     - bin/ovsdb-client
+     - bin/ovsdb-server
+     - bin/ovsdb-tool
+     - lib/*/libevent-2.1.so*
+     - lib/*/libunbound.so*
+     - share/openvswitch
+    override-build: |
+        craftctl default
+
+        mkdir -p "${CRAFT_PART_INSTALL}/bin/"
+        mv "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch/ovs-vswitchd" "${CRAFT_PART_INSTALL}/bin/"
+
+  # Main part
+  microovn:
+    source: microovn/
+    after:
+      - dqlite
+    build-snaps:
+      - go
+    plugin: nil
+    override-pull: |
+      craftctl default
+      set -ex
+
+      # Download the dependencies
+      go get -d -v ./...
+    override-build: |
+      set -ex
+
+      # Setup build environment
+      export CGO_CFLAGS="-I${CRAFT_STAGE}/include/ -I${CRAFT_STAGE}/usr/local/include/"
+      export CGO_LDFLAGS="-L${CRAFT_STAGE}/lib/ -L${CRAFT_STAGE}/usr/local/lib/"
+      export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+
+      # Build the binaries
+      go build -o "${CRAFT_PART_INSTALL}/bin/microovn" ./cmd/microovn
+      go build -o "${CRAFT_PART_INSTALL}/bin/microovnd" -tags=libsqlite3 ./cmd/microovnd
+    prime:
+      - bin/microovn
+      - bin/microovnd
+
+  wrappers:
+    plugin: dump
+    source: snapcraft/
