@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="512"
+   height="512"
+   viewBox="0 0 135.46666 135.46667"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   sodipodi:docname="microovn.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="true"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     showguides="false"
+     inkscape:zoom="1.2938725"
+     inkscape:cx="230.31636"
+     inkscape:cy="270.50579"
+     inkscape:window-width="1691"
+     inkscape:window-height="1341"
+     inkscape:window-x="26"
+     inkscape:window-y="23"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1">
+    <sodipodi:guide
+       position="62.031643,141.25051"
+       orientation="0,-1"
+       id="guide3889"
+       inkscape:locked="false" />
+  </sodipodi:namedview>
+  <defs
+     id="defs2">
+    <marker
+       style="overflow:visible"
+       id="TriangleStart"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="TriangleStart"
+       markerWidth="3"
+       markerHeight="3"
+       viewBox="0 0 5.3244081 6.1553851"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path135" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="TriangleStart-6"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="TriangleStart"
+       markerWidth="3"
+       markerHeight="3"
+       viewBox="0 0 5.3244081 6.1553851"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path135-7" />
+    </marker>
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       id="rect120"
+       width="129.96857"
+       height="92.817589"
+       x="2.7490499"
+       y="21.324539"
+       rx="1.2433271"
+       style="stroke-width:0.252033"
+       ry="1.1888231" />
+    <rect
+       id="rect277"
+       width="96.91967"
+       height="73.529663"
+       x="9.6466894"
+       y="30.579699"
+       rx="4.5270104"
+       ry="3.4902637"
+       style="fill:#ffffff;fill-opacity:1;stroke-width:0.865058" />
+    <ellipse
+       style="fill:#ffffff;fill-opacity:1;stroke-width:0.218061"
+       id="path2464"
+       cx="120.48341"
+       cy="56.237514"
+       rx="6.9682798"
+       ry="7.0194869" />
+    <ellipse
+       style="fill:#ffffff;fill-opacity:1;stroke-width:0.218061"
+       id="path2464-3"
+       cx="120.48328"
+       cy="79.330269"
+       rx="6.9682798"
+       ry="7.0194869" />
+    <path
+       style="fill:#2eb34d;fill-opacity:1;stroke:#148d31;stroke-width:6.007;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-start:url(#TriangleStart)"
+       d="M 82.020385,57.177122 40.52317,56.834972"
+       id="path3275" />
+    <path
+       style="fill:#2eb34d;fill-opacity:1;stroke:#148d31;stroke-width:6.007;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-start:url(#TriangleStart-6)"
+       d="m 34.968851,75.193069 41.497218,-0.34215"
+       id="path3275-5" />
+  </g>
+</svg>
