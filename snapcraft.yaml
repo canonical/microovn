@@ -17,8 +17,8 @@ apps:
     plugs:
       - network
       - network-bind
-    slots:
-      - microovn
+#    slots:
+#      - microovn
 
   central:
     command: commands/central.start
