@@ -1,0 +1,58 @@
+name: Tests
+on:
+  - push
+  - pull_request
+
+jobs:
+  system-tests:
+    name: System tests
+    runs-on: ubuntu-22.04
+    env:
+      SNAPCRAFT_BUILD_ENVIRONMENT: "lxd"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Clear FORWARD firewall rules
+        run: |
+          # Docker can inject rules causing firewall conflicts
+          sudo iptables -P FORWARD ACCEPT  || true
+          sudo ip6tables -P FORWARD ACCEPT || true
+          sudo iptables -F FORWARD  || true
+          sudo ip6tables -F FORWARD || true
+
+      - name: Install dependencies
+        run: |
+          sudo snap refresh
+          sudo snap set lxd daemon.group=adm
+          sudo lxd init --auto
+          sudo snap install snapcraft --classic
+          snap list
+
+      - name: Build snaps
+        run: snapcraft
+
+      - name: Run system tests
+        run: |
+          set -eux
+          sudo snap install --dangerous microovn_*.snap
+          sudo snap connect microovn:firewall-control
+          sudo snap connect microovn:hardware-observe
+          sudo snap connect microovn:hugepages-control
+          sudo snap connect microovn:network-control
+          sudo snap connect microovn:openvswitch-support
+          sudo snap connect microovn:process-control
+          sudo snap connect microovn:system-trace
+
+          # Bootstrap and basic checks
+          sudo microovn cluster bootstrap
+          sudo microovn.ovs-vsctl show
+          sudo microovn status
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: snaps
+          path: "*.snap"
+          retention-days: 5
