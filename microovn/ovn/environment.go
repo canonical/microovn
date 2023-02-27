@@ -92,7 +92,7 @@ func generateEnvironment(s *state.State) error {
 		return err
 	}
 
-	// Generate ceph.conf.
+	// Generate ovn.env.
 	fd, err := os.OpenFile(filepath.Join(os.Getenv("SNAP_COMMON"), "data", "ovn.env"), os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0644)
 	if err != nil {
 		return fmt.Errorf("Couldn't open ovn.env: %w", err)
