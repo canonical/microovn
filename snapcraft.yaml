@@ -1,4 +1,5 @@
 name: microovn
+icon: microovn.png
 base: core22
 version: git
 grade: stable
