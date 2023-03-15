@@ -20,5 +20,5 @@ done
 export PATH="${OVS_RUNDIR}/bin/:${PATH}"
 
 # Start vswitchd
-"${SNAP}/share/openvswitch/scripts/ovs-ctl" start --system-id=random
+"${SNAP}/share/openvswitch/scripts/ovs-ctl" start --system-id="$(hostname)"
 sleep infinity
