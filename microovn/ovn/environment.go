@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,7 +48,8 @@ func connectString(s *state.State, port int) (string, error) {
 			continue
 		}
 
-		addresses[i] = fmt.Sprintf("tcp:%s:%d", remote.Address.Addr().String(), port)
+		addresses[i] = fmt.Sprintf("tcp:%s",
+			netip.AddrPortFrom(remote.Address.Addr(), uint16(port)).String())
 	}
 
 	return strings.Join(addresses, ","), nil
