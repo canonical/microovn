@@ -85,8 +85,13 @@ func generateEnvironment(s *state.State) error {
 			return fmt.Errorf("Remote couldn't be found for %q", server.Member)
 		}
 
-		nbInitial = remote.Address.Addr().String()
-		sbInitial = remote.Address.Addr().String()
+		addrString := remote.Address.Addr().String()
+		if remote.Address.Addr().Is6() {
+			addrString = "[" + addrString + "]"
+		}
+
+		nbInitial = addrString
+		sbInitial = addrString
 
 		return nil
 	})
