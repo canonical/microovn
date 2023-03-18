@@ -106,8 +106,13 @@ func generateEnvironment(s *state.State) error {
 	}
 	defer fd.Close()
 
+	localAddr := s.Address().Hostname()
+	if ip, err := netip.ParseAddr(localAddr); err == nil && ip.Is6() {
+		localAddr = "[" + localAddr + "]"
+	}
+
 	err = ovnEnvTpl.Execute(fd, map[string]any{
-		"localAddr": s.Address().Hostname(),
+		"localAddr": localAddr,
 		"nbInitial": nbInitial,
 		"sbInitial": sbInitial,
 		"nbConnect": nbConnect,
