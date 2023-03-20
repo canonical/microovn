@@ -7,12 +7,14 @@ import (
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/lxc/lxd/lxc/utils"
 	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/i18n"
 	"github.com/spf13/cobra"
 )
 
 type cmdClusterList struct {
-	common  *CmdControl
-	cluster *cmdCluster
+	common     *CmdControl
+	cluster    *cmdCluster
+	flagFormat string
 }
 
 func (c *cmdClusterList) Command() *cobra.Command {
@@ -21,6 +23,8 @@ func (c *cmdClusterList) Command() *cobra.Command {
 		Short: "List servers in the cluster",
 		RunE:  c.Run,
 	}
+
+	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", "table", i18n.G("Format (csv|json|table|yaml|compact)")+"``")
 
 	return cmd
 }
@@ -54,5 +58,5 @@ func (c *cmdClusterList) Run(cmd *cobra.Command, args []string) error {
 	header := []string{"NAME", "ADDRESS", "ROLE", "FINGERPRINT", "STATUS"}
 	sort.Sort(utils.ByName(data))
 
-	return utils.RenderTable(utils.TableFormatTable, header, data, clusterMembers)
+	return utils.RenderTable(c.flagFormat, header, data, clusterMembers)
 }
