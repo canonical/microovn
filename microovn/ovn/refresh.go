@@ -25,6 +25,7 @@ func Refresh(s *state.State) error {
 
 	// Query existing local services.
 	hasCentral := false
+	hasSwitch := false
 	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
 		// Check if we have the central service.
 		name := s.Name()
@@ -36,7 +37,10 @@ func Refresh(s *state.State) error {
 		for _, srv := range services {
 			if srv.Service == "central" {
 				hasCentral = true
-				break
+			}
+
+			if srv.Service == "switch" {
+				hasSwitch = true
 			}
 		}
 
@@ -61,22 +65,24 @@ func Refresh(s *state.State) error {
 	}
 
 	// Enable OVN chassis.
-	err = snapRestart("chassis")
-	if err != nil {
-		return fmt.Errorf("Failed to restart OVN chassis: %w", err)
-	}
+	if hasSwitch {
+		err = snapRestart("chassis")
+		if err != nil {
+			return fmt.Errorf("Failed to restart OVN chassis: %w", err)
+		}
 
-	// Reconfigure OVS to use OVN.
-	sbConnect, err := connectString(s, 6642)
-	if err != nil {
-		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
-	}
+		// Reconfigure OVS to use OVN.
+		sbConnect, err := connectString(s, 6642)
+		if err != nil {
+			return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
+		}
 
-	_, err = shared.RunCommand(
-		"ovs-vsctl",
-		"set", "open_vswitch", ".",
-		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
-	)
+		_, err = shared.RunCommand(
+			"ovs-vsctl",
+			"set", "open_vswitch", ".",
+			fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
+		)
+	}
 
 	return nil
 }
