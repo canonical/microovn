@@ -13,6 +13,10 @@ import (
 
 // Refresh will update the existing OVN central and OVS switch configs.
 func Refresh(s *state.State) error {
+	// Make sure we don't have any other hooks firing.
+	muHook.Lock()
+	defer muHook.Unlock()
+
 	// Create our storage.
 	err := createPaths()
 	if err != nil {

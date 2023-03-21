@@ -13,6 +13,10 @@ import (
 
 // Join will join an existing OVN deployment.
 func Join(s *state.State) error {
+	// Make sure we don't have any other hooks firing.
+	muHook.Lock()
+	defer muHook.Unlock()
+
 	// Create our storage.
 	err := createPaths()
 	if err != nil {
