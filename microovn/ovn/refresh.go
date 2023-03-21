@@ -7,12 +7,25 @@ import (
 
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/logger"
 
 	"github.com/canonical/microcluster/state"
 )
 
 // Refresh will update the existing OVN central and OVS switch configs.
 func Refresh(s *state.State) error {
+	// Don't block the caller on a refresh as we may build a backlog.
+	go func(s *state.State) {
+		err := refresh(s)
+		if err != nil {
+			logger.Errorf("Failed to refresh configuration: %v", err)
+		}
+	}(s)
+
+	return nil
+}
+
+func refresh(s *state.State) error {
 	// Make sure we don't have any other hooks firing.
 	muHook.Lock()
 	defer muHook.Unlock()
