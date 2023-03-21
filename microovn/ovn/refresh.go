@@ -13,9 +13,15 @@ import (
 
 // Refresh will update the existing OVN central and OVS switch configs.
 func Refresh(s *state.State) error {
+	// Create our storage.
+	err := createPaths()
+	if err != nil {
+		return err
+	}
+
 	// Query existing local services.
 	hasCentral := false
-	err := s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
 		// Check if we have the central service.
 		name := s.Name()
 		services, err := database.GetServices(ctx, tx, database.ServiceFilter{Member: &name})
