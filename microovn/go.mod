@@ -3,8 +3,8 @@ module github.com/canonical/microovn/microovn
 go 1.18
 
 require (
-	github.com/canonical/microcluster v0.0.0-20230313210313-e1b810cb8513
-	github.com/lxc/lxd v0.0.0-20230320141943-afa20048df16
+	github.com/canonical/microcluster v0.0.0-20230323033829-3e5dfc18be05
+	github.com/lxc/lxd v0.0.0-20230329164153-fbd81fe44372
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.6.1
 )
