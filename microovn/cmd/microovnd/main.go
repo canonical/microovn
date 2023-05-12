@@ -67,7 +67,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 
 	h := &config.Hooks{}
 	h.OnBootstrap = ovn.Bootstrap
-	h.OnJoin = ovn.Join
+	h.PreJoin = ovn.Join
 	h.OnNewMember = ovn.Refresh
 	h.PostRemove = ovn.Refresh
 
