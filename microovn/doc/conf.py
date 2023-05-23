@@ -25,7 +25,7 @@ html_context = {
     # Change to the GitHub info for your project
     "github_url": "https://github.com/canonical/microovn",
     "github_version": "main",
-    "github_folder": "/microovn/doc",
+    "github_folder": "/microovn/doc/",
     "github_filetype": "rst"
 }
 
@@ -147,10 +147,12 @@ html_css_files = [
     'custom.css',
     'github_issue_links.css',
 ]
-html_js_files = [
-    'github_issue_links.js',
-]
 
+# Enable issues link (Feedback button) by uncommenting the below stanza.
+# There's a link in the footer that remains however.
+# html_js_files = [
+#     'github_issue_links.js',
+# ]
 
 # Set up redirects (https://documatt.gitlab.io/sphinx-reredirects/usage.html)
 # For example: "explanation/old-name.html": "../how-to/prettify.html",
