@@ -21,12 +21,16 @@ ogp_image = "https://assets.ubuntu.com/v1/253da317-image-document-ubuntudocs.svg
 
 html_context = {
     # Change to the discourse instance you want to be able to link to
+    # (use an empty value if you don't want to link)
     "discourse": "https://discourse.ubuntu.com",
     # Change to the GitHub info for your project
     "github_url": "https://github.com/canonical/microovn",
+    # Change to the branch for this version of the documentation
     "github_version": "main",
+    # Change to the folder that contains the documentation (usually "/" or # "/docs/")
     "github_folder": "/microovn/doc/",
-    "github_filetype": "rst"
+    # Change to an empty value if your GitHub repo doesn't have issues enabled
+    "github_issues": ""
 }
 
 # Used for related links - no need to change
@@ -148,11 +152,9 @@ html_css_files = [
     'github_issue_links.css',
 ]
 
-# Enable issues link (Feedback button) by uncommenting the below stanza.
-# There's a link in the footer that remains however.
-# html_js_files = [
-#     'github_issue_links.js',
-# ]
+html_js_files = []
+if "github_issues" in html_context and html_context["github_issues"]:
+    html_js_files.append('github_issue_links.js')
 
 # Set up redirects (https://documatt.gitlab.io/sphinx-reredirects/usage.html)
 # For example: "explanation/old-name.html": "../how-to/prettify.html",

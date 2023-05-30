@@ -5,23 +5,44 @@ See the `Sphinx and Read the Docs <https://canonical-documentation-with-sphinx-a
 
 Then go through the following sections to use this starter pack to set up your docs repository.
 
-Download and install
---------------------
+Set up your documentation repository
+------------------------------------
 
-* *Incorporate this starter pack into an existing code repository* - copy all
-  the files from this repository into your project's directory structure,
-  and rename this directory to ``docs`` or similar.
+You can either create a standalone documentation project based on this repository or include the files from this repository in a dedicated documentation folder in an existing code repository.
 
-* *Start a standalone documentation project* - clone this locally and start
-  working.
+**Note:** We're planning to provide the contents of this repository as an installable package in the future, but currently, you need to copy and update the required files manually.
 
-In documentation directory, run::
+Standalone documentation repository
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To create a standalone documentation repository, clone this starter pack repository, `update the configuration <#configure-the-documentation>`_, and then commit all files to your own documentation repository.
+
+You don't need to move any files, and you don't need to do any special configuration on Read the Docs.
+
+Documentation in the code repository
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To add your documentation to your code repository, create a dedicated documentation folder in your repository (for example, ``docs``).
+
+Copy all the files and folders (with the exception of the ``.git`` folder) from this starter pack repository into this ``docs`` folder.
+Then do the following changes:
+
+- Move the workflow files from the ``docs/.github`` folder into the ``.github`` folder of the root directory of your code repository, or include the job logic from the files into your existing workflows.
+- Optionally, integrate the targets from the ``docs/Makefile`` file into the Makefile for your code repository.
+  Alternatively, you can run the ``make`` commands for documentation inside the ``docs`` folder.
+- Optionally, move the ``docs/.readthedocs.yaml`` file into the root directory of your repository and adapt the paths for ``sphinx.configuration`` and ``python.install.requirements``.
+
+  If you move the file, Read the Docs will detect it automatically.
+  If you leave the file in the ``docs`` folder, you must specify its location in the configuration for your Read the Docs project.
+
+Install the prerequisites
+-------------------------
+
+To install the prerequisites (in a virtual environment), run the following command::
 
 	make install
 
-This invokes the ``install`` command in the ``Makefile``, and creates a
-virtual environment (``.sphinx/venv``) and installs dependencies in
-``.sphinx/requirements.txt``.
+This command invokes the ``install`` target in the ``Makefile``, creates a virtual environment (``.sphinx/venv``) and installs the dependencies in ``.sphinx/requirements.txt``.
 
 A complete set of pinned, known-working dependencies is included in
 ``.sphinx/pinned-requirements.txt``.
@@ -45,11 +66,15 @@ The command:
 (This is the most convenient way to work on the documentation, but you can still use
 the more standard ``make html``.)
 
-
 Configure the documentation
 ---------------------------
 
-In ``conf.py``, you will need to check or edit several settings in the *Project information* section:
+You must modify some of the default configuration to suit your project.
+
+Add your project information
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In ``conf.py``, check or edit the following settings in the *Project information* section:
 
 * ``project``
 * ``author``
@@ -60,6 +85,7 @@ In ``conf.py``, you will need to check or edit several settings in the *Project 
 * ``ogp_site_url`` - the URL of the documentation output (needed to generate a preview when linking from another website)
 * ``ogp_site_name`` - the title you want to use for the documentation in previews on other websites (by default, this is set to the project name)
 * ``ogp_image`` - an image that will be used in the preview on other websites
+* ``html_favicon`` - the favicon for the documentation (circle of friends by default)
 
 In the ``html_context`` variable, update the following settings:
 
@@ -72,7 +98,7 @@ In the ``html_context`` variable, update the following settings:
 Save ``conf.py``.
 
 Configure the spelling check
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If your documentation uses US English instead of UK English, change this in the
 ``.sphinx/spellingcheck.yaml`` file.
@@ -83,7 +109,7 @@ file and remove all words starting from line 10.
 repository.)
 
 Configure the link check
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you have links in the documentation that you don't want to be checked (for
 example, because they are local links or give random errors even though they
@@ -91,13 +117,15 @@ work), you can add them to the ``linkcheck_ignore`` variable in the ``conf.py``
 file.
 
 Activate/deactivate feedback button
------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A feedback button is included by default, which appears at the top of each page
 in the documentation. It redirects users to your GitHub issues page, and
 populates an issue for them with details of the page they were on when they
-clicked the button. 
+clicked the button.
 
-If your project does not use GitHub issues, or you don't want the feedback
-button for another reason, you can deactivate the button by removing the
-``github_issue_links.js`` script from the ``conf.py`` file.
+If your project does not use GitHub issues, set the ``github_issues`` variable
+in the ``conf.py`` file to an empty value to disable both the feedback button
+and the issue link in the footer.
+If you want to deactivate only the feedback button, but keep the link in the
+footer, remove the ``github_issue_links.js`` script from the ``conf.py`` file.

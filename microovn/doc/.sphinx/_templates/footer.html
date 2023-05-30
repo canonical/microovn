@@ -71,12 +71,16 @@
     </div>
     {% endif %}
 
-    {% if github_url and github_version and github_folder and github_filetype %}
+    {% if github_url and github_version and github_folder %}
+
+    {% if github_issues %}
     <div class="issue-github">
-      <a class="muted-link" href="{{ github_url }}/issues/new?title=doc%3A+ADD+A+TITLE&body=DESCRIBE+THE+ISSUE%0A%0A---%0ADocument: {{ pagename }}.{{ github_filetype }}">Open a GitHub issue for this page</a>
+      <a class="muted-link" href="{{ github_url }}/issues/new?title=doc%3A+ADD+A+TITLE&body=DESCRIBE+THE+ISSUE%0A%0A---%0ADocument: {{ pagename }}{{ page_source_suffix }}">Open a GitHub issue for this page</a>
     </div>
+    {% endif %}
+
     <div class="edit-github">
-      <a class="muted-link" href="{{ github_url }}/edit/{{ github_version }}{{ github_folder }}{{ pagename }}.{{ github_filetype }}">Edit this page on GitHub</a>
+      <a class="muted-link" href="{{ github_url }}/edit/{{ github_version }}{{ github_folder }}{{ pagename }}{{ page_source_suffix }}">Edit this page on GitHub</a>
     </div>
     {% endif %}
 
