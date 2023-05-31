@@ -22,12 +22,8 @@ done
 export PATH="${OVN_RUNDIR}/bin/:${PATH}"
 
 # Prepare the arguments
-# By specifying "--db-*-create-insecure-remote=no" we prevent creation of
-# hardcoded bindings and we can use database to configure remotes later.
 OVN_ARGS="--db-nb-addr="${OVN_LOCAL_IP}" \
---db-nb-create-insecure-remote=no \
 --db-sb-addr="${OVN_LOCAL_IP}" \
---db-sb-create-insecure-remote=no \
 --db-nb-cluster-local-addr="${OVN_LOCAL_IP}" \
 --db-sb-cluster-local-addr="${OVN_LOCAL_IP}" \
 --ovn-northd-nb-db="${OVN_NB_CONNECT}" \

@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/canonical/microcluster/state"
+
 	"github.com/canonical/microovn/microovn/database"
 )
 
@@ -74,11 +76,11 @@ func Bootstrap(s *state.State) error {
 		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 	}
 
-	nbDB, err := GetOvsdbLocalPath(OvsdbTypeNB)
+	nbDB, err := GetOvsdbLocalPath(OvsdbTypeNBLocal)
 	if err != nil {
 		return fmt.Errorf("Failed to get path to OVN NB database socket: %w", err)
 	}
-	sbDB, err := GetOvsdbLocalPath(OvsdbTypeSB)
+	sbDB, err := GetOvsdbLocalPath(OvsdbTypeSBLocal)
 	if err != nil {
 		return fmt.Errorf("Failed to get path to OVN SB database socket: %w", err)
 	}
