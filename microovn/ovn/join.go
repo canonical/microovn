@@ -5,10 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/canonical/microovn/microovn/database"
-	"github.com/lxc/lxd/shared"
-
 	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microovn/microovn/database"
 )
 
 // Join will join an existing OVN deployment.
@@ -99,14 +97,18 @@ func Join(s *state.State) error {
 		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 	}
 
-	_, err = shared.RunCommand(
-		"ovs-vsctl",
+	_, err = VSCtl(
+		s,
 		"set", "open_vswitch", ".",
 		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
 		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
 		"external_ids:ovn-encap-type=geneve",
 		fmt.Sprintf("external_ids:ovn-encap-ip=%s", s.Address().Hostname()),
 	)
+
+	if err != nil {
+		return fmt.Errorf("Error configuring OVS parameters: %s", err)
+	}
 
 	return nil
 }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/canonical/microcluster/state"
-	"github.com/lxc/lxd/shared"
 
 	"github.com/canonical/microovn/microovn/database"
 )
@@ -77,14 +76,47 @@ func Bootstrap(s *state.State) error {
 		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 	}
 
-	_, err = shared.RunCommand(
-		"ovs-vsctl",
+	nbDB, err := GetOvsdbLocalPath(OvsdbTypeNBLocal)
+	if err != nil {
+		return fmt.Errorf("Failed to get path to OVN NB database socket: %w", err)
+	}
+	sbDB, err := GetOvsdbLocalPath(OvsdbTypeSBLocal)
+	if err != nil {
+		return fmt.Errorf("Failed to get path to OVN SB database socket: %w", err)
+	}
+
+	_, err = NBCtl(
+		s,
+		fmt.Sprintf("--db=unix:%s", nbDB),
+		"set-connection",
+		"ptcp:6641",
+	)
+	if err != nil {
+		return fmt.Errorf("Error setting ovn NB connection string: %s", err)
+	}
+
+	_, err = SBCtl(
+		s,
+		fmt.Sprintf("--db=unix:%s", sbDB),
+		"set-connection",
+		"ptcp:6642",
+	)
+	if err != nil {
+		return fmt.Errorf("Error setting ovn SB connection string: %s", err)
+	}
+
+	_, err = VSCtl(
+		s,
 		"set", "open_vswitch", ".",
 		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
 		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
 		"external_ids:ovn-encap-type=geneve",
 		fmt.Sprintf("external_ids:ovn-encap-ip=%s", s.Address().Hostname()),
 	)
+
+	if err != nil {
+		return fmt.Errorf("Error configuring OVS parameters: %s", err)
+	}
 
 	return nil
 }

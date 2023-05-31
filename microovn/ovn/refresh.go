@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/canonical/microovn/microovn/database"
-	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/logger"
 
 	"github.com/canonical/microcluster/state"
@@ -90,11 +89,15 @@ func refresh(s *state.State) error {
 			return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 		}
 
-		_, err = shared.RunCommand(
-			"ovs-vsctl",
+		_, err = VSCtl(
+			s,
 			"set", "open_vswitch", ".",
 			fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
 		)
+
+		if err != nil {
+			return fmt.Errorf("Failed to update OVS's 'ovn-remote' configuration")
+		}
 	}
 
 	return nil
