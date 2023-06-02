@@ -40,16 +40,16 @@ func connectString(s *state.State, port int) (string, error) {
 		return "", err
 	}
 
-	addresses := make([]string, len(servers))
+	addresses := make([]string, 0, len(servers))
 	remotes := s.Remotes().RemotesByName()
-	for i, server := range servers {
+	for _, server := range servers {
 		remote, ok := remotes[server.Member]
 		if !ok {
 			continue
 		}
 
-		addresses[i] = fmt.Sprintf("tcp:%s",
-			netip.AddrPortFrom(remote.Address.Addr(), uint16(port)).String())
+		addresses = append(addresses, fmt.Sprintf("tcp:%s",
+			netip.AddrPortFrom(remote.Address.Addr(), uint16(port)).String()))
 	}
 
 	return strings.Join(addresses, ","), nil
