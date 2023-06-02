@@ -70,6 +70,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	h.PreJoin = ovn.Join
 	h.OnNewMember = ovn.Refresh
 	h.PostRemove = ovn.Refresh
+	h.OnStart = ovn.Start
 
 	return m.Start(api.Endpoints, database.SchemaExtensions, h)
 }
