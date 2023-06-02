@@ -89,7 +89,7 @@ func Bootstrap(s *state.State) error {
 		s,
 		fmt.Sprintf("--db=unix:%s", nbDB),
 		"set-connection",
-		"ptcp:6641",
+		"ptcp:6641:[::]",
 	)
 	if err != nil {
 		return fmt.Errorf("Error setting ovn NB connection string: %s", err)
@@ -99,7 +99,7 @@ func Bootstrap(s *state.State) error {
 		s,
 		fmt.Sprintf("--db=unix:%s", sbDB),
 		"set-connection",
-		"ptcp:6642",
+		"ptcp:6642:[::]",
 	)
 	if err != nil {
 		return fmt.Errorf("Error setting ovn SB connection string: %s", err)

@@ -3,8 +3,8 @@ module github.com/canonical/microovn/microovn
 go 1.18
 
 require (
-	github.com/canonical/microcluster v0.0.0-20230524160713-030a52685e04
-	github.com/lxc/lxd v0.0.0-20230524141527-1573b79fa90f
+	github.com/canonical/microcluster v0.0.0-20230525014943-9b4786b0b3f0
+	github.com/lxc/lxd v0.0.0-20230602132852-ce3c156962b8
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.7.0
 )
@@ -12,7 +12,7 @@ require (
 require (
 	github.com/Rican7/retry v0.3.1 // indirect
 	github.com/armon/go-proxyproto v0.0.0-20210323213023-7e956b284f0a // indirect
-	github.com/canonical/go-dqlite v1.11.9 // indirect
+	github.com/canonical/go-dqlite v1.20.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
@@ -33,7 +33,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
-	github.com/mattn/go-sqlite3 v1.14.16 // indirect
+	github.com/mattn/go-sqlite3 v1.14.17 // indirect
 	github.com/muhlemmer/gu v0.3.1 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -45,8 +45,8 @@ require (
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/testify v1.8.3 // indirect
-	github.com/zitadel/oidc/v2 v2.6.1 // indirect
+	github.com/stretchr/testify v1.8.4 // indirect
+	github.com/zitadel/oidc/v2 v2.6.2 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
