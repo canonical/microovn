@@ -8,6 +8,7 @@ import (
 	"github.com/canonical/microcluster/state"
 
 	"github.com/canonical/microovn/microovn/database"
+	"github.com/canonical/microovn/microovn/ovn/paths"
 )
 
 // Bootstrap will initialize a new OVN deployment.
@@ -46,6 +47,17 @@ func Bootstrap(s *state.State) error {
 		return err
 	}
 
+	// Generate CA certificate and key
+	err = GenerateNewCACertificate(s)
+	if err != nil {
+		return err
+	}
+
+	err = dumpCA(s)
+	if err != nil {
+		return err
+	}
+
 	// Generate the configuration.
 	err = generateEnvironment(s)
 	if err != nil {
@@ -58,10 +70,34 @@ func Bootstrap(s *state.State) error {
 		return fmt.Errorf("Failed to start OVS switch: %w", err)
 	}
 
+	// Generate certificate for OVN Central services
+	nbCertPath, nbKeyPath := paths.PkiOvnNbCertFiles()
+	sbCertPath, sbKeyPath := paths.PkiOvnSbCertFiles()
+	northdCertPath, northdKeyPath := paths.PkiOvnNorthdCertFiles()
+	err = GenerateNewServiceCertificate(s, "ovnnb", CertificateTypeServer, nbCertPath, nbKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovnnb service: %s", err)
+	}
+	err = GenerateNewServiceCertificate(s, "ovnsb", CertificateTypeServer, sbCertPath, sbKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovnsb service: %s", err)
+	}
+	err = GenerateNewServiceCertificate(s, "ovn-northd", CertificateTypeServer, northdCertPath, northdKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovn-northd service: %s", err)
+	}
+
 	// Enable OVN central.
 	err = snapStart("central", true)
 	if err != nil {
 		return fmt.Errorf("Failed to start OVN central: %w", err)
+	}
+
+	// Generate certificate for OVN chassis (controller)
+	ctlCertPath, ctlKeyPath := paths.PkiOvnControllerCertFiles()
+	err = GenerateNewServiceCertificate(s, "ovn-controller", CertificateTypeServer, ctlCertPath, ctlKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovn-controller service: %s", err)
 	}
 
 	// Enable OVN chassis.
@@ -89,7 +125,7 @@ func Bootstrap(s *state.State) error {
 		s,
 		fmt.Sprintf("--db=unix:%s", nbDB),
 		"set-connection",
-		"ptcp:6641:[::]",
+		"pssl:6641:[::]",
 	)
 	if err != nil {
 		return fmt.Errorf("Error setting ovn NB connection string: %s", err)
@@ -99,7 +135,7 @@ func Bootstrap(s *state.State) error {
 		s,
 		fmt.Sprintf("--db=unix:%s", sbDB),
 		"set-connection",
-		"ptcp:6642:[::]",
+		"pssl:6642:[::]",
 	)
 	if err != nil {
 		return fmt.Errorf("Error setting ovn SB connection string: %s", err)

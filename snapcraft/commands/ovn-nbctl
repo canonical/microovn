@@ -1,1 +1,8 @@
-ovn
+#!/bin/sh
+# Load the environment
+. "${SNAP}/ovn.env"
+
+CERT="${OVN_PKI_DIR}/ovnnb-cert.pem"
+KEY="${OVN_PKI_DIR}/ovnnb-privkey.pem"
+
+exec ovn-nbctl -c "$CERT" -p "$KEY" -C "$CA_CERT" "${@}"
