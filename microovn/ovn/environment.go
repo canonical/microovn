@@ -48,7 +48,7 @@ func connectString(s *state.State, port int) (string, error) {
 			continue
 		}
 
-		addresses = append(addresses, fmt.Sprintf("tcp:%s",
+		addresses = append(addresses, fmt.Sprintf("ssl:%s",
 			netip.AddrPortFrom(remote.Address.Addr(), uint16(port)).String()))
 	}
 

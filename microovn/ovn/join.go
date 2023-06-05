@@ -7,6 +7,7 @@ import (
 
 	"github.com/canonical/microcluster/state"
 	"github.com/canonical/microovn/microovn/database"
+	"github.com/canonical/microovn/microovn/ovn/paths"
 )
 
 // Join will join an existing OVN deployment.
@@ -71,6 +72,12 @@ func Join(s *state.State) error {
 		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
 	}
 
+	// Copy shared CA certificate from shared database to file on disk
+	err = dumpCA(s)
+	if err != nil {
+		return err
+	}
+
 	// Enable OVS switch.
 	err = snapStart("switch", true)
 	if err != nil {
@@ -79,19 +86,41 @@ func Join(s *state.State) error {
 
 	// Enable OVN central (if needed).
 	if srvCentral < 3 {
+		// Generate certificate for OVN Central services
+		nbCertPath, nbKeyPath := paths.PkiOvnNbCertFiles()
+		sbCertPath, sbKeyPath := paths.PkiOvnSbCertFiles()
+		northdCertPath, northdKeyPath := paths.PkiOvnNorthdCertFiles()
+		err = GenerateNewServiceCertificate(s, "ovnnb", CertificateTypeServer, nbCertPath, nbKeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to generate TLS certificate for ovnnb service")
+		}
+		err = GenerateNewServiceCertificate(s, "ovnsb", CertificateTypeServer, sbCertPath, sbKeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to generate TLS certificate for ovnsb service")
+		}
+		err = GenerateNewServiceCertificate(s, "ovn-northd", CertificateTypeServer, northdCertPath, northdKeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to generate TLS certificate for ovn-northd service")
+		}
+
 		err = snapStart("central", true)
 		if err != nil {
 			return fmt.Errorf("Failed to start OVN central: %w", err)
 		}
 	}
 
-	// Enable OVN chassis.
+	// Generate certificate for OVN chassis (controller)
+	ctlCertPath, ctlKeyPath := paths.PkiOvnControllerCertFiles()
+	err = GenerateNewServiceCertificate(s, "ovn-controller", CertificateTypeServer, ctlCertPath, ctlKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovn-controller service")
+	}
 	err = snapStart("chassis", true)
 	if err != nil {
 		return fmt.Errorf("Failed to start OVN chassis: %w", err)
 	}
 
-	// Configure OVS to use OVN.
+	// Enable OVN chassis.
 	sbConnect, err := connectString(s, 6642)
 	if err != nil {
 		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)

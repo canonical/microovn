@@ -11,6 +11,7 @@ export OVN_LOGDIR="${SNAP_COMMON}/logs"
 export OVN_RUNDIR="${SNAP_COMMON}/run/chassis"
 export OVN_PKGDATADIR="${SNAP}/share/ovn"
 export OVN_SYSCONFDIR="${SNAP}/etc"
+export OVN_PKIDIR="${SNAP_COMMON}/data/pki"
 
 # Disable some commands
 mkdir -p "${OVN_RUNDIR}/bin/"
@@ -27,7 +28,12 @@ OVN_ARGS="--db-nb-addr="${OVN_LOCAL_IP}" \
 --db-nb-cluster-local-addr="${OVN_LOCAL_IP}" \
 --db-sb-cluster-local-addr="${OVN_LOCAL_IP}" \
 --ovn-northd-nb-db="${OVN_NB_CONNECT}" \
---ovn-northd-sb-db="${OVN_SB_CONNECT}""
+--ovn-northd-sb-db="${OVN_SB_CONNECT}" \
+--db-sb-cluster-remote-proto=ssl \
+--ovn-controller-ssl-key="${OVN_PKIDIR}"/ovn-controller-privkey.pem \
+--ovn-controller-ssl-cert="${OVN_PKIDIR}"/ovn-controller-cert.pem \
+--ovn-controller-ssl-ca-cert="${OVN_PKIDIR}"/cacert.pem"
+
 
 if [ "${OVN_INITIAL_NB}" != "${OVN_LOCAL_IP}" ]; then
     OVN_ARGS="${OVN_ARGS} --db-nb-cluster-remote-addr="${OVN_INITIAL_NB}""

@@ -1,1 +1,5 @@
-ovn
+#!/bin/sh
+# Load the environment
+. "${SNAP}/ovn.env"
+
+exec ovn-appctl "${@}"

@@ -1,6 +1,7 @@
 package paths
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -64,6 +65,45 @@ func OvsDatabaseSock() string {
 	return filepath.Join(SwitchRuntimeDir(), "db.sock")
 }
 
+// PkiDir returns path to the directory that store OVN certificates
+func PkiDir() string {
+	return filepath.Join(dataDir, "pki")
+}
+
+// PkiCaCertFile returns path to CA certificate file
+func PkiCaCertFile() string {
+	return filepath.Join(PkiDir(), "cacert.pem")
+}
+
+// PkiOvnNbCertFiles returns paths to certificate and private key used by OVN Northbound service
+func PkiOvnNbCertFiles() (string, string) {
+	return getServiceCertFiles("ovnnb")
+}
+
+// PkiOvnSbCertFiles returns paths to certificate and private key used by OVN Southbound service
+func PkiOvnSbCertFiles() (string, string) {
+	return getServiceCertFiles("ovnsb")
+}
+
+// PkiOvnNorthdCertFiles returns paths to certificate and private key used by OVN Northd service
+func PkiOvnNorthdCertFiles() (string, string) {
+	return getServiceCertFiles("ovn-northd")
+}
+
+// PkiOvnControllerCertFiles returns paths to certificate and private key used by OVN Controller
+func PkiOvnControllerCertFiles() (string, string) {
+	return getServiceCertFiles("ovn-controller")
+}
+
+// getServiceCertFiles returns path to certificate and key of give service in format
+// "<base_dir>/<service_name>-{cert,privkey}.pem"
+func getServiceCertFiles(service string) (string, string) {
+	cert := filepath.Join(PkiDir(), fmt.Sprintf("%s-cert.pem", service))
+	key := filepath.Join(PkiDir(), fmt.Sprintf("%s-privkey.pem", service))
+	return cert, key
+
+}
+
 // RequiredDirs returns list of all directories that need to be created for MicroOVN to
 // function properly
 func RequiredDirs() []string {
@@ -75,5 +115,6 @@ func RequiredDirs() []string {
 		SwitchRuntimeDir(),
 		SwitchDataDir(),
 		LogsDir(),
+		PkiDir(),
 	}
 }

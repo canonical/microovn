@@ -52,6 +52,9 @@ func main() {
 	var cmdCluster = cmdCluster{common: &commonCmd}
 	app.AddCommand(cmdCluster.Command())
 
+	var cmdCertificates = cmdCertificates{common: &commonCmd}
+	app.AddCommand(cmdCertificates.Command())
+
 	app.InitDefaultHelpCmd()
 
 	err := app.Execute()
