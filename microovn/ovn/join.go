@@ -7,7 +7,6 @@ import (
 
 	"github.com/canonical/microcluster/state"
 	"github.com/canonical/microovn/microovn/database"
-	"github.com/canonical/microovn/microovn/ovn/paths"
 )
 
 // Join will join an existing OVN deployment.
@@ -73,7 +72,7 @@ func Join(s *state.State) error {
 	}
 
 	// Copy shared CA certificate from shared database to file on disk
-	err = dumpCA(s)
+	err = DumpCA(s)
 	if err != nil {
 		return err
 	}
@@ -87,18 +86,15 @@ func Join(s *state.State) error {
 	// Enable OVN central (if needed).
 	if srvCentral < 3 {
 		// Generate certificate for OVN Central services
-		nbCertPath, nbKeyPath := paths.PkiOvnNbCertFiles()
-		sbCertPath, sbKeyPath := paths.PkiOvnSbCertFiles()
-		northdCertPath, northdKeyPath := paths.PkiOvnNorthdCertFiles()
-		err = GenerateNewServiceCertificate(s, "ovnnb", CertificateTypeServer, nbCertPath, nbKeyPath)
+		err = GenerateNewServiceCertificate(s, "ovnnb", CertificateTypeServer)
 		if err != nil {
 			return fmt.Errorf("failed to generate TLS certificate for ovnnb service")
 		}
-		err = GenerateNewServiceCertificate(s, "ovnsb", CertificateTypeServer, sbCertPath, sbKeyPath)
+		err = GenerateNewServiceCertificate(s, "ovnsb", CertificateTypeServer)
 		if err != nil {
 			return fmt.Errorf("failed to generate TLS certificate for ovnsb service")
 		}
-		err = GenerateNewServiceCertificate(s, "ovn-northd", CertificateTypeServer, northdCertPath, northdKeyPath)
+		err = GenerateNewServiceCertificate(s, "ovn-northd", CertificateTypeServer)
 		if err != nil {
 			return fmt.Errorf("failed to generate TLS certificate for ovn-northd service")
 		}
@@ -110,8 +106,7 @@ func Join(s *state.State) error {
 	}
 
 	// Generate certificate for OVN chassis (controller)
-	ctlCertPath, ctlKeyPath := paths.PkiOvnControllerCertFiles()
-	err = GenerateNewServiceCertificate(s, "ovn-controller", CertificateTypeServer, ctlCertPath, ctlKeyPath)
+	err = GenerateNewServiceCertificate(s, "ovn-controller", CertificateTypeServer)
 	if err != nil {
 		return fmt.Errorf("failed to generate TLS certificate for ovn-controller service")
 	}

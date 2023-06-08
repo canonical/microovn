@@ -8,7 +8,6 @@ import (
 	"github.com/canonical/microcluster/state"
 
 	"github.com/canonical/microovn/microovn/database"
-	"github.com/canonical/microovn/microovn/ovn/paths"
 )
 
 // Bootstrap will initialize a new OVN deployment.
@@ -53,7 +52,7 @@ func Bootstrap(s *state.State) error {
 		return err
 	}
 
-	err = dumpCA(s)
+	err = DumpCA(s)
 	if err != nil {
 		return err
 	}
@@ -71,18 +70,15 @@ func Bootstrap(s *state.State) error {
 	}
 
 	// Generate certificate for OVN Central services
-	nbCertPath, nbKeyPath := paths.PkiOvnNbCertFiles()
-	sbCertPath, sbKeyPath := paths.PkiOvnSbCertFiles()
-	northdCertPath, northdKeyPath := paths.PkiOvnNorthdCertFiles()
-	err = GenerateNewServiceCertificate(s, "ovnnb", CertificateTypeServer, nbCertPath, nbKeyPath)
+	err = GenerateNewServiceCertificate(s, "ovnnb", CertificateTypeServer)
 	if err != nil {
 		return fmt.Errorf("failed to generate TLS certificate for ovnnb service: %s", err)
 	}
-	err = GenerateNewServiceCertificate(s, "ovnsb", CertificateTypeServer, sbCertPath, sbKeyPath)
+	err = GenerateNewServiceCertificate(s, "ovnsb", CertificateTypeServer)
 	if err != nil {
 		return fmt.Errorf("failed to generate TLS certificate for ovnsb service: %s", err)
 	}
-	err = GenerateNewServiceCertificate(s, "ovn-northd", CertificateTypeServer, northdCertPath, northdKeyPath)
+	err = GenerateNewServiceCertificate(s, "ovn-northd", CertificateTypeServer)
 	if err != nil {
 		return fmt.Errorf("failed to generate TLS certificate for ovn-northd service: %s", err)
 	}
@@ -94,8 +90,7 @@ func Bootstrap(s *state.State) error {
 	}
 
 	// Generate certificate for OVN chassis (controller)
-	ctlCertPath, ctlKeyPath := paths.PkiOvnControllerCertFiles()
-	err = GenerateNewServiceCertificate(s, "ovn-controller", CertificateTypeServer, ctlCertPath, ctlKeyPath)
+	err = GenerateNewServiceCertificate(s, "ovn-controller", CertificateTypeServer)
 	if err != nil {
 		return fmt.Errorf("failed to generate TLS certificate for ovn-controller service: %s", err)
 	}

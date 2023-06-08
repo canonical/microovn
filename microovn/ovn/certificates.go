@@ -140,12 +140,26 @@ func GenerateNewCACertificate(s *state.State) error {
 	}
 
 	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := database.CreateConfigItem(ctx, tx, caCert)
+		// Upsert CA certificate
+		certExists, _ := database.GetConfigItem(ctx, tx, CACertRecordName)
+		if certExists == nil {
+			_, err = database.CreateConfigItem(ctx, tx, caCert)
+		} else {
+			err = database.UpdateConfigItem(ctx, tx, CACertRecordName, caCert)
+		}
+
 		if err != nil {
 			return fmt.Errorf("failed to store CA certificate in the database: %s", err)
 		}
 
-		_, err = database.CreateConfigItem(ctx, tx, caKey)
+		// Upsert CA private key
+		keyExists, _ := database.GetConfigItem(ctx, tx, CAKeyRecordName)
+		if keyExists == nil {
+			_, err = database.CreateConfigItem(ctx, tx, caKey)
+		} else {
+			err = database.UpdateConfigItem(ctx, tx, CAKeyRecordName, caKey)
+		}
+
 		if err != nil {
 			return fmt.Errorf("failed to store CA private key in the database: %s", err)
 		}
@@ -156,9 +170,9 @@ func GenerateNewCACertificate(s *state.State) error {
 	return err
 }
 
-// dumpCA copies CA certificate from shared database and stores it in pre-defined file on disk. File path
+// DumpCA copies CA certificate from shared database and stores it in pre-defined file on disk. File path
 // to store CA certificate is defined in paths.PkiCaCertFile.
-func dumpCA(s *state.State) error {
+func DumpCA(s *state.State) error {
 	var err error
 	var CACertRecord *database.ConfigItem
 
@@ -235,7 +249,12 @@ func getCA(s *state.State) (*x509.Certificate, *ecdsa.PrivateKey, error) {
 // and writes resulting certificate and private key to files specified by certPath and keyPath arguments.
 // String from serviceName argument will be inserted in certificate's OU and is meant to more easily distinguish
 // between multiple certificates with same CN.
-func GenerateNewServiceCertificate(s *state.State, serviceName string, certType CertificateType, certPath string, keyPath string) error {
+func GenerateNewServiceCertificate(s *state.State, serviceName string, certType CertificateType) error {
+	certPath, keyPath, err := getServiceCertificatePaths(serviceName)
+	if err != nil {
+		return fmt.Errorf("failed to generate certificate: %s", err)
+	}
+
 	certFile, err := os.Create(certPath)
 	if err != nil {
 		return fmt.Errorf("failed to create file for %s certificate: %w", serviceName, err)
@@ -266,4 +285,30 @@ func GenerateNewServiceCertificate(s *state.State, serviceName string, certType 
 	}
 
 	return nil
+}
+
+// getServiceCertificatePaths returns paths to certificate and private key based on service name
+func getServiceCertificatePaths(service string) (string, string, error) {
+	var (
+		certPath string
+		keyPath  string
+		err      error
+	)
+
+	switch service {
+	case "ovnnb":
+		certPath, keyPath = paths.PkiOvnNbCertFiles()
+	case "ovnsb":
+		certPath, keyPath = paths.PkiOvnSbCertFiles()
+	case "ovn-northd":
+		certPath, keyPath = paths.PkiOvnNorthdCertFiles()
+	case "ovn-controller":
+		certPath, keyPath = paths.PkiOvnControllerCertFiles()
+	default:
+		certPath = ""
+		keyPath = ""
+		err = fmt.Errorf("unknown service '%s'. Can't generate certificate paths", service)
+	}
+
+	return certPath, keyPath, err
 }
