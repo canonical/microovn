@@ -140,13 +140,52 @@ parts:
       - lib/*/libuv.so*
 
   ovn:
-    plugin: nil
-    stage-packages:
-      - ovn-central
-      - ovn-host
-    organize:
-      usr/bin/: bin/
-      usr/share/: share/
+    plugin: autotools
+    source: https://github.com/ovn-org/ovn.git
+    source-type: git
+    override-build: |
+      # This OVS build is used as a build time dependency for OVN and not the
+      # version installed.  See the `ovs` part for the installed artifact.
+      cd ovs
+      ./boot.sh
+      ./configure \
+        --prefix=/ \
+        --localstatedir=/var \
+        --enable-ssl \
+        --sysconfdir=/etc
+      make -j$CRAFT_PARALLEL_BUILD_COUNT
+      cd ..
+      ./boot.sh
+      ./configure \
+        --prefix=/ \
+        --localstatedir=/var \
+        --enable-ssl \
+        --sysconfdir=/etc
+      make -j$CRAFT_PARALLEL_BUILD_COUNT
+      make check TESTSUITEFLAGS="-j $CRAFT_PARALLEL_BUILD_COUNT"
+      make install DESTDIR=$CRAFT_PART_INSTALL
+
+      mkdir -p "${CRAFT_PART_INSTALL}/etc/ovn/"
+    build-packages:
+      - autoconf
+      - automake
+      - bzip2
+      - graphviz
+      - libcap-ng-dev
+      - libnuma-dev
+      - libpcap-dev
+      - libssl-dev
+      - libtool
+      - libudev-dev
+      - libunbound-dev
+      - openssl
+      - pkg-config
+      - procps
+      - python3-all-dev
+      - python3-setuptools
+      - python3-sortedcontainers
+      - python3-sphinx
+      - tcpdump
     prime:
      - bin/ovn-appctl
      - bin/ovn-controller
@@ -155,18 +194,48 @@ parts:
      - bin/ovn-sbctl
      - etc/ovn
      - share/ovn
-    override-build: |
-        craftctl default
-
-        mkdir -p "${CRAFT_PART_INSTALL}/etc/ovn/"
 
   ovs:
-    plugin: nil
+    plugin: autotools
+    source: https://github.com/openvswitch/ovs.git
+    source-type: git
+    build-environment:
+      - CONFIGURE_PARAMETERS: --prefix=/ --localstatedir=/var --enable-ssl --sysconfdir=/etc
+    override-build: |
+      ./boot.sh
+      ./configure $CONFIGURE_PARAMETERS
+      make -j$CRAFT_PARALLEL_BUILD_COUNT
+      make install DESTDIR=$CRAFT_PART_INSTALL
+      make check TESTSUITEFLAGS="-j$CRAFT_PARALLEL_BUILD_COUNT"
+    build-packages:
+      - autoconf
+      - automake
+      - bzip2
+      - dh-python
+      - graphviz
+      - iproute2
+      - libcap-ng-dev
+      - libdbus-1-dev
+      - libnuma-dev
+      - libpcap-dev
+      - libssl-dev
+      - libtool
+      - libunbound-dev
+      - openssl
+      - pkg-config
+      - procps
+      - python3-all-dev
+      - python3-setuptools
+      - python3-sortedcontainers
+      - python3-sphinx
     stage-packages:
-      - openvswitch-switch
+      - libevent-2.1-7
+      - libunbound8
+      - python3-sortedcontainers
     organize:
       usr/bin/: bin/
       usr/sbin/: bin/
+      sbin/: bin/
       usr/lib/: lib/
       usr/share/: share/
     prime:
@@ -181,11 +250,6 @@ parts:
      - lib/*/libevent-2.1.so*
      - lib/*/libunbound.so*
      - share/openvswitch
-    override-build: |
-        craftctl default
-
-        mkdir -p "${CRAFT_PART_INSTALL}/bin/"
-        mv "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch/ovs-vswitchd" "${CRAFT_PART_INSTALL}/bin/"
 
   # Main part
   microovn:
