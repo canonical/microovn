@@ -1,0 +1,5 @@
+#!/bin/sh
+# Load the environment
+. ${SNAP}/commands/ovn-sb
+
+exec ovn-trace -c "$CERT" -p "$KEY" -C "$CA_CERT" "${@}"
