@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+help() {
+        echo "Helper for refreshing OVN certificates that are about to expire."
+        echo
+        echo "Syntax: snap run microovn.refresh-expiring-certs [-h] [-t DAYS]"
+        echo "Options:"
+        echo -e "\t-t DAYS\t Threshold for expiring certificates expressed in days. (Default: 10)"
+        echo -e "\t-h\t Print help message"
+}
+
+_is_expiring() {
+    openssl x509 -in "$1" -noout -checkend "$EXPIRE_THRESHOLD"
+    return $?
+}
+
+refresh_service_cert() {
+    SERVICE=$1
+    echo "Checking $SERVICE certificate expiration"
+    CERT_PATH=$(echo "$CERT_LIST" | jq -r --arg s "$SERVICE" '.[$s].cert')
+
+    if ! _is_expiring "$CERT_PATH"; then
+        echo "Certificate $CERT_PATH is about to expire, refreshing..."
+        "$MICROOVN" certificates reissue "$SERVICE"
+    fi
+}
+
+refresh_ca() {
+    echo "Checking CA certificate expiration"
+    CERT_PATH=$(echo "$CERT_LIST" | jq -r '.ca')
+    if ! _is_expiring "$CERT_PATH"; then
+        echo "CA Certificate $CERT_PATH is about to expire, regenerating CA..."
+        "$MICROOVN" certificates regenerate-ca
+    fi
+
+}
+
+MICROOVN="$SNAP"/commands/microovn
+
+# Check microovn deployment status first
+if ! "$MICROOVN" status &>/dev/null; then
+    echo "MicroOVN is not initialized. Refresh failed."
+    exit 1
+fi
+
+CA_ENTRY=ca
+THRESHOLD_DAYS=10
+
+while getopts "ht:" opt; do
+    case "$opt" in
+        t)  THRESHOLD_DAYS=$OPTARG
+            ;;
+        h)
+            help
+            exit 0
+            ;;
+        *)
+            help
+            exit 1
+            ;;
+    esac
+done
+
+CERT_LIST=$("$MICROOVN" certificates list -f json)
+EXPIRE_THRESHOLD=$(( THRESHOLD_DAYS * 24 * 60 * 60))  # days -> seconds
+SERVICES=$(echo "$CERT_LIST" | jq -r '. | keys[]')
+
+refresh_ca
+for s in $SERVICES; do
+    if [ "$s" == $CA_ENTRY ];
+    then
+        continue
+    fi
+
+    refresh_service_cert "$s"
+done
