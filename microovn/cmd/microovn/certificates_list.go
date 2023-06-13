@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/canonical/microovn/microovn/client"
@@ -14,22 +16,25 @@ import (
 type cmdCertificatesList struct {
 	common       *CmdControl
 	certificates *cmdCertificates
+	FormatFlag   string
 }
 
 // certBundle is structure for holding path to certificate and related private key
 type certBundle struct {
-	Cert string
-	Key  string
+	Cert string `json:"cert"`
+	Key  string `json:"key"`
 }
 
 // ovnCertificatePaths is structure that holds paths to all certificates used by OVN
 type ovnCertificatePaths struct {
-	ca      string
-	nb      *certBundle
-	sb      *certBundle
-	northd  *certBundle
-	chassis *certBundle
+	Ca      string      `json:"ca"`
+	Nb      *certBundle `json:"ovnnb"`
+	Sb      *certBundle `json:"ovnsb"`
+	Northd  *certBundle `json:"ovn-northd"`
+	Chassis *certBundle `json:"ovn-controller"`
 }
+
+var outputFormats = []string{"text", "json"}
 
 // Command method returns definition for "microovn certificates list" subcommand
 func (c *cmdCertificatesList) Command() *cobra.Command {
@@ -39,13 +44,21 @@ func (c *cmdCertificatesList) Command() *cobra.Command {
 		RunE:  c.Run,
 	}
 
+	allowedFormats := strings.Join(outputFormats, ", ")
+	cmd.Flags().StringVarP(
+		&c.FormatFlag,
+		"format",
+		"f",
+		"text",
+		fmt.Sprintf("Output format selector. (Allowed formats: %s)", allowedFormats),
+	)
 	return cmd
 }
 
 // Run method is an implementation of "microovn certificates list" subcommand
-func (c *cmdCertificatesList) Run(_ *cobra.Command, _ []string) error {
+func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 	var expectedCertificates ovnCertificatePaths
-	expectedCertificates.ca = paths.PkiCaCertFile()
+	expectedCertificates.Ca = paths.PkiCaCertFile()
 
 	// Get name of the local node
 	localHostname, err := os.Hostname()
@@ -81,18 +94,30 @@ func (c *cmdCertificatesList) Run(_ *cobra.Command, _ []string) error {
 			sbCert, sbKey := paths.PkiOvnSbCertFiles()
 			northdCert, northdKey := paths.PkiOvnNorthdCertFiles()
 
-			expectedCertificates.nb = &certBundle{nbCert, nbKey}
-			expectedCertificates.sb = &certBundle{sbCert, sbKey}
-			expectedCertificates.northd = &certBundle{northdCert, northdKey}
+			expectedCertificates.Nb = &certBundle{nbCert, nbKey}
+			expectedCertificates.Sb = &certBundle{sbCert, sbKey}
+			expectedCertificates.Northd = &certBundle{northdCert, northdKey}
 		}
 
 		if srv.Service == "switch" {
 			ctlCert, ctlKey := paths.PkiOvnControllerCertFiles()
-			expectedCertificates.chassis = &certBundle{ctlCert, ctlKey}
+			expectedCertificates.Chassis = &certBundle{ctlCert, ctlKey}
 		}
 	}
 
-	printOvnCertStatus(&expectedCertificates)
+	outputFormat := cmd.Flag("format").Value.String()
+	switch outputFormat {
+	case "text":
+		printOvnCertStatus(&expectedCertificates)
+	case "json":
+		jsonString, err := json.Marshal(expectedCertificates)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s", string(jsonString))
+	default:
+		return fmt.Errorf("unknown output format specified: %s", outputFormat)
+	}
 	return nil
 }
 
@@ -100,23 +125,23 @@ func (c *cmdCertificatesList) Run(_ *cobra.Command, _ []string) error {
 // "certificates" argument
 func printOvnCertStatus(certificates *ovnCertificatePaths) {
 	fmt.Println("[OVN CA]")
-	if certificates.ca == "" {
+	if certificates.Ca == "" {
 		fmt.Println("Error: missing")
 	} else {
-		printFileStatus(certificates.ca)
+		printFileStatus(certificates.Ca)
 	}
 
 	fmt.Println("\n[OVN Northbound Service]")
-	printCertBundleStatus(certificates.nb)
+	printCertBundleStatus(certificates.Nb)
 
 	fmt.Println("\n[OVN Southbound Service]")
-	printCertBundleStatus(certificates.sb)
+	printCertBundleStatus(certificates.Sb)
 
 	fmt.Println("\n[OVN Northd Service]")
-	printCertBundleStatus(certificates.northd)
+	printCertBundleStatus(certificates.Northd)
 
 	fmt.Println("\n[OVN Chassis Service]")
-	printCertBundleStatus(certificates.chassis)
+	printCertBundleStatus(certificates.Chassis)
 }
 
 // printCertBundleStatus prints status of individual files in certificate bundle
