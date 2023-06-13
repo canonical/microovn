@@ -139,3 +139,55 @@ Example output:
 This command does not perform any certificate validation, it only ensures that
 if a service is available on the node, the file that should contain certificate
 is in place.
+
+#### Re-issue certificates
+
+To manually issue new certificate for a specific OVN service, run:
+
+```shell
+microovn certificates reissue <ovn_service_name>
+```
+
+For list of all valid service names, see output of
+
+```shell
+microovn certificates reissue --help
+```
+
+This command has only local scope and will issue new certificate only for an
+OVN service running on the local host. Other members of the MicroOVN cluster
+are not affected by this command. Additionally, the certificate will be issued
+only if the service is enabled on the host.
+
+Aside from specific OVN service name, this command also accepts argument `all`,
+which results in issuing new certificate for every OVN service that's enabled
+on the host.
+
+#### Regenerate PKI completely
+
+To issue new CA certificate and new certificate for every OVN service
+in the cluster, run:
+
+```shell
+microovn certificates regenerate-ca
+```
+
+This command replaces current, shared, CA certificate and notifies all MicroOVN
+cluster members to issue new certificates for all their OVN services. Output of
+this command will contain report of successfully issued certificates on each
+cluster member. Make sure that all services successfully received new
+certificates, as the old certificates will no longer be accepted and services
+that will keep using them won't be able to communicate with the rest of the
+cluster.
+
+### Certificates' lifecycle
+
+Certificates that are automatically provisioned by MicroOVN have following
+lifespans:
+
+* CA certificate: 10 years
+* OVN service certificate: 2 years
+
+MicroOVN will run daily check on the remaining validity of all certificates.
+When some of the certificates approach within 10 days of not being valid, they
+will be automatically renewed
