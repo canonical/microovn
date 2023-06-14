@@ -191,3 +191,46 @@ lifespans:
 MicroOVN will run daily check on the remaining validity of all certificates.
 When some of the certificates approach within 10 days of not being valid, they
 will be automatically renewed
+
+### Upgrade from plaintext to TLS
+
+All new MicroOVN deployments have TLS enabled by default and there's no
+supported way to revert back to the plaintext communication. However,
+MicroOVN is not capable of transitioning existing deployments, that already use
+plain text, to TLS automatically. Any deployments of a snap revision below `111`
+will keep using plaintext even after the upgrade until following manual upgrade
+steps are taken:
+
+* Make sure that all MicroOVN snaps in your cluster are upgraded to, at least,
+revision `111`
+* Run `microovn certificates regenerate-ca` on one of the cluster members
+* Run `snap restart microovn.daemon` on **all** cluster members
+
+After these steps, OVN services in your cluster should start listening on ports,
+using TLS certificates.
+
+## Common issues
+
+This section contains some well known or expected issues that you can encounter.
+
+### I'm getting `failed to load certificates` error
+
+If you run commands like `microovn.ovn-sbctl` and you get complains about
+missing certificates, while rest of the command seems to work fine.
+
+Example:
+```
+root@microovn-0:~# microovn.ovn-sbctl show
+2023-06-14T15:09:31Z|00001|stream_ssl|ERR|SSL_use_certificate_file: error:80000002:system library::No such file or directory
+2023-06-14T15:09:31Z|00002|stream_ssl|ERR|SSL_use_PrivateKey_file: error:10080002:BIO routines::system lib
+2023-06-14T15:09:31Z|00003|stream_ssl|ERR|failed to load client certificates from /var/snap/microovn/common/data/pki/cacert.pem: error:0A080002:SSL routines::system lib
+Chassis microovn-0
+    hostname: microovn-0
+    Encap geneve
+        ip: "10.5.3.129"
+        options: {csum="true"}
+```
+
+This likely means that your MicroOVN snap got upgraded to a version that
+supports TLS, but it requires some manual upgrade steps. Please see
+[TLS upgrade guide](#upgrade-from-plaintext-to-tls)
