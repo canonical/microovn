@@ -23,6 +23,43 @@ OVN_SB_CONNECT="{{ .sbConnect }}"
 OVN_LOCAL_IP="{{ .localAddr }}"
 `))
 
+// networkProtocol returns appropriate network protocol that should be used
+// by OVN services.
+func networkProtocol(s *state.State) string {
+	_, _, err := getCA(s)
+	if err != nil {
+		return "tcp"
+	} else {
+		return "ssl"
+	}
+
+}
+
+// localServiceActive function accepts service names (like "central" or "switch") and returns true/false based
+// on whether the selected service is running on this node.
+func localServiceActive(s *state.State, serviceName string) (bool, error) {
+	serviceActive := false
+	err := s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+		// Get list of all active local services.
+		name := s.Name()
+		services, err := database.GetServices(ctx, tx, database.ServiceFilter{Member: &name})
+		if err != nil {
+			return err
+		}
+
+		// Check if the specified service is among active local services.
+		for _, srv := range services {
+			if srv.Service == serviceName {
+				serviceActive = true
+			}
+		}
+
+		return nil
+	})
+
+	return serviceActive, err
+}
+
 func connectString(s *state.State, port int) (string, error) {
 	var err error
 	var servers []database.Service
@@ -42,14 +79,20 @@ func connectString(s *state.State, port int) (string, error) {
 
 	addresses := make([]string, 0, len(servers))
 	remotes := s.Remotes().RemotesByName()
+	protocol := networkProtocol(s)
 	for _, server := range servers {
 		remote, ok := remotes[server.Member]
 		if !ok {
 			continue
 		}
 
-		addresses = append(addresses, fmt.Sprintf("ssl:%s",
-			netip.AddrPortFrom(remote.Address.Addr(), uint16(port)).String()))
+		addresses = append(
+			addresses,
+			fmt.Sprintf("%s:%s",
+				protocol,
+				netip.AddrPortFrom(remote.Address.Addr(), uint16(port)).String(),
+			),
+		)
 	}
 
 	return strings.Join(addresses, ","), nil

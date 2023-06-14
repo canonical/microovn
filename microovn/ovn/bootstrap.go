@@ -107,33 +107,9 @@ func Bootstrap(s *state.State) error {
 		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 	}
 
-	nbDB, err := GetOvsdbLocalPath(OvsdbTypeNBLocal)
+	err = updateOvnListenConfig(s)
 	if err != nil {
-		return fmt.Errorf("Failed to get path to OVN NB database socket: %w", err)
-	}
-	sbDB, err := GetOvsdbLocalPath(OvsdbTypeSBLocal)
-	if err != nil {
-		return fmt.Errorf("Failed to get path to OVN SB database socket: %w", err)
-	}
-
-	_, err = NBCtl(
-		s,
-		fmt.Sprintf("--db=unix:%s", nbDB),
-		"set-connection",
-		"pssl:6641:[::]",
-	)
-	if err != nil {
-		return fmt.Errorf("Error setting ovn NB connection string: %s", err)
-	}
-
-	_, err = SBCtl(
-		s,
-		fmt.Sprintf("--db=unix:%s", sbDB),
-		"set-connection",
-		"pssl:6642:[::]",
-	)
-	if err != nil {
-		return fmt.Errorf("Error setting ovn SB connection string: %s", err)
+		return err
 	}
 
 	_, err = VSCtl(
