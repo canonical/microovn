@@ -46,6 +46,17 @@ func Bootstrap(s *state.State) error {
 		return err
 	}
 
+	// Generate CA certificate and key
+	err = GenerateNewCACertificate(s)
+	if err != nil {
+		return err
+	}
+
+	err = DumpCA(s)
+	if err != nil {
+		return err
+	}
+
 	// Generate the configuration.
 	err = generateEnvironment(s)
 	if err != nil {
@@ -58,10 +69,30 @@ func Bootstrap(s *state.State) error {
 		return fmt.Errorf("Failed to start OVS switch: %w", err)
 	}
 
+	// Generate certificate for OVN Central services
+	err = GenerateNewServiceCertificate(s, "ovnnb", CertificateTypeServer)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovnnb service: %s", err)
+	}
+	err = GenerateNewServiceCertificate(s, "ovnsb", CertificateTypeServer)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovnsb service: %s", err)
+	}
+	err = GenerateNewServiceCertificate(s, "ovn-northd", CertificateTypeServer)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovn-northd service: %s", err)
+	}
+
 	// Enable OVN central.
 	err = snapStart("central", true)
 	if err != nil {
 		return fmt.Errorf("Failed to start OVN central: %w", err)
+	}
+
+	// Generate certificate for OVN chassis (controller)
+	err = GenerateNewServiceCertificate(s, "ovn-controller", CertificateTypeServer)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovn-controller service: %s", err)
 	}
 
 	// Enable OVN chassis.
@@ -76,33 +107,9 @@ func Bootstrap(s *state.State) error {
 		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 	}
 
-	nbDB, err := GetOvsdbLocalPath(OvsdbTypeNBLocal)
+	err = updateOvnListenConfig(s)
 	if err != nil {
-		return fmt.Errorf("Failed to get path to OVN NB database socket: %w", err)
-	}
-	sbDB, err := GetOvsdbLocalPath(OvsdbTypeSBLocal)
-	if err != nil {
-		return fmt.Errorf("Failed to get path to OVN SB database socket: %w", err)
-	}
-
-	_, err = NBCtl(
-		s,
-		fmt.Sprintf("--db=unix:%s", nbDB),
-		"set-connection",
-		"ptcp:6641:[::]",
-	)
-	if err != nil {
-		return fmt.Errorf("Error setting ovn NB connection string: %s", err)
-	}
-
-	_, err = SBCtl(
-		s,
-		fmt.Sprintf("--db=unix:%s", sbDB),
-		"set-connection",
-		"ptcp:6642:[::]",
-	)
-	if err != nil {
-		return fmt.Errorf("Error setting ovn SB connection string: %s", err)
+		return err
 	}
 
 	_, err = VSCtl(

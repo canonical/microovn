@@ -95,6 +95,12 @@ apps:
     plugs:
       - network
 
+  refresh-expiring-certs:
+    command: commands/refresh-expiring-certs
+    daemon: oneshot
+    timer: 02:00~02:30
+
+
 parts:
   # Dependencies
   dqlite:
@@ -219,3 +225,5 @@ parts:
   wrappers:
     plugin: dump
     source: snapcraft/
+    stage-packages:
+      - jq

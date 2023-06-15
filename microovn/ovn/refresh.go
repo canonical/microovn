@@ -1,12 +1,10 @@
 package ovn
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
 
-	"github.com/canonical/microovn/microovn/database"
 	"github.com/lxc/lxd/shared/logger"
+	"github.com/pkg/errors"
 
 	"github.com/canonical/microcluster/state"
 )
@@ -36,28 +34,12 @@ func refresh(s *state.State) error {
 	}
 
 	// Query existing local services.
-	hasCentral := false
-	hasSwitch := false
-	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
-		// Check if we have the central service.
-		name := s.Name()
-		services, err := database.GetServices(ctx, tx, database.ServiceFilter{Member: &name})
-		if err != nil {
-			return err
-		}
+	hasCentral, err := localServiceActive(s, "central")
+	if err != nil {
+		return err
+	}
 
-		for _, srv := range services {
-			if srv.Service == "central" {
-				hasCentral = true
-			}
-
-			if srv.Service == "switch" {
-				hasSwitch = true
-			}
-		}
-
-		return nil
-	})
+	hasSwitch, err := localServiceActive(s, "switch")
 	if err != nil {
 		return err
 	}
@@ -98,6 +80,42 @@ func refresh(s *state.State) error {
 		if err != nil {
 			return fmt.Errorf("Failed to update OVS's 'ovn-remote' configuration")
 		}
+	}
+
+	return nil
+}
+
+func updateOvnListenConfig(s *state.State) error {
+	nbDB, err := GetOvsdbLocalPath(OvsdbTypeNBLocal)
+	if err != nil {
+		return fmt.Errorf("Failed to get path to OVN NB database socket: %w", err)
+	}
+	sbDB, err := GetOvsdbLocalPath(OvsdbTypeSBLocal)
+	if err != nil {
+		return fmt.Errorf("Failed to get path to OVN SB database socket: %w", err)
+	}
+
+	protocol := networkProtocol(s)
+	_, err = NBCtl(
+		s,
+		"--no-leader-only",
+		fmt.Sprintf("--db=unix:%s", nbDB),
+		"set-connection",
+		fmt.Sprintf("p%s:6641:[::]", protocol),
+	)
+	if err != nil {
+		return errors.Errorf("Error setting ovn NB connection string: %s", err)
+	}
+
+	_, err = SBCtl(
+		s,
+		"--no-leader-only",
+		fmt.Sprintf("--db=unix:%s", sbDB),
+		"set-connection",
+		fmt.Sprintf("p%s:6642:[::]", protocol),
+	)
+	if err != nil {
+		return errors.Errorf("Error setting ovn SB connection string: %s", err)
 	}
 
 	return nil
