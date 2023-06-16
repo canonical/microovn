@@ -2,4 +2,4 @@
 # Load the environment
 . ${SNAP}/commands/ovn-sb
 
-exec ovn-sbctl -c "$CERT" -p "$KEY" -C "$CA_CERT" "${@}"
+exec ovn-trace -c "$CERT" -p "$KEY" -C "$CA_CERT" "${@}"

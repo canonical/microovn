@@ -77,6 +77,10 @@ apps:
     command: commands/ovn-sbctl
     plugs:
       - network
+  ovn-trace:
+    command: commands/ovn-trace
+    plugs:
+      - network
 
   ovs-appctl:
     command: commands/ovs-appctl
@@ -159,6 +163,7 @@ parts:
      - bin/ovn-nbctl
      - bin/ovn-northd
      - bin/ovn-sbctl
+     - bin/ovn-trace
      - etc/ovn
      - share/ovn
     override-build: |
