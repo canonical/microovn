@@ -10,6 +10,11 @@ var pathRoot = os.Getenv("SNAP_COMMON")
 var runtimeDir = filepath.Join(pathRoot, "run")
 var dataDir = filepath.Join(pathRoot, "data")
 
+// Root returns $SNAP_COMMON root of MicroOVN
+func Root() string {
+	return pathRoot
+}
+
 // LogsDir returns path to the directory where OVN stores log files
 func LogsDir() string {
 	return filepath.Join(pathRoot, "logs")
@@ -58,6 +63,16 @@ func OvnNBDatabaseSock() string {
 // OvnSBDatabaseSock returns path to the local unix socket used by Southbound OVN database
 func OvnSBDatabaseSock() string {
 	return filepath.Join(CentralRuntimeDir(), "ovnsb_db.sock")
+}
+
+// OvnNBControlSock returns path to the local control socket for Northbound OVN service
+func OvnNBControlSock() string {
+	return filepath.Join(CentralRuntimeDir(), "ovnnb_db.ctl")
+}
+
+// OvnSBControlSock returns path to the local control socket for Southbound OVN service
+func OvnSBControlSock() string {
+	return filepath.Join(CentralRuntimeDir(), "ovnsb_db.ctl")
 }
 
 // OvsDatabaseSock returns path to the local unix socket used by OpenvSwitch database
@@ -120,5 +135,14 @@ func RequiredDirs() []string {
 		SwitchDataDir(),
 		LogsDir(),
 		PkiDir(),
+	}
+}
+
+// BackupDirs returns list of locations that should be backed up before MicroOVN
+// data removal.
+func BackupDirs() []string {
+	return []string{
+		dataDir,
+		LogsDir(),
 	}
 }

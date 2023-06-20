@@ -69,6 +69,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	h.OnBootstrap = ovn.Bootstrap
 	h.PreJoin = ovn.Join
 	h.OnNewMember = ovn.Refresh
+	h.PreRemove = ovn.Leave
 	h.PostRemove = ovn.Refresh
 	h.OnStart = ovn.Start
 
