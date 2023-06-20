@@ -3,6 +3,7 @@ package ovn
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/canonical/microcluster/state"
@@ -144,6 +145,38 @@ func VSCtl(s *state.State, args ...string) (string, error) {
 	}
 
 	return shared.RunCommandContext(s.Context, "ovs-vsctl", args...)
+}
+
+// AppCtl is a convenience function that wraps execution of 'ovn-appctl' command. It requires argument
+// 'target' which will be substituted to the '-t' argument of 'ovn-appctl'. Rest of the 'args' will be passed
+// to the ovn-appctl unchanged.
+func AppCtl(s *state.State, target string, args ...string) (string, error) {
+	arguments := []string{"-t", target}
+	arguments = append(arguments, args...)
+	return shared.RunCommandContext(
+		s.Context,
+		"ovn-appctl",
+		arguments...,
+	)
+}
+
+// ControllerCtl is a wrapper function that executes 'ovs-appctl' command specifically
+// targeted at running OVN Controller process. The '-t' argument of 'ovs-appctl' will be
+// configured automatically. Any arguments supplied in 'args' will be passed to the 'ovs-appctl'
+// unchanged.
+func ControllerCtl(s *state.State, args ...string) (string, error) {
+	arguments := []string{"-t", "ovn-controller"}
+	arguments = append(arguments, args...)
+
+	stdout, _, err := shared.RunCommandSplit(
+		s.Context,
+		append(os.Environ(), fmt.Sprintf("OVS_RUNDIR=%s", paths.ChassisRuntimeDir())),
+		nil,
+		"ovs-appctl",
+		arguments...,
+	)
+
+	return stdout, err
 }
 
 // GetOvsdbLocalPath returns path to the database file or local unix socket based on the supplied "dbType"
