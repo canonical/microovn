@@ -180,10 +180,13 @@ func DumpCA(s *state.State) error {
 	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
 		CACertRecord, err = database.GetConfigItem(ctx, tx, CACertRecordName)
 		if err != nil {
-			return fmt.Errorf("failed to store CA certificate in the database: %s", err)
+			return fmt.Errorf("failed to get CA certificate from the database: %s", err)
 		}
 		return err
 	})
+	if err != nil {
+		return err
+	}
 
 	certPath := paths.PkiCaCertFile()
 	certFile, err := os.Create(certPath)
