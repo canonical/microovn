@@ -4,8 +4,10 @@ go 1.18
 
 require (
 	github.com/canonical/microcluster v0.0.0-20230525014943-9b4786b0b3f0
-	github.com/lxc/lxd v0.0.0-20230602132852-ce3c156962b8
+	github.com/gorilla/mux v1.8.0
+	github.com/lxc/lxd v0.0.0-20230621170644-563b16153b08
 	github.com/olekukonko/tablewriter v0.0.5
+	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.7.0
 )
 
@@ -22,7 +24,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/renameio v1.0.1 // indirect
 	github.com/google/uuid v1.3.0 // indirect
-	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/schema v1.2.0 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
@@ -36,24 +37,23 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.17 // indirect
 	github.com/muhlemmer/gu v0.3.1 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/sftp v1.13.5 // indirect
 	github.com/pkg/xattr v0.4.9 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
-	github.com/sirupsen/logrus v1.9.2 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
-	github.com/zitadel/oidc/v2 v2.6.2 // indirect
-	golang.org/x/crypto v0.9.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/oauth2 v0.8.0 // indirect
-	golang.org/x/sync v0.2.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/term v0.8.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	github.com/zitadel/oidc/v2 v2.6.3 // indirect
+	golang.org/x/crypto v0.10.0 // indirect
+	golang.org/x/net v0.11.0 // indirect
+	golang.org/x/oauth2 v0.9.0 // indirect
+	golang.org/x/sync v0.3.0 // indirect
+	golang.org/x/sys v0.9.0 // indirect
+	golang.org/x/term v0.9.0 // indirect
+	golang.org/x/text v0.10.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/errgo.v1 v1.0.1 // indirect
