@@ -5,8 +5,8 @@ import (
 	"sort"
 
 	"github.com/canonical/microcluster/microcluster"
-	"github.com/lxc/lxd/lxc/utils"
 	"github.com/lxc/lxd/shared"
+	lxdCmd "github.com/lxc/lxd/shared/cmd"
 	"github.com/lxc/lxd/shared/i18n"
 	"github.com/spf13/cobra"
 )
@@ -56,7 +56,7 @@ func (c *cmdClusterList) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	header := []string{"NAME", "ADDRESS", "ROLE", "FINGERPRINT", "STATUS"}
-	sort.Sort(utils.ByName(data))
+	sort.Sort(lxdCmd.SortColumnsNaturally(data))
 
-	return utils.RenderTable(c.flagFormat, header, data, clusterMembers)
+	return lxdCmd.RenderTable(c.flagFormat, header, data, clusterMembers)
 }
