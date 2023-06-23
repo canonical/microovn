@@ -312,6 +312,8 @@ func getServiceCertificatePaths(service string) (string, string, error) {
 	)
 
 	switch service {
+	case "client":
+		certPath, keyPath = paths.PkiClientCertFiles()
 	case "ovnnb":
 		certPath, keyPath = paths.PkiOvnNbCertFiles()
 	case "ovnsb":

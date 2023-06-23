@@ -42,6 +42,9 @@ func enabledOvnServices(s *state.State) ([]string, error) {
 		err = fmt.Errorf("failed to lookup local services eligible for certificate refresh: %s", err)
 	}
 
+	// We always want a client certificate
+	enabledServices = append(enabledServices, "client")
+
 	return enabledServices, err
 }
 

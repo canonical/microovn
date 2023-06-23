@@ -1,5 +1,5 @@
 # Load the environment
 . "${SNAP}/ovn.env"
 
-CERT="${OVN_PKI_DIR}/ovnsb-cert.pem"
-KEY="${OVN_PKI_DIR}/ovnsb-privkey.pem"
+CERT="${OVN_PKI_DIR}/client-cert.pem"
+KEY="${OVN_PKI_DIR}/client-privkey.pem"
