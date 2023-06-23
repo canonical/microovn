@@ -71,6 +71,15 @@ func Join(s *state.State) error {
 		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
 	}
 
+	// Generate client certificate for managing OVN Central services
+	// Note that we intentially use a sever type certificate here due to
+	// all OVS-based programs ability to specify active or passive (listen)
+	// connection types.
+	err = GenerateNewServiceCertificate(s, "client", CertificateTypeServer)
+        if err != nil {
+                return fmt.Errorf("failed to generate TLS certificate for client: %s", err)
+        }
+
 	// Copy shared CA certificate from shared database to file on disk
 	err = DumpCA(s)
 	if err != nil {
