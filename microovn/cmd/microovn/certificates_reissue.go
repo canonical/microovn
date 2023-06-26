@@ -13,6 +13,7 @@ import (
 )
 
 var validServices = []string{
+	"client",
 	"ovnnb",
 	"ovnsb",
 	"ovn-controller",

@@ -24,6 +24,7 @@ const CACertRecordName = "ca_cert"                   // Key used to store CA cer
 const CAKeyRecordName = "ca_key"                     // Key used to store CA private key in config DB table
 const CACertValidity = 10 * 365 * 24 * time.Hour     // 10 years
 const ServiceCertValidity = 2 * 365 * 24 * time.Hour // 2 years
+const certFileMode = 0600
 
 var MaxSerialNumber = new(big.Int).Lsh(big.NewInt(1), 128)
 
@@ -191,6 +192,11 @@ func DumpCA(s *state.State) error {
 	}
 	defer certFile.Close()
 
+	err = certFile.Chmod(certFileMode)
+	if err != nil {
+		return fmt.Errorf("unable to set permissions for CA certificate: %w", err)
+	}
+
 	_, err = certFile.WriteString(CACertRecord.Value)
 	if err != nil {
 		return fmt.Errorf("failed to write CA certificate into file %s: %w", certPath, err)
@@ -261,11 +267,21 @@ func GenerateNewServiceCertificate(s *state.State, serviceName string, certType 
 	}
 	defer certFile.Close()
 
+	err = certFile.Chmod(certFileMode)
+	if err != nil {
+		return fmt.Errorf("unable to set permissions for %s certificate: %w", serviceName, err)
+	}
+
 	keyFile, err := os.Create(keyPath)
 	if err != nil {
 		return fmt.Errorf("failed to create file for %s private key: %w", serviceName, err)
 	}
 	defer keyFile.Close()
+
+	err = keyFile.Chmod(certFileMode)
+	if err != nil {
+		return fmt.Errorf("unable to set permissions for %s private key: %w", serviceName, err)
+	}
 
 	caCert, caKey, err := getCA(s)
 	if err != nil {
@@ -296,6 +312,8 @@ func getServiceCertificatePaths(service string) (string, string, error) {
 	)
 
 	switch service {
+	case "client":
+		certPath, keyPath = paths.PkiClientCertFiles()
 	case "ovnnb":
 		certPath, keyPath = paths.PkiOvnNbCertFiles()
 	case "ovnsb":

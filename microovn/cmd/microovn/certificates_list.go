@@ -32,6 +32,7 @@ type ovnCertificatePaths struct {
 	Sb      *certBundle `json:"ovnsb"`
 	Northd  *certBundle `json:"ovn-northd"`
 	Chassis *certBundle `json:"ovn-controller"`
+	Client  *certBundle `json:"client"`
 }
 
 var outputFormats = []string{"text", "json"}
@@ -103,6 +104,8 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 			ctlCert, ctlKey := paths.PkiOvnControllerCertFiles()
 			expectedCertificates.Chassis = &certBundle{ctlCert, ctlKey}
 		}
+		clientCert, clientKey := paths.PkiClientCertFiles()
+		expectedCertificates.Client = &certBundle{clientCert, clientKey}
 	}
 
 	outputFormat := cmd.Flag("format").Value.String()
@@ -142,6 +145,9 @@ func printOvnCertStatus(certificates *ovnCertificatePaths) {
 
 	fmt.Println("\n[OVN Chassis Service]")
 	printCertBundleStatus(certificates.Chassis)
+
+	fmt.Println("\n[Client]")
+	printCertBundleStatus(certificates.Client)
 }
 
 // printCertBundleStatus prints status of individual files in certificate bundle

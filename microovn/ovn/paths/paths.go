@@ -95,6 +95,10 @@ func PkiOvnControllerCertFiles() (string, string) {
 	return getServiceCertFiles("ovn-controller")
 }
 
+func PkiClientCertFiles() (string, string) {
+	return getServiceCertFiles("client")
+}
+
 // getServiceCertFiles returns path to certificate and key of give service in format
 // "<base_dir>/<service_name>-{cert,privkey}.pem"
 func getServiceCertFiles(service string) (string, string) {
