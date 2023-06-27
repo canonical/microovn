@@ -3,9 +3,9 @@ module github.com/canonical/microovn/microovn
 go 1.18
 
 require (
-	github.com/canonical/microcluster v0.0.0-20230525014943-9b4786b0b3f0
+	github.com/canonical/microcluster v0.0.0-20230627164831-e9f041356f9b
 	github.com/gorilla/mux v1.8.0
-	github.com/lxc/lxd v0.0.0-20230621170644-563b16153b08
+	github.com/lxc/lxd v0.0.0-20230627152726-64eed41c7548
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.7.0
@@ -46,7 +46,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
-	github.com/zitadel/oidc/v2 v2.6.3 // indirect
+	github.com/zitadel/oidc/v2 v2.6.4 // indirect
 	golang.org/x/crypto v0.10.0 // indirect
 	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/oauth2 v0.9.0 // indirect
@@ -55,7 +55,7 @@ require (
 	golang.org/x/term v0.9.0 // indirect
 	golang.org/x/text v0.10.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/protobuf v1.30.0 // indirect
+	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/httprequest.v1 v1.2.1 // indirect
 	gopkg.in/macaroon.v2 v2.1.0 // indirect
