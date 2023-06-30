@@ -1,6 +1,7 @@
 Permalink
 ReadMe
 reST
+RST
 reStructuredText
 UI
 https
@@ -9,3 +10,7 @@ favicon
 installable
 Makefile
 Diátaxis
+RTD
+yaml
+readthedocs
+MicroOVN
