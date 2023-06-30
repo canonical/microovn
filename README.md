@@ -81,6 +81,59 @@ microovn.ovn-sbctl show
 microovn.ovn-appctl -t /var/snap/microovn/common/run/central/ovnnb_db.ctl cluster/status OVN_Northbound
 ```
 
+## Downscaling
+
+> **Warning**
+>
+> Be aware of effect of downscaling on availability and resiliency of your
+> cluster, especially when you are removing members that run OVN central
+> service (OVN SB, OVN NB, OVN Northd). OVN uses
+> [Raft consensus algorithm](https://raft.github.io) for cluster management,
+> which has fault tolerance of up to `(N-1)/2` members. It means that if you
+> scale back 3 node cluster to just 2 nodes, you lose any fault resiliency.
+
+Removing MicroOVN cluster member is as easy as running
+
+```shell
+microovn cluster remove <member_name>
+```
+
+MicroOVN will stop and disable any chassis components running on the member
+(`ovn-controller` and `ovs-vswitchd`), before attempting to gracefully leave
+any OVN database clusters for members with central components present. You can
+watch logs on departing member for any indications of removal failures with:
+
+```shell
+snap logs -f microovn.daemon
+```
+
+If there are any issues during the removal process, you will have to take
+manual steps to fix the OVN cluster.
+
+After the removal, you can also check the state of OVN services, to make sure
+that the member was properly removed.
+
+```shell
+# Check status of OVN SB cluster
+microovn.ovn-appctl -t /var/snap/microovn/common/run/central/ovnsb_db.ctl cluster/status OVN_Southbound
+
+# Check status of OVN NB cluster
+microovn.ovn-appctl -t /var/snap/microovn/common/run/central/ovnnb_db.ctl cluster/status OVN_Northbound
+
+# Check registered chassis
+microovn.ovn-sbctl show
+```
+
+### Data preservation
+
+MicroOVN will back up selected data directories into the timestamped location
+`/var/snap/microovn/common/backup_<timestamp>/`. These backups will include:
+
+* Logs
+* OVN database files
+* OVS database file
+* Issued certificates and keys
+
 ## TLS encryption
 
 MicroOVN enables SSL/TLS in OVN by default. It uses self-signed CA certificate
