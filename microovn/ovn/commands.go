@@ -3,6 +3,7 @@ package ovn
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/canonical/microcluster/state"
@@ -12,6 +13,8 @@ import (
 )
 
 const defaultDBConnectWait = 30 //Default time to wait for connection to ovsdb
+const OvsdbConnected = "connected"
+const OvsdbRemoved = "removed"
 
 // ovsdbSpec is a helper structure for precise identification of ovsdb databases. A lot of
 // ovn/ovs commands take path to either database file, database socket or process control socket
@@ -59,11 +62,11 @@ func newOvsdbSpec(dbType OvsdbType) (*ovsdbSpec, error) {
 	return dbSpec, err
 }
 
-// waitForDBConnected as the name suggests, waits for specified ovsdb database to settle in
-// "connected" state. If database does not reach this state within timeout, this function returns error.
+// waitForDBState as the name suggests, waits for specified ovsdb database to settle in
+// specified state. If database does not reach this state within timeout, this function returns error.
 // Target specified in "db" parameter does not need to necessarily exist before this function is executed,
 // creation of the database socket (db.Target) will be awaited as well.
-func waitForDBConnected(s *state.State, db *ovsdbSpec, timeout int) error {
+func waitForDBState(s *state.State, db *ovsdbSpec, dbState string, timeout int) error {
 	_, err := shared.RunCommandContext(
 		s.Context,
 		"ovsdb-client",
@@ -72,10 +75,10 @@ func waitForDBConnected(s *state.State, db *ovsdbSpec, timeout int) error {
 		"wait",
 		fmt.Sprintf("unix:%s", db.Target),
 		db.Name,
-		"connected",
+		dbState,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to connect to %s database in '%s': %w", db.Name, db.Target, err)
+		return fmt.Errorf("database in '%s' (%s) failed to reach state '%s': %w", db.Name, db.Target, dbState, err)
 	}
 	return nil
 }
@@ -101,7 +104,7 @@ func ovnDBCtl(s *state.State, dbType OvsdbType, timeout int, args ...string) (st
 		return "", err
 	}
 
-	err = waitForDBConnected(s, dbSpec, timeout)
+	err = waitForDBState(s, dbSpec, OvsdbConnected, timeout)
 	if err != nil {
 		return "", err
 	}
@@ -136,12 +139,44 @@ func VSCtl(s *state.State, args ...string) (string, error) {
 		return "", err
 	}
 
-	err = waitForDBConnected(s, dbSpec, defaultDBConnectWait)
+	err = waitForDBState(s, dbSpec, OvsdbConnected, defaultDBConnectWait)
 	if err != nil {
 		return "", err
 	}
 
 	return shared.RunCommandContext(s.Context, "ovs-vsctl", args...)
+}
+
+// AppCtl is a convenience function that wraps execution of 'ovn-appctl' command. It requires argument
+// 'target' which will be substituted to the '-t' argument of 'ovn-appctl'. Rest of the 'args' will be passed
+// to the ovn-appctl unchanged.
+func AppCtl(s *state.State, target string, args ...string) (string, error) {
+	arguments := []string{"-t", target}
+	arguments = append(arguments, args...)
+	return shared.RunCommandContext(
+		s.Context,
+		"ovn-appctl",
+		arguments...,
+	)
+}
+
+// ControllerCtl is a wrapper function that executes 'ovs-appctl' command specifically
+// targeted at running OVN Controller process. The '-t' argument of 'ovs-appctl' will be
+// configured automatically. Any arguments supplied in 'args' will be passed to the 'ovs-appctl'
+// unchanged.
+func ControllerCtl(s *state.State, args ...string) (string, error) {
+	arguments := []string{"-t", "ovn-controller"}
+	arguments = append(arguments, args...)
+
+	stdout, _, err := shared.RunCommandSplit(
+		s.Context,
+		append(os.Environ(), fmt.Sprintf("OVS_RUNDIR=%s", paths.ChassisRuntimeDir())),
+		nil,
+		"ovs-appctl",
+		arguments...,
+	)
+
+	return stdout, err
 }
 
 // GetOvsdbLocalPath returns path to the database file or local unix socket based on the supplied "dbType"

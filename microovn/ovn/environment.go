@@ -3,13 +3,17 @@ package ovn
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/canonical/microcluster/state"
+	"github.com/lxc/lxd/shared/logger"
 
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/ovn/paths"
@@ -178,4 +182,56 @@ func createPaths() error {
 	}
 
 	return nil
+}
+
+// cleanupPaths backs up directories defined by paths.BackupDirs and then removes directories
+// created by createPaths function. This effectively removes any data created during MicroOVN runtime.
+func cleanupPaths() error {
+	var errs []error
+
+	// Create timestamped backup dir
+	backupDir := fmt.Sprintf("backup_%d", time.Now().Unix())
+	backupPath := filepath.Join(paths.Root(), backupDir)
+	err := os.Mkdir(backupPath, 0750)
+	if err != nil {
+		errs = append(
+			errs,
+			fmt.Errorf(
+				"failed to create backup directory '%s'. Refusing to continue with data removal: %s",
+				backupPath,
+				err,
+			),
+		)
+		return errors.Join(errs...)
+	}
+
+	// Backup selected directories
+	for _, dir := range paths.BackupDirs() {
+		_, fileName := filepath.Split(dir)
+		destination := filepath.Join(backupPath, fileName)
+		err = os.Rename(dir, destination)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	// Return if any backups failed
+	if len(errs) > 0 {
+		errs = append(
+			errs,
+			fmt.Errorf("failures occured during backup. Refusing to continue with data removal"),
+		)
+		return errors.Join(errs...)
+	}
+	logger.Infof("MicroOVN data backed up to %s", backupPath)
+
+	// Remove rest of the directories
+	for _, dir := range paths.RequiredDirs() {
+		err = os.RemoveAll(dir)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to remove directory '%s': %w", dir, err))
+		}
+	}
+
+	return errors.Join(errs...)
 }
