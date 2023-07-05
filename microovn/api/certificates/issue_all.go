@@ -3,10 +3,10 @@ package certificates
 import (
 	"net/http"
 
+	"github.com/canonical/lxd/lxd/response"
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/rest"
 	"github.com/canonical/microcluster/state"
-	"github.com/lxc/lxd/lxd/response"
-	"github.com/lxc/lxd/shared/logger"
 )
 
 // IssueCertificatesAllEndpoint defines endpoint for /1.0/certificates
