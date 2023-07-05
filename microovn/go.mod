@@ -3,9 +3,9 @@ module github.com/canonical/microovn/microovn
 go 1.18
 
 require (
-	github.com/canonical/microcluster v0.0.0-20230627164831-e9f041356f9b
+	github.com/canonical/lxd v0.0.0-20230705090120-570f7071eeb2
+	github.com/canonical/microcluster v0.0.0-20230705110230-9cde8f141cb4
 	github.com/gorilla/mux v1.8.0
-	github.com/lxc/lxd v0.0.0-20230627152726-64eed41c7548
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.7.0
