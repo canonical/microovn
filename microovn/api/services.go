@@ -3,9 +3,9 @@ package api
 import (
 	"net/http"
 
+	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/microcluster/rest"
 	"github.com/canonical/microcluster/state"
-	"github.com/lxc/lxd/lxd/response"
 
 	"github.com/canonical/microovn/microovn/ovn"
 )
