@@ -1,8 +1,8 @@
 package ovn
 
 import (
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/state"
-	"github.com/lxc/lxd/shared/logger"
 
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )

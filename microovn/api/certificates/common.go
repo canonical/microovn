@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/state"
-	"github.com/lxc/lxd/shared/logger"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/database"
