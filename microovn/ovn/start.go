@@ -3,7 +3,7 @@ package ovn
 import (
 	"fmt"
 
-	"github.com/lxc/lxd/shared/logger"
+	"github.com/canonical/lxd/shared/logger"
 
 	"github.com/canonical/microcluster/state"
 )
