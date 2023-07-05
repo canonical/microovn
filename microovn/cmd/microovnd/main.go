@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/microcluster"
-	"github.com/lxc/lxd/shared/logger"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microovn/microovn/api"
