@@ -183,13 +183,15 @@ Images
 Reuse
 -----
 
-.. |reuse_key| replace:: This is **included** text.
+.. code-block:: none
 
-|reuse_key|
+   .. |reuse_key| replace:: This is **included** text.
 
-.. include:: index.rst
-   :start-after: include_start
-   :end-before: include_end
+   |reuse_key|
+
+   .. include:: index.rst
+      :start-after: include_start
+      :end-before: include_end
 
 Tabs
 ----
