@@ -6,8 +6,8 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/canonical/lxd/shared"
 	"github.com/canonical/microcluster/state"
-	"github.com/lxc/lxd/shared"
 
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )

@@ -3,7 +3,7 @@ package ovn
 import (
 	"fmt"
 
-	"github.com/lxc/lxd/shared"
+	"github.com/canonical/lxd/shared"
 )
 
 func snapStart(service string, enable bool) error {
