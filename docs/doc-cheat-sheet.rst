@@ -58,15 +58,16 @@ Start a code block::
 Links
 -----
 
-- `Canonical website <https://canonical.com/>`_
-- `Canonical website`_ (defined in ``reuse/links.txt``)
-- `Link defined at the bottom of the page`_
-- https:\ //canonical.com/
-- :ref:`a_section_target`
-- :ref:`Link text <a_section_target>`
-- :doc:`doc-cheat-sheet-myst`
-- :doc:`Link text <doc-cheat-sheet-myst>`
+.. code-block:: none
 
+   `Canonical website <https://canonical.com/>`_
+   `Canonical website`_ (defined in ``reuse/links.txt``)
+   `Link defined at the bottom of the page`_
+   https:\ //canonical.com/
+   :ref:`a_section_target`
+   :ref:`Link text <a_section_target>`
+   :doc:`doc-cheat-sheet-myst`
+   :doc:`Link text <doc-cheat-sheet-myst>`
 
 Navigation
 ----------
@@ -78,7 +79,6 @@ Use the following syntax::
 
      sub-page1
      sub-page2
-
 
 Lists
 -----
@@ -205,7 +205,6 @@ Tabs
    .. group-tab:: Tab 2
 
       Content Tab 2
-
 
 Glossary
 --------
