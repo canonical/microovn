@@ -97,8 +97,8 @@ func connectString(s *state.State, port int) (string, error) {
 	addresses := make([]string, 0, len(servers))
 	protocol := networkProtocol(s)
 	for _, server := range servers {
-		peer := clusterMap[server.Member]
-		addr, _, err := net.SplitHostPort(peer.Address)
+		member := clusterMap[server.Member]
+		memberAddr, err := netip.ParseAddrPort(member.Address)
 		if err != nil {
 			return "", err
 		}
@@ -107,7 +107,7 @@ func connectString(s *state.State, port int) (string, error) {
 			addresses,
 			fmt.Sprintf("%s:%s",
 				protocol,
-				net.JoinHostPort(addr, strconv.Itoa(port)),
+				net.JoinHostPort(memberAddr.Addr().String(), strconv.Itoa(port)),
 			),
 		)
 	}
