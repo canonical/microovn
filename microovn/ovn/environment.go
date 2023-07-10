@@ -91,16 +91,24 @@ func connectString(s *state.State, port int) (string, error) {
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	addresses := make([]string, 0, len(servers))
+	var initialString string
 	protocol := networkProtocol(s)
-	for _, server := range servers {
+	for i, server := range servers {
 		member := clusterMap[server.Member]
 		memberAddr, err := netip.ParseAddrPort(member.Address)
 		if err != nil {
 			return "", err
+		}
+
+		if i == 0 {
+			initialString = memberAddr.Addr().String()
+			if memberAddr.Addr().Is6() {
+				initialString = "[" + initialString + "]"
+			}
 		}
 
 		addresses = append(
@@ -117,52 +125,12 @@ func connectString(s *state.State, port int) (string, error) {
 
 func generateEnvironment(s *state.State) error {
 	// Get the servers.
-	nbConnect, err := connectString(s, 6641)
+	nbConnect, nbInitial, err := connectString(s, 6641)
 	if err != nil {
 		return err
 	}
 
-	sbConnect, err := connectString(s, 6642)
-	if err != nil {
-		return err
-	}
-
-	// Get the initial (first server).
-	var nbInitial string
-	var sbInitial string
-	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
-		serviceName := "central"
-		servers, err := database.GetServices(ctx, tx, database.ServiceFilter{Service: &serviceName})
-		if err != nil {
-			return err
-		}
-
-		server := servers[0]
-		clusterMembers, err := cluster.GetInternalClusterMembers(ctx, tx)
-		if err != nil {
-			return err
-		}
-
-		var peerAddr netip.AddrPort
-		for _, clusterMember := range clusterMembers {
-			if clusterMember.Name == server.Member {
-				peerAddr, err = netip.ParseAddrPort(clusterMember.Address)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		addrString := peerAddr.Addr().String()
-		if peerAddr.Addr().Is6() {
-			addrString = "[" + addrString + "]"
-		}
-
-		nbInitial = addrString
-		sbInitial = addrString
-
-		return nil
-	})
+	sbConnect, sbInitial, err := connectString(s, 6642)
 	if err != nil {
 		return err
 	}
