@@ -66,7 +66,7 @@ func refresh(s *state.State) error {
 		}
 
 		// Reconfigure OVS to use OVN.
-		sbConnect, err := connectString(s, 6642)
+		sbConnect, _, err := environmentString(s, 6642)
 		if err != nil {
 			return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 		}

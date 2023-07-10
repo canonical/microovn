@@ -125,7 +125,7 @@ func Join(s *state.State) error {
 	}
 
 	// Enable OVN chassis.
-	sbConnect, err := connectString(s, 6642)
+	sbConnect, _, err := environmentString(s, 6642)
 	if err != nil {
 		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 	}
