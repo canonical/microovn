@@ -5,14 +5,17 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
 
 	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/microcluster/cluster"
 	"github.com/canonical/microcluster/state"
 
 	"github.com/canonical/microovn/microovn/database"
@@ -67,12 +70,22 @@ func localServiceActive(s *state.State, serviceName string) (bool, error) {
 func connectString(s *state.State, port int) (string, error) {
 	var err error
 	var servers []database.Service
-
+	var clusterMap map[string]cluster.InternalClusterMember
 	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
 		serviceName := "central"
 		servers, err = database.GetServices(ctx, tx, database.ServiceFilter{Service: &serviceName})
 		if err != nil {
 			return err
+		}
+
+		clusterMembers, err := cluster.GetInternalClusterMembers(ctx, tx)
+		if err != nil {
+			return err
+		}
+
+		clusterMap = make(map[string]cluster.InternalClusterMember, len(clusterMembers))
+		for _, clusterMember := range clusterMembers {
+			clusterMap[clusterMember.Name] = clusterMember
 		}
 
 		return nil
@@ -82,19 +95,19 @@ func connectString(s *state.State, port int) (string, error) {
 	}
 
 	addresses := make([]string, 0, len(servers))
-	remotes := s.Remotes().RemotesByName()
 	protocol := networkProtocol(s)
 	for _, server := range servers {
-		remote, ok := remotes[server.Member]
-		if !ok {
-			continue
+		peer := clusterMap[server.Member]
+		addr, _, err := net.SplitHostPort(peer.Address)
+		if err != nil {
+			return "", err
 		}
 
 		addresses = append(
 			addresses,
 			fmt.Sprintf("%s:%s",
 				protocol,
-				netip.AddrPortFrom(remote.Address.Addr(), uint16(port)).String(),
+				net.JoinHostPort(addr, strconv.Itoa(port)),
 			),
 		)
 	}
@@ -125,15 +138,23 @@ func generateEnvironment(s *state.State) error {
 		}
 
 		server := servers[0]
-
-		remotes := s.Remotes().RemotesByName()
-		remote, ok := remotes[server.Member]
-		if !ok {
-			return fmt.Errorf("Remote couldn't be found for %q", server.Member)
+		clusterMembers, err := cluster.GetInternalClusterMembers(ctx, tx)
+		if err != nil {
+			return err
 		}
 
-		addrString := remote.Address.Addr().String()
-		if remote.Address.Addr().Is6() {
+		var peerAddr netip.AddrPort
+		for _, clusterMember := range clusterMembers {
+			if clusterMember.Name == server.Member {
+				peerAddr, err = netip.ParseAddrPort(clusterMember.Address)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		addrString := peerAddr.Addr().String()
+		if peerAddr.Addr().Is6() {
 			addrString = "[" + addrString + "]"
 		}
 
