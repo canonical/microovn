@@ -67,7 +67,8 @@ func localServiceActive(s *state.State, serviceName string) (bool, error) {
 	return serviceActive, err
 }
 
-func connectString(s *state.State, port int) (string, error) {
+// Builds environment variable strings for OVN.
+func environmentString(s *state.State, port int) (string, string, error) {
 	var err error
 	var servers []database.Service
 	var clusterMap map[string]cluster.InternalClusterMember
@@ -101,7 +102,7 @@ func connectString(s *state.State, port int) (string, error) {
 		member := clusterMap[server.Member]
 		memberAddr, err := netip.ParseAddrPort(member.Address)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 
 		if i == 0 {
@@ -120,17 +121,17 @@ func connectString(s *state.State, port int) (string, error) {
 		)
 	}
 
-	return strings.Join(addresses, ","), nil
+	return strings.Join(addresses, ","), initialString, nil
 }
 
 func generateEnvironment(s *state.State) error {
 	// Get the servers.
-	nbConnect, nbInitial, err := connectString(s, 6641)
+	nbConnect, nbInitial, err := environmentString(s, 6641)
 	if err != nil {
 		return err
 	}
 
-	sbConnect, sbInitial, err := connectString(s, 6642)
+	sbConnect, sbInitial, err := environmentString(s, 6642)
 	if err != nil {
 		return err
 	}
