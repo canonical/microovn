@@ -5,14 +5,17 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
 
 	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/microcluster/cluster"
 	"github.com/canonical/microcluster/state"
 
 	"github.com/canonical/microovn/microovn/database"
@@ -64,10 +67,11 @@ func localServiceActive(s *state.State, serviceName string) (bool, error) {
 	return serviceActive, err
 }
 
-func connectString(s *state.State, port int) (string, error) {
+// Builds environment variable strings for OVN.
+func environmentString(s *state.State, port int) (string, string, error) {
 	var err error
 	var servers []database.Service
-
+	var clusterMap map[string]cluster.InternalClusterMember
 	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
 		serviceName := "central"
 		servers, err = database.GetServices(ctx, tx, database.ServiceFilter{Service: &serviceName})
@@ -75,73 +79,59 @@ func connectString(s *state.State, port int) (string, error) {
 			return err
 		}
 
+		clusterMembers, err := cluster.GetInternalClusterMembers(ctx, tx)
+		if err != nil {
+			return err
+		}
+
+		clusterMap = make(map[string]cluster.InternalClusterMember, len(clusterMembers))
+		for _, clusterMember := range clusterMembers {
+			clusterMap[clusterMember.Name] = clusterMember
+		}
+
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	addresses := make([]string, 0, len(servers))
-	remotes := s.Remotes().RemotesByName()
+	var initialString string
 	protocol := networkProtocol(s)
-	for _, server := range servers {
-		remote, ok := remotes[server.Member]
-		if !ok {
-			continue
+	for i, server := range servers {
+		member := clusterMap[server.Member]
+		memberAddr, err := netip.ParseAddrPort(member.Address)
+		if err != nil {
+			return "", "", err
+		}
+
+		if i == 0 {
+			initialString = memberAddr.Addr().String()
+			if memberAddr.Addr().Is6() {
+				initialString = "[" + initialString + "]"
+			}
 		}
 
 		addresses = append(
 			addresses,
 			fmt.Sprintf("%s:%s",
 				protocol,
-				netip.AddrPortFrom(remote.Address.Addr(), uint16(port)).String(),
+				net.JoinHostPort(memberAddr.Addr().String(), strconv.Itoa(port)),
 			),
 		)
 	}
 
-	return strings.Join(addresses, ","), nil
+	return strings.Join(addresses, ","), initialString, nil
 }
 
 func generateEnvironment(s *state.State) error {
 	// Get the servers.
-	nbConnect, err := connectString(s, 6641)
+	nbConnect, nbInitial, err := environmentString(s, 6641)
 	if err != nil {
 		return err
 	}
 
-	sbConnect, err := connectString(s, 6642)
-	if err != nil {
-		return err
-	}
-
-	// Get the initial (first server).
-	var nbInitial string
-	var sbInitial string
-	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
-		serviceName := "central"
-		servers, err := database.GetServices(ctx, tx, database.ServiceFilter{Service: &serviceName})
-		if err != nil {
-			return err
-		}
-
-		server := servers[0]
-
-		remotes := s.Remotes().RemotesByName()
-		remote, ok := remotes[server.Member]
-		if !ok {
-			return fmt.Errorf("Remote couldn't be found for %q", server.Member)
-		}
-
-		addrString := remote.Address.Addr().String()
-		if remote.Address.Addr().Is6() {
-			addrString = "[" + addrString + "]"
-		}
-
-		nbInitial = addrString
-		sbInitial = addrString
-
-		return nil
-	})
+	sbConnect, sbInitial, err := environmentString(s, 6642)
 	if err != nil {
 		return err
 	}
