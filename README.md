@@ -85,14 +85,24 @@ microovn.ovn-appctl -t /var/snap/microovn/common/run/central/ovnnb_db.ctl cluste
 
 ### Impact
 
-Downscaling can have a serious negative impact on the availability and
-resiliency of the cluster, especially when a member is being removed that runs
-an OVN central service (OVN SB, OVN NB, OVN Northd).
+Downscaling can have an adverse effect on the availability and resiliency of
+the cluster, especially when a member is being removed that runs an OVN central
+service (OVN SB, OVN NB, OVN Northd).
 
 OVN uses the [Raft consensus algorithm](https://raft.github.io) for cluster
 management, which has a fault tolerance of up to `(N-1)/2` members. This means
 that fault resiliency will be lost if a three-node cluster is reduced to two
 nodes.
+
+### Monitoring
+
+You can watch logs on the departing member for indications of removal failures
+with:
+
+    snap logs -f microovn.daemon
+
+Any issues that arise during the removal process will need to be resolved
+manually.
 
 ### Remove a cluster member
 
@@ -102,18 +112,14 @@ To remove a cluster member:
 
 MicroOVN will stop and disable any chassis components running on the member
 (`ovn-controller` and `ovs-vswitchd`), before attempting to gracefully leave
-any OVN database clusters for members with central components present. You can
-watch logs on the departing member for indications of removal failures with:
+any OVN database clusters for members with central components present.
 
-    snap logs -f microovn.daemon
+### Verification
 
-Any issues that arise during the removal process will need to be resolved
-manually.
+Upon removal, check the state of OVN services to ensure that the member was
+properly removed.
 
-After the removal, you can also check the state of OVN services, to make sure
-that the member was properly removed.
-
-```shell
+```
 # Check status of OVN SB cluster
 microovn.ovn-appctl -t /var/snap/microovn/common/run/central/ovnsb_db.ctl cluster/status OVN_Southbound
 
@@ -129,10 +135,10 @@ microovn.ovn-sbctl show
 MicroOVN will back up selected data directories into the timestamped location
 `/var/snap/microovn/common/backup_<timestamp>/`. These backups will include:
 
-* Logs
+* logs
 * OVN database files
 * OVS database file
-* Issued certificates and keys
+* issued certificates and keys
 
 ## TLS
 
@@ -192,35 +198,37 @@ certificate is in place.
 
 #### Re-issue certificates
 
-To re-issue a certificate for an OVN service:
+The `certificates reissue` command is used to interact with OVN services on the
+local host; it does not affect peer cluster members.
+
+> **Important**
+>
+> Services must be running in order to be affected by the `certificates
+> reissue` command.
+
+To re-issue a certificate for a single service:
 
     microovn certificates reissue <ovn_service_name>
+
+To re-issue certificates for all services, the `all` argument is supported:
+
+    microovn certificates reissue all
 
 Valid service names can be discovered with the `--help` option:
 
     microovn certificates reissue --help
 
-The `certificates reissue` command applies only to an OVN service running on
-the local host; this command does not affect peer cluster members.
-Additionally, the certificate will be issued only if the service is enabled on
-the host.
-
-To re-issue certificates for all enabled local services, the `all`
-argument is supported:
-
-    microovn certificates reissue all
-
 #### Regenerate PKI for the cluster
 
-To issue a new CA certificate and new certificates for every OVN service
-in the cluster:
+The `certificates regenerate-ca` command is used to issue a new CA certificate
+and new certificates for every OVN service in the cluster:
 
     microovn certificates regenerate-ca
 
-The `certificates regenerate-ca` command replaces the current CA certificate
-and notifies all cluster members to re-issue certificates for all their
-services. The command's output will include evidence of successfully issued
-certificates for each cluster member.
+This command replaces the current CA certificate and notifies all cluster
+members to re-issue certificates for all their services. The command's output
+will include evidence of successfully issued certificates for each cluster
+member.
 
 > **Warning**
 >
@@ -243,13 +251,13 @@ certificate is within 10 days of expiration, it will be automatically renewed.
 
 Plaintext communication is used when MicroOVN is initially deployed with a snap
 revision of less than `111`, and there's no way to automatically convert to
-encrypted communication. The following manual steps are needed to upgrade old
-installations from plaintext to TLS:
+encrypted communication. The following manual steps are needed to upgrade from
+plaintext to TLS:
 
-* Ensure that all MicroOVN snaps in the cluster are upgraded to, at least,
+* ensure that all MicroOVN snaps in the cluster are upgraded to, at least,
 revision `111`
-* Run `microovn certificates regenerate-ca` on one of the cluster members
-* Run `sudo snap restart microovn.daemon` on **all** cluster members
+* run `microovn certificates regenerate-ca` on one of the cluster members
+* run `sudo snap restart microovn.daemon` on **all** cluster members
 
 Once this is done, OVN services throughout the cluster will start listening on
 TLS-secured ports.
