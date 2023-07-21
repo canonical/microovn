@@ -110,9 +110,13 @@ To remove a cluster member:
 
     microovn cluster remove <member_name>
 
-MicroOVN will stop and disable any chassis components running on the member
-(`ovn-controller` and `ovs-vswitchd`), before attempting to gracefully leave
-any OVN database clusters for members with central components present.
+The value of <member_name> is taken from the **Name** column in the output
+of the `microovn cluster list` command.
+
+Any chassis components (`ovn-controller` and `ovs-vswitchd`) running on the
+member will first be stopped and disabled (prevented from starting). For a
+member with central components present (`ovn-southd` and `ovn-northd`), the
+Northbound and Southbound databases will be gracefully removed.
 
 ### Verification
 
