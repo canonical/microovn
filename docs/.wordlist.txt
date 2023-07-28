@@ -21,3 +21,5 @@ ovnsb
 northd
 openvswitch
 txt
+cli
+CLI
