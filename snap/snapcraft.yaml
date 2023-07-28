@@ -12,6 +12,12 @@ description: |-
 
 confinement: strict
 
+hooks:
+  install:
+    plugs:
+      - network
+      - network-control
+
 apps:
   # Service
   daemon:
@@ -90,6 +96,7 @@ apps:
     command: commands/ovs-dpctl
     plugs:
       - network
+      - network-control
   ovs-ofctl:
     command: commands/ovs-ofctl
     plugs:

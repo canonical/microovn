@@ -1,0 +1,20 @@
+#!/bin/sh
+
+# The ovs-dpctl tool calls directly into OVS dpif library functions, which for
+# the system datapath means making calls to the kernel over a netlink socket.
+#
+# If there is an already running ovs-vswitchd process that has initialized this
+# data path, it will be listed.
+ovs-dpctl dump-dps 2>&1 | grep ovs-system > /dev/null
+rc=$?
+if [ $rc -eq 0 ]; then
+        cat << EOF >&2
+An already running copy of Open vSwitch detected in current namespace.
+
+The microovn snap provides Open vSwitch.
+
+Running multiple instances of Open vSwitch in the same namespace is not
+supported.
+EOF
+	exit 1
+fi
