@@ -1,0 +1,41 @@
+# BACKEND_DEL(i1, [, i2 ... ])
+#
+# Delete LXD container(s)
+m4_define([BACKEND_DESTROY],
+    [m4_foreach([instance], [$@],
+                [lxc stop instance && lxc delete instance
+])
+    ]
+)
+
+# BACKEND_LAUNCH(i1 [, i2 ... ])
+#
+# Add new LXD container(s), if LXD container(s) exists, the old one
+# will be removed before new ones are created.
+#
+# Container name will be prefixed with test group number so that multiple tests
+# can use the same container number simultaneously without stepping on each other.
+m4_define([BACKEND_LAUNCH],
+    [m4_foreach([instance], [$@],
+                [instname=${INSTANCE_PREFIX}-${at_group}-instance
+                 BACKEND_DESTROY($instname)
+                 AT_CHECK([lxc launch -q ubuntu: $instname])
+                 on_exit "BACKEND_DESTROY($instname)"
+                ])
+    ]
+)
+
+# BACKEND_EXEC([instance], [command])
+#
+# Execute 'command' in 'instance'
+m4_define([BACKEND_EXEC],
+    [lxc exec ${INSTANCE_PREFIX}-${at_group}-$1 sh << BACKEND_EXEC_HEREDOC
+$2
+BACKEND_EXEC_HEREDOC])
+
+# BACKEND_CHECK_EXEC([instance], [command])
+#
+# Execute 'command' in 'instance'
+m4_define([BACKEND_CHECK_EXEC],
+    [ AT_CHECK([BACKEND_EXEC([$1], [$2])], m4_shift(m4_shift($@))) ]
+)

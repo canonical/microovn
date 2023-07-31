@@ -1,0 +1,26 @@
+AT_BANNER([clustering])
+
+AT_SETUP([fake bootstrap single node])
+AT_KEYWORDS([clustering single])
+BACKEND_LAUNCH([m1])
+BACKEND_CHECK_EXEC([m1], [true])
+cat cleanup
+AT_CLEANUP
+
+AT_SETUP([fake bootstrap multi-node 3])
+AT_KEYWORDS([clustering multi])
+BACKEND_LAUNCH([m1], [m2], [m3])
+BACKEND_CHECK_EXEC([m1], [true])
+BACKEND_CHECK_EXEC([m2], [true])
+BACKEND_CHECK_EXEC([m3], [true])
+cat cleanup
+AT_CLEANUP
+
+AT_SETUP([fake bootstrap multi-node 4])
+AT_KEYWORDS([clustering multi])
+BACKEND_LAUNCH([m1], [m2], [m3], [m4])
+BACKEND_CHECK_EXEC([m1], [true])
+BACKEND_CHECK_EXEC([m2], [true])
+BACKEND_CHECK_EXEC([m3], [true])
+BACKEND_CHECK_EXEC([m4], [true])
+AT_CLEANUP

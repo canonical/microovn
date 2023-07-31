@@ -1,0 +1,26 @@
+dnl Make AT_SETUP automatically run the microovn_init() shell function
+dnl as the first step in every test.
+m4_rename([AT_SETUP], [MICROOVN_AT_SETUP])
+m4_define([AT_SETUP], [MICROOVN_AT_SETUP($@)
+microovn_init
+])
+
+m4_divert_push([PREPARE_TESTS])
+[
+# Set test_base to the base directory in which the test is running.
+microovn_init() {
+    test_base=`pwd`
+    trap microovn_on_exit 0
+    : > cleanup
+}
+
+microovn_on_exit () {
+    . "$test_base/cleanup"
+}
+
+on_exit () {
+    (echo "$1"; cat cleanup) > cleanup.tmp
+    mv cleanup.tmp cleanup
+}
+]
+m4_divert_pop([PREPARE_TESTS])

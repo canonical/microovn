@@ -1,0 +1,7 @@
+AT_INIT
+
+m4_ifdef([AT_COLOR_TESTS], [AT_COLOR_TESTS])
+
+m4_include([common-macros.at])
+m4_include([system-common-macros.at])
+m4_include([system-clustering.at])
