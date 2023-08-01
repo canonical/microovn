@@ -17,7 +17,7 @@ function delete_containers() {
 
     for container in $containers; do
         echo "# Cleaning up $container" >&3
-        lxc delete --force $container
+        lxc delete --force "$container"
     done
 }
 

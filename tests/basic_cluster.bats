@@ -27,7 +27,7 @@ setup() {
     # Extremely simplified check that cluster has required number of members
     for container in $TEST_CONTAINERS; do
         echo "Checking cluster members on $container"
-        run lxc_exec $container "microovn cluster list --format json | jq length"
+        run lxc_exec "$container" "microovn cluster list --format json | jq length"
         assert_output "3"
     done
 }
@@ -38,7 +38,7 @@ setup() {
     for container in $TEST_CONTAINERS; do
         for service in $SERVICES ; do
             echo "Checking status of $service on $container"
-            run lxc_exec $container "systemctl is-active $service"
+            run lxc_exec "$container" "systemctl is-active $service"
             assert_output "active"
         done
     done
