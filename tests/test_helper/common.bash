@@ -5,7 +5,8 @@ function container_name() {
 }
 
 function container_names() {
-    local source_file_name=$(basename $1 | cut -f1 -d\.); shift
+    # shellcheck disable=SC2155
+    local source_file_name=$(basename "$1" | cut -f1 -d\.); shift
     local nr_containers=$1; shift
 
     source_file_name=${source_file_name//_/-}

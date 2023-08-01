@@ -1,4 +1,3 @@
-
 function _wait_for_snapd() {
     local container=$1; shift
 
@@ -15,7 +14,7 @@ function install_microovn() {
         lxc_file_push "$snap_file" "$container/tmp/microovn.snap"
         _wait_for_snapd "$container"
         echo "# Installing MicroOVN in container $container" >&3
-        lxc_exec $container "snap install /tmp/microovn.snap --dangerous"
+        lxc_exec "$container" "snap install /tmp/microovn.snap --dangerous"
     done
 }
 
