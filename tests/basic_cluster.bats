@@ -13,8 +13,8 @@ teardown_file() {
 
 setup() {
     load test_helper/lxd.bash
-    load test_helper/bats-support/load
-    load test_helper/bats-assert/load
+    load ../.bats/bats-support/load.bash
+    load ../.bats/bats-assert/load.bash
 }
 
 @test "Expected MicroOVN cluster count" {
