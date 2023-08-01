@@ -1,42 +1,37 @@
-LXC_TEST_IMAGE=jammy
-DEPENDENCIES="jq"
+function launch_containers() {
+    local image_name=$1; shift
+    local deps=$1; shift
+    local containers=$*
 
-function start_containers() {
-    LXC_COUNT=$1
-    LXC_BASE_NAME="microovn-test"
-    ALL_CONTAINERS=""
-    for (( i = 0; i < LXC_COUNT; i++ )); do
-        CONTAINER_NAME="$LXC_BASE_NAME-$i"
-        echo "# Launching $CONTAINER_NAME" >&3
-        lxc launch -q ubuntu:$LXC_TEST_IMAGE $CONTAINER_NAME
-        lxc_exec $CONTAINER_NAME "cloud-init status --wait &&
-                                  export DEBIAN_FRONTEND=noninteractive &&
-                                  apt update && apt install -y $DEPENDENCIES"
-        ALL_CONTAINERS+="$CONTAINER_NAME "
+    for container in $containers; do
+        echo "# Launching $container" >&3
+        lxc launch -q "ubuntu:$image_name" "$container"
+        lxc_exec "$container" "cloud-init status --wait &&
+                             export DEBIAN_FRONTEND=noninteractive &&
+                             apt update && apt install -y $deps"
     done
-
-    export ALL_CONTAINERS
 }
 
-function cleanup_containers() {
-    IFS=" "
-    for container in $ALL_CONTAINERS ; do
+function delete_containers() {
+    local containers=$*
+
+    for container in $containers; do
         echo "# Cleaning up $container" >&3
         lxc delete --force $container
     done
 }
 
 function lxc_exec() {
-    CONTAINER=$1
-    CMD=$2
+    local container=$1; shift
+    local cmd=$1; shift
 
-    lxc exec $CONTAINER -- bash -c "$CMD"
+    lxc exec "$container" -- bash -c "$cmd"
 
 }
 
 function lxc_file_push() {
-    FILE_PATH=$1
-    CONTAINER=$2
+    local file_path=$1; shift
+    local container_path=$1; shift
 
-    lxc file push -q "$FILE_PATH" "$CONTAINER"
+    lxc file push -q "$file_path" "$container_path"
 }

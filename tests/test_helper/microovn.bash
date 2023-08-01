@@ -1,39 +1,40 @@
 
 function _wait_for_snapd() {
-    CONTAINER=$1
+    local container=$1; shift
 
-    echo "# Waiting for snapd to be ready on $CONTAINER" >&3
-    lxc_exec $CONTAINER "snap wait system seed.loaded"
+    echo "# Waiting for snapd to be ready on $container" >&3
+    lxc_exec "$container" "snap wait system seed.loaded"
 }
 
 function install_microovn() {
-    SNAP_FILE=$1
-    shift
+    local snap_file=$1; shift
+    local containers=$*
 
-    IFS=" "
-    for container in "$@" ; do
+    for container in $containers; do
         echo "# Deploying MicroOVN to $container" >&3
-        lxc_file_push "$SNAP_FILE" "$container/tmp/microovn.snap"
-        _wait_for_snapd $container
+        lxc_file_push "$snap_file" "$container/tmp/microovn.snap"
+        _wait_for_snapd "$container"
         echo "# Installing MicroOVN in container $container" >&3
         lxc_exec $container "snap install /tmp/microovn.snap --dangerous"
     done
 }
 
 function bootstrap_cluster() {
-    LEADER=""
+    local leader=""
+    local containers=$*
 
-    for container in "$@" ; do
-        if [ -z "$LEADER" ]; then
+    for container in $containers; do
+        if [ -z "$leader" ]; then
             echo "# Bootstrapping MicroOVN on $container" >&3
-            lxc_exec $container "microovn cluster bootstrap"
-            LEADER="$container"
+            lxc_exec "$container" "microovn cluster bootstrap"
+            leader="$container"
             continue
         fi
 
         echo "# Adding $container to the cluster" >&3
-        TOKEN=$(lxc_exec $LEADER "microovn cluster add $container")
+        local token
+        token=$(lxc_exec "$leader" "microovn cluster add $container")
         echo "# Joining cluster with $container" >&3
-        lxc_exec $container "microovn cluster join $TOKEN"
+        lxc_exec "$container" "microovn cluster join $token"
     done
 }
