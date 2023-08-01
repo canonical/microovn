@@ -21,12 +21,16 @@ jobs:
 
   system-tests:
     name: System tests
+    needs:
+      - lint
     runs-on: ubuntu-22.04
     env:
       SNAPCRAFT_BUILD_ENVIRONMENT: "lxd"
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Clear FORWARD firewall rules
         run: |
@@ -43,26 +47,15 @@ jobs:
           sudo lxd init --auto
           sudo snap install snapcraft --classic
           snap list
+          sudo apt update
+          sudo apt -y install bats
+          sudo modprobe openvswitch
 
       - name: Build snaps
-        run: snapcraft
+        run: make microovn.snap
 
       - name: Run system tests
-        run: |
-          set -eux
-          sudo snap install --dangerous microovn_*.snap
-          sudo snap connect microovn:firewall-control
-          sudo snap connect microovn:hardware-observe
-          sudo snap connect microovn:hugepages-control
-          sudo snap connect microovn:network-control
-          sudo snap connect microovn:openvswitch-support
-          sudo snap connect microovn:process-control
-          sudo snap connect microovn:system-trace
-
-          # Bootstrap and basic checks
-          sudo microovn cluster bootstrap
-          sudo microovn.ovs-vsctl show
-          sudo microovn status
+        run: make check-system
 
       - name: Upload artifacts
         if: always()
