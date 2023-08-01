@@ -1,7 +1,9 @@
 MICROOVN_SNAP_PATH=$(CURDIR)/microovn.snap
+export MICROOVN_SNAP_PATH
+
 build:
 	@echo "Building the snap"
-	@snapcraft pack --use-lxd -o $MICROOVN_SNAP_PATH
+	@snapcraft pack --use-lxd -o $(MICROOVN_SNAP_PATH)
 
 func-tests: build
 	@echo "Running functional tests"
