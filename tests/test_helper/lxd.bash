@@ -9,7 +9,9 @@ function start_containers() {
         CONTAINER_NAME="$LXC_BASE_NAME-$i"
         echo "# Launching $CONTAINER_NAME" >&3
         lxc launch -q ubuntu:$LXC_TEST_IMAGE $CONTAINER_NAME
-        lxc_exec $CONTAINER_NAME "apt update && apt install -y $DEPENDENCIES"
+        lxc_exec $CONTAINER_NAME "cloud-init status --wait &&
+                                  export DEBIAN_FRONTEND=noninteractive &&
+                                  apt update && apt install -y $DEPENDENCIES"
         ALL_CONTAINERS+="$CONTAINER_NAME "
     done
 
