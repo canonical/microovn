@@ -1,17 +1,23 @@
+TEST_CONTAINERS=""
+
 setup_file() {
+    load test_helper/common.bash
     load test_helper/lxd.bash
     load test_helper/microovn.bash
 
-    start_containers 3
-    install_microovn $MICROOVN_SNAP_PATH $ALL_CONTAINERS
-    bootstrap_cluster $ALL_CONTAINERS
+
+    TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 3)
+    launch_containers jammy jq "${TEST_CONTAINERS[@]}"
+    install_microovn "$MICROOVN_SNAP_PATH" "${TEST_CONTAINERS[@]}"
+    bootstrap_cluster "${TEST_CONTAINERS[@]}"
 }
 
 teardown_file() {
-    cleanup_containers
+    delete_containers "${TEST_CONTAINERS[@]}"
 }
 
 setup() {
+    load test_helper/common.bash
     load test_helper/lxd.bash
     load ../.bats/bats-support/load.bash
     load ../.bats/bats-assert/load.bash
@@ -19,8 +25,7 @@ setup() {
 
 @test "Expected MicroOVN cluster count" {
     # Extremely simplified check that cluster has required number of members
-    FIPS=" "
-    for container in $ALL_CONTAINERS ; do
+    for container in $TEST_CONTAINERS; do
         echo "Checking cluster members on $container"
         run lxc_exec $container "microovn cluster list --format json | jq length"
         assert_output "3"
@@ -30,8 +35,7 @@ setup() {
 @test "Expected services up" {
     # Check that all expected services are active on cluster members
     SERVICES="snap.microovn.central snap.microovn.chassis snap.microovn.daemon snap.microovn.switch"
-    FIPS=" "
-    for container in $ALL_CONTAINERS ; do
+    for container in $TEST_CONTAINERS; do
         for service in $SERVICES ; do
             echo "Checking status of $service on $container"
             run lxc_exec $container "systemctl is-active $service"
