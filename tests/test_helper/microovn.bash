@@ -15,6 +15,15 @@ function install_microovn() {
         _wait_for_snapd "$container"
         echo "# Installing MicroOVN in container $container" >&3
         lxc_exec "$container" "snap install /tmp/microovn.snap --dangerous"
+        echo "# Connecting plugs in container $container" >&3
+        lxc_exec "$container" "for plug in firewall-control \
+                                           hardware-observe \
+                                           hugepages-control \
+                                           network-control \
+                                           openvswitch-support \
+                                           process-control \
+                                           system-trace; do \
+                                   sudo snap connect microovn:\$plug;done"
     done
 }
 
