@@ -1,10 +1,14 @@
-MICROOVN_SNAP_PATH=$(CURDIR)/microovn.snap
-export MICROOVN_SNAP_PATH
+MICROOVN_SNAP=microovn.snap
+export MICROOVN_SNAP_PATH := $(CURDIR)/$(MICROOVN_SNAP)
 
-func-tests: build
-	@echo "Running functional tests"
-	@bats tests/basic_cluster.bats
+check-system: $(MICROOVN_SNAP)
+	echo "Running functional tests";					\
+	bats tests/
 
-build:
-	@echo "Building the snap"
-	@snapcraft pack --use-lxd -o $(MICROOVN_SNAP_PATH)
+$(MICROOVN_SNAP):
+	echo "Building the snap";						\
+	snapcraft pack -v -o $(MICROOVN_SNAP)
+
+clean:
+	rm -f $(MICROOVN_SNAP_PATH);						\
+	snapcraft clean
