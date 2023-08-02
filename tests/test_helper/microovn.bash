@@ -19,6 +19,13 @@ function install_microovn() {
     done
 }
 
+function microovn_cluster_get_join_token() {
+    local existing_member=$1; shift
+    local new_member=$1; shift
+
+    lxc_exec "$existing_member" "microovn cluster add $new_member"
+}
+
 function bootstrap_cluster() {
     local leader=""
     local containers=$*
@@ -37,4 +44,61 @@ function bootstrap_cluster() {
         echo "# Joining cluster with $container" >&3
         lxc_exec "$container" "microovn cluster join $token"
     done
+}
+
+function microovn_init_create_cluster() {
+    local container=$1; shift
+    local address=$1; shift
+
+    cat << EOF | lxc_exec "$container" "expect -"
+spawn "sudo" "microovn" "init"
+
+expect "Please choose the address MicroOVN will be listening on" {
+    send "$address\n"
+}
+
+expect "Would you like to create a new MicroOVN cluster?" {
+    send "yes\n"
+}
+
+expect "Please choose a name for this system" {
+    send "\n"
+}
+
+expect "Would you like to add additional servers to the cluster?" {
+    send "no\n"
+}
+
+expect eof
+EOF
+}
+
+function microovn_init_join_cluster() {
+    local container=$1; shift
+    local address=$1; shift
+    local token=$1; shift
+    cat << EOF | lxc_exec "$container" "expect -"
+spawn "sudo" "microovn" "init"
+
+expect "Please choose the address MicroOVN will be listening on" {
+    send "$address\n"
+}
+
+expect "Would you like to create a new MicroOVN cluster?" {
+    send "no\n"
+}
+
+expect "Please enter your join token:" {
+    send "$token\n"
+}
+
+expect eof
+EOF
+}
+
+function microovn_get_cluster_address() {
+    local container=$1; shift
+
+    lxc_exec "$container" "microovn status" | \
+        awk -F\( "/$container/{sub(/\)\$/,\"\");print\$2}"
 }

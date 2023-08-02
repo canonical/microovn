@@ -5,6 +5,7 @@ load "test_helper/setup_teardown/$(basename "${BATS_TEST_FILENAME//.bats/.bash}"
 setup() {
     load test_helper/common.bash
     load test_helper/lxd.bash
+    load test_helper/microovn.bash
     load ../.bats/bats-support/load.bash
     load ../.bats/bats-assert/load.bash
 
@@ -31,5 +32,17 @@ setup() {
             run lxc_exec "$container" "systemctl is-active $service"
             assert_output "active"
         done
+    done
+}
+
+@test "Expected address family for cluster address" {
+    for container in $TEST_CONTAINERS; do
+        local addr
+        addr=$(microovn_get_cluster_address "$container")
+        local test_family
+        test_family=$(test_is_ipv6_test && echo inet6 || echo inet)
+        local addr_family
+        addr_family=$(test_ipv6_addr "$addr" && echo inet6 || echo inet)
+        assert [ "$test_family" = "$addr_family" ]
     done
 }
