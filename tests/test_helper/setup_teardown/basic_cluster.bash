@@ -6,16 +6,7 @@ setup_file() {
 
     TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 3)
     export TEST_CONTAINERS
-    launch_containers \
-        jammy \
-        "config:
-           cloud-init.user-data: |
-             #cloud-config
-             package_upgrade: true
-             packages:
-             - jq
-        " \
-        "${TEST_CONTAINERS[@]}"
+    launch_containers jammy "${TEST_CONTAINERS[@]}"
     wait_containers_ready "${TEST_CONTAINERS[@]}"
     install_microovn "$MICROOVN_SNAP_PATH" "${TEST_CONTAINERS[@]}"
     bootstrap_cluster "${TEST_CONTAINERS[@]}"

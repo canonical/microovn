@@ -4,4 +4,5 @@ config:
     #cloud-config
     package_upgrade: true
     packages:
+    - expect
     - jq
