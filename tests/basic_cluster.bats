@@ -1,4 +1,4 @@
-TEST_CONTAINERS=""
+# This is a bash shell fragment -*- bash -*-
 
 setup_file() {
     load test_helper/common.bash
@@ -7,6 +7,7 @@ setup_file() {
 
 
     TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 3)
+    export TEST_CONTAINERS
     launch_containers jammy jq "${TEST_CONTAINERS[@]}"
     install_microovn "$MICROOVN_SNAP_PATH" "${TEST_CONTAINERS[@]}"
     bootstrap_cluster "${TEST_CONTAINERS[@]}"
@@ -21,6 +22,10 @@ setup() {
     load test_helper/lxd.bash
     load ../.bats/bats-support/load.bash
     load ../.bats/bats-assert/load.bash
+
+    # Ensure TEST_CONTAINERS is populated, otherwise the tests below will
+    # provide false positive results.
+    assert [ -n "$TEST_CONTAINERS" ]
 }
 
 @test "Expected MicroOVN cluster count" {
