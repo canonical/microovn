@@ -5,7 +5,7 @@ function launch_containers() {
     for container in $containers; do
         echo "# Launching $container" >&3
         lxc launch -q "ubuntu:$image_name" "$container" < \
-            "$BATS_TEST_DIRNAME/cloud-init.yaml"
+            "$BATS_TEST_DIRNAME/lxd-instance-config.yaml"
     done
 }
 

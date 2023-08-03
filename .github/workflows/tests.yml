@@ -49,7 +49,6 @@ jobs:
           snap list
           sudo apt update
           sudo apt -y install bats
-          sudo modprobe openvswitch
 
       - name: Build snaps
         run: make microovn.snap
