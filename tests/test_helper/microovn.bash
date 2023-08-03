@@ -44,8 +44,29 @@ function bootstrap_cluster() {
         echo "# Joining cluster with $container" >&3
         lxc_exec "$container" "microovn cluster join $token"
     done
+    wait_ovn_services $containers
 }
 
+# wait_ovn_services CONTAINER1 [CONTAINER2 ...]
+#
+# Wait for OVN "central" services running on the CONTAINERs to start listening.
+# Containers with disabled "central" service are skipped.
+function wait_ovn_services() {
+    local containers=$*
+    local ovn_ports="6641 6642 6643 6644"
+
+    for container in $containers; do
+        container_services=$(microovn_get_cluster_services "$container")
+        if [[ "$container_services" != *"central"* ]]; then
+            continue
+        fi
+
+        echo "# ($container) Waiting for OVN Central services to start"
+        for port in $ovn_ports; do
+            wait_for_open_port "$container" "$port" 30
+        done
+    done
+}
 function microovn_init_create_cluster() {
     local container=$1; shift
     local address=$1; shift

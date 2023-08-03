@@ -49,3 +49,30 @@ function print_address() {
         "$(test_ipv6_addr $addr && echo ']' || true)"
 }
 
+# wait_for_open_port CONTAINER PORT MAX_RETRY
+#
+# Return after specified PORT is open and listening in the CONTAINER.
+#
+# The port can be bound to any interface and it's a good way to test whether
+# OVN services are up and listening. This function will retry for maximum of
+# MAX_RETRY times, each time backing of for 1 second between attempts.
+function wait_for_open_port() {
+    local container=$1
+    local port=$2
+    local max_retry=$3
+    local attempt=1
+    local success=0
+
+    while ! lxc_exec "$container" "lsof -i:$port -sTCP:LISTEN"; do
+        echo "# ($container) waiting for port $port to be opened ($attempt/$max_retry)"
+        if [ $attempt -gt "$max_retry" ]; then
+            echo "# ($container) Maximum retries reached"
+            success=1
+            break
+        fi
+        ((++attempt))
+        sleep 1
+    done
+
+    return $success
+}
