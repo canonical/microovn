@@ -7,7 +7,11 @@ check-tabs:
 	grep -lrP "\t" tests/ && exit 1 || exit 0
 
 check-lint: check-tabs
-	find tests/ -type f | xargs shellcheck && echo Success!
+	find tests/ \
+		-type f \
+		-not -name \*.yaml \
+		-not -name \*.swp \
+		| xargs shellcheck && echo Success!
 
 check-system: $(MICROOVN_SNAP)
 	echo "Running functional tests";					\
