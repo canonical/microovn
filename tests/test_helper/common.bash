@@ -15,3 +15,23 @@ function container_names() {
         printf '%s ' "$(container_name "${source_file_name}-${i}")"
     done
 }
+
+function container_get_default_ip() {
+    local container=$1; shift
+    local family=${1:-inet}; shift
+
+    local dev
+    dev=$(lxc_exec "$container" "ip route show default|awk '/dev/{print\$5}'")
+    lxc_exec "$container" \
+        "ip a show dev $dev | awk '/$family .*global/{print\$2}'|cut -f1 -d/"
+}
+
+function test_is_ipv6_test() {
+    [[ "$BATS_TEST_FILENAME" == *"ipv6"* ]]
+}
+
+function test_ipv6_addr() {
+    local addr=$1; shift
+
+    [[ $addr == *":"* ]]
+}
