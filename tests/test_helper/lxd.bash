@@ -6,7 +6,16 @@ function launch_containers() {
         echo "# Launching $container" >&3
         lxc launch -q "ubuntu:$image_name" "$container" < \
             "$BATS_TEST_DIRNAME/cloud-init.yaml"
-        lxc_exec "$container" "cloud-init status --wait"
+    done
+}
+
+function wait_containers_ready() {
+    local containers=$*
+
+    for container in $containers; do
+        echo "# Waiting for $container to be ready" >&3
+        lxc_exec "$container" "cloud-init status --wait &&
+                               snap wait system seed.loaded"
     done
 }
 
