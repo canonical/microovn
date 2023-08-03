@@ -1,10 +1,3 @@
-function _wait_for_snapd() {
-    local container=$1; shift
-
-    echo "# Waiting for snapd to be ready on $container" >&3
-    lxc_exec "$container" "snap wait system seed.loaded"
-}
-
 function install_microovn() {
     local snap_file=$1; shift
     local containers=$*
@@ -12,7 +5,6 @@ function install_microovn() {
     for container in $containers; do
         echo "# Deploying MicroOVN to $container" >&3
         lxc_file_push "$snap_file" "$container/tmp/microovn.snap"
-        _wait_for_snapd "$container"
         echo "# Installing MicroOVN in container $container" >&3
         lxc_exec "$container" "snap install /tmp/microovn.snap --dangerous"
         echo "# Connecting plugs in container $container" >&3

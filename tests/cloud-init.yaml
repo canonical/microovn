@@ -1,0 +1,7 @@
+---
+config:
+  cloud-init.user-data: |
+    #cloud-config
+    package_upgrade: true
+    packages:
+    - jq

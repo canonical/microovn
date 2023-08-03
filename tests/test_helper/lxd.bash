@@ -1,14 +1,21 @@
 function launch_containers() {
     local image_name=$1; shift
-    local deps=$1; shift
     local containers=$*
 
     for container in $containers; do
         echo "# Launching $container" >&3
-        lxc launch -q "ubuntu:$image_name" "$container"
+        lxc launch -q "ubuntu:$image_name" "$container" < \
+            "$BATS_TEST_DIRNAME/cloud-init.yaml"
+    done
+}
+
+function wait_containers_ready() {
+    local containers=$*
+
+    for container in $containers; do
+        echo "# Waiting for $container to be ready" >&3
         lxc_exec "$container" "cloud-init status --wait &&
-                             export DEBIAN_FRONTEND=noninteractive &&
-                             apt update && apt install -y $deps"
+                               snap wait system seed.loaded"
     done
 }
 
