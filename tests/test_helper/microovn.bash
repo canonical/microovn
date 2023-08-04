@@ -102,3 +102,64 @@ function microovn_get_cluster_address() {
     lxc_exec "$container" "microovn status" | \
         awk -F\( "/$container/{sub(/\)\$/,\"\");print\$2}"
 }
+
+# _ovn_schema_name NBSB
+#
+# Print the schema name for NBSB.
+#
+# Valid values for NBSB are `nb` for Northbound DB or `sb` for Southbound DB.
+function _ovn_schema_name() {
+    local nbsb=$1; shift
+
+    [ "$nbsb" == "nb" ] \
+        && echo OVN_Northbound \
+        || echo OVN_Southbound
+}
+
+# microovn_ovndb_cluster_status CONTAINER NBSB
+#
+# Print OVN OVSDB cluster status for database type NBSB from the point of view
+# of CONTAINER.
+#
+# Valid values for NBSB are `nb` for Northbound DB or `sb` for Southbound DB.
+function microovn_ovndb_cluster_status() {
+    local container=$1; shift
+    local nbsb=$1; shift
+
+    local schema_name;
+    schema_name=$(_ovn_schema_name "$nbsb")
+
+    lxc_exec "$container" \
+             "microovn.ovn-appctl \
+                 -t /var/snap/microovn/common/run/ovn/ovn${nbsb}_db.ctl \
+                     cluster/status ${schema_name}"
+}
+
+# microovn_ovndb_cluster_id CONTAINER NBSB
+#
+# Print OVN OVSDB cluster ID for database type NBSB from the point of view
+# of CONTAINER.
+#
+# Valid values for NBSB are `nb` for Northbound DB or `sb` for Southbound DB.
+function microovn_ovndb_cluster_id() {
+    local container=$1; shift
+    local nbsb=$1; shift
+
+    local schema_name;
+    schema_name=$(_ovn_schema_name "$nbsb")
+
+    lxc_exec "$container" \
+             "microovn.ovn-appctl \
+                 -t /var/snap/microovn/common/run/ovn/ovn${nbsb}_db.ctl \
+                     cluster/cid ${schema_name}"
+}
+
+# microovn_get_cluster_services CONTAINER
+#
+# Print MicroOVN services for CONTAINER from the point of view of CONTAINER.
+function microovn_get_cluster_services() {
+    local container=$1; shift
+
+    lxc_exec "$container" "microovn status" | \
+        grep -A1 "$container" | tr -d ',' | awk -F: '/Services:/{print$2}'
+}
