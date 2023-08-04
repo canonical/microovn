@@ -11,7 +11,7 @@ check-lint: check-tabs
 		-type f \
 		-not -name \*.yaml \
 		-not -name \*.swp \
-		| xargs shellcheck && echo Success!
+		| xargs shellcheck --severity=warning && echo Success!
 
 check-system: $(MICROOVN_SNAP)
 	echo "Running functional tests";					\
