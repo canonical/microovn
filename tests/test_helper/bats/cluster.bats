@@ -46,3 +46,62 @@ setup() {
         assert [ "$test_family" = "$addr_family" ]
     done
 }
+
+# _test_db_clustered NBSB
+#
+# Tests that database is clustered and listens to the expected address.  The
+# check is run in all containers that lists `central` as one of its services.
+#
+# The NBSB argument can be set to either `nb` or `sb` to indicate which
+# database to check.
+#
+# This test is implemented as a helper function so that we can make use of
+# the bats matrix/parallelization capabilities and is kept in this file
+# because it performs assertions through the `bats-assert` test_helper
+# libraries.
+function _test_db_clustered() {
+    local nbsb=$1; shift
+
+    local cluster_id_str
+
+    for container in $TEST_CONTAINERS; do
+        local container_services
+        container_services=$(microovn_get_cluster_services "$container")
+        if [[ "$container_services" != *"central"* ]]; then
+            echo "Skip $container, no central services" >&3
+            continue
+        fi
+
+        if [ -z "$cluster_id_str" ]; then
+            local cluster_id
+            cluster_id=$(microovn_ovndb_cluster_id "$container" "$nbsb")
+            local cluster_id_abbrev=
+            cluster_id_abbrev=$(echo $cluster_id |cut -c1-4)
+            cluster_id_str="Cluster ID: $cluster_id_abbrev ($cluster_id)"
+        fi
+
+        echo "Checking DB clustered from ${container}'s point of view" >&3
+        local expected_addr
+        expected_addr=$(print_address \
+            "$(microovn_get_cluster_address $container)")
+        local expected_port
+        [ "$nbsb" == "nb" ] && expected_port=6643 || expected_port=6644
+
+        run microovn_ovndb_cluster_status "$container" "$nbsb"
+
+        assert_success
+        assert_line "$cluster_id_str"
+        assert_line "Address: ssl:${expected_addr}:${expected_port}"
+        assert_line "Status: cluster member"
+    done
+}
+
+@test "OVN Northbound DB clustered" {
+    # Check Northbound database clustered using expected address/protocol.
+    _test_db_clustered nb
+}
+
+@test "OVN Southbound DB clustered" {
+    # Check Southbound database clustered using expected address/protocol.
+    _test_db_clustered sb
+}
