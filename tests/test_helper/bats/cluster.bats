@@ -105,3 +105,41 @@ function _test_db_clustered() {
     # Check Southbound database clustered using expected address/protocol.
     _test_db_clustered sb
 }
+
+@test "Chassis Open_vSwitch external_ids:ovn-remote addresses" {
+    local cluster_addresses=()
+    local container_services
+
+    # build a list of cluster addresses by interrogating every member
+    #
+    # Note that we do it this way intentionally to help uncover any
+    # inconsistencies (as opposed to asking a single member for all the
+    # addresses).
+    for container in $TEST_CONTAINERS; do
+        container_services=$(microovn_get_cluster_services "$container")
+        if [[ "$container_services" == *"central"* ]]; then
+            cluster_addresses+=( "$(microovn_get_cluster_address $container)" )
+        fi
+    done
+    assert_equal "${#cluster_addresses[@]}" 3
+
+    for container in $TEST_CONTAINERS; do
+        container_services=$(microovn_get_cluster_services "$container")
+        if [[ "$container_services" != *"chassis"* ]]; then
+            echo "Skip $container, no chassis services" >&3
+            continue
+        fi
+
+        run lxc_exec \
+            "$container" \
+            "microovn.ovs-vsctl get Open_vSwitch . external_ids:ovn-remote"
+        for addr in "${cluster_addresses[@]}"; do
+            local expected_addr
+            expected_addr=$(print_address \
+                "$(microovn_get_cluster_address $container)")
+            # By using a fully qualified search string we can safely use
+            # partial matching.
+            assert_output -p "ssl:$expected_addr:6642"
+        done
+    done
+}
