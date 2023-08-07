@@ -170,7 +170,7 @@ func ControllerCtl(s *state.State, args ...string) (string, error) {
 
 	stdout, _, err := shared.RunCommandSplit(
 		s.Context,
-		append(os.Environ(), fmt.Sprintf("OVS_RUNDIR=%s", paths.ChassisRuntimeDir())),
+		append(os.Environ(), fmt.Sprintf("OVS_RUNDIR=%s", paths.OvnRuntimeDir())),
 		nil,
 		"ovs-appctl",
 		arguments...,

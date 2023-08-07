@@ -7,7 +7,7 @@ set -eux
 # Setup directories
 export OVN_DBDIR="${SNAP_COMMON}/data/central/db"
 export OVN_LOGDIR="${SNAP_COMMON}/logs"
-export OVN_RUNDIR="${SNAP_COMMON}/run/central"
+export OVN_RUNDIR="${SNAP_COMMON}/run/ovn"
 export OVN_PKGDATADIR="${SNAP}/share/ovn"
 export OVN_SYSCONFDIR="${SNAP}/etc"
 export OVN_PKIDIR="${SNAP_COMMON}/data/pki"
