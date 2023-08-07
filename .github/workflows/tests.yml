@@ -19,18 +19,16 @@ jobs:
         run: |
           make check-lint
 
-  system-tests:
-    name: System tests
+  build:
+    name: build
     needs:
       - lint
     runs-on: ubuntu-22.04
     env:
-      SNAPCRAFT_BUILD_ENVIRONMENT: "lxd"
+      MICROOVN_SNAP: microovn.snap
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          submodules: recursive
 
       - name: Clear FORWARD firewall rules
         run: |
@@ -46,20 +44,80 @@ jobs:
           sudo snap set lxd daemon.group=adm
           sudo lxd init --auto
           sudo snap install snapcraft --classic
-          snap list
-          sudo apt update
-          sudo apt -y install bats
 
-      - name: Build snaps
-        run: make microovn.snap
-
-      - name: Run system tests
-        run: make check-system
+      - name: Build snap
+        run: make $MICROOVN_SNAP
 
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: snaps
-          path: "*.snap"
+          path: ${{ env.MICROOVN_SNAP }}
           retention-days: 5
+
+  metadata:
+    name: Generate matrix
+    needs:
+      - build
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Generate matrix
+        id: generate-matrix
+        run: |
+          MATRIX_JSON="{\"test-file\": ["
+          TEST_FILES=( $(cd tests; ls -1 *.bats) )
+          for (( i=0 ; i < "${#TEST_FILES[@]}"; i++ )); do
+              if [ $i -gt 0 ]; then
+                  MATRIX_JSON+=","
+              fi
+              MATRIX_JSON+="\"${TEST_FILES[$i]}\""
+          done
+          MATRIX_JSON+="]}"
+
+          echo matrix=${MATRIX_JSON} | tee -a ${GITHUB_OUTPUT}
+
+  system-tests:
+    name: System tests
+    needs:
+      - metadata
+    runs-on: ubuntu-22.04
+    env:
+      MICROOVN_SNAP_PATH: ${{ github.workspace }}/microovn.snap
+    strategy:
+      matrix: ${{ fromJson(needs.metadata.outputs.matrix) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Download built snap
+        uses: actions/download-artifact@v3
+        with:
+          name: snaps
+
+      - name: Clear FORWARD firewall rules
+        run: |
+          # Docker can inject rules causing firewall conflicts
+          sudo iptables -P FORWARD ACCEPT  || true
+          sudo ip6tables -P FORWARD ACCEPT || true
+          sudo iptables -F FORWARD  || true
+          sudo ip6tables -F FORWARD || true
+
+      - name: Install dependencies
+        run: |
+          sudo snap refresh
+          sudo snap set lxd daemon.group=adm
+          sudo lxd init --auto
+          snap list
+          sudo apt update
+          sudo apt -y install bats
+
+      - name: Run system tests
+        run: bats tests/${{ matrix.test-file }}
