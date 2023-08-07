@@ -163,3 +163,22 @@ function microovn_get_cluster_services() {
     lxc_exec "$container" "microovn status" | \
         grep -A1 "$container" | tr -d ',' | awk -F: '/Services:/{print$2}'
 }
+
+# microovn_get_member_cluster_address SERVICE CONTAINER [...]
+#
+# Print list of cluster addresses by interrogating every member with SERVICE.
+#
+# Note that we do it this way intentionally to help uncover any
+# inconsistencies (as opposed to asking a single member for all the
+# addresses).
+function microovn_get_member_cluster_address() {
+    local service=$1; shift
+    local containers=$*
+
+    for container in $containers; do
+        container_services=$(microovn_get_cluster_services "$container")
+        if [[ "$container_services" == *"$service"* ]]; then
+            echo "$(microovn_get_cluster_address $container)"
+        fi
+    done
+}

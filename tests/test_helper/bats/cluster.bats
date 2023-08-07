@@ -110,19 +110,10 @@ function _test_db_clustered() {
     local cluster_addresses=()
     local container_services
 
-    # build a list of cluster addresses by interrogating every member
-    #
-    # Note that we do it this way intentionally to help uncover any
-    # inconsistencies (as opposed to asking a single member for all the
-    # addresses).
-    for container in $TEST_CONTAINERS; do
-        container_services=$(microovn_get_cluster_services "$container")
-        if [[ "$container_services" == *"central"* ]]; then
-            cluster_addresses+=( "$(microovn_get_cluster_address $container)" )
-        fi
-    done
+    readarray \
+        -t cluster_addresses \
+        < <(microovn_get_member_cluster_address "central" $TEST_CONTAINERS)
     assert_equal "${#cluster_addresses[@]}" 3
-
     for container in $TEST_CONTAINERS; do
         container_services=$(microovn_get_cluster_services "$container")
         if [[ "$container_services" != *"chassis"* ]]; then
@@ -142,4 +133,57 @@ function _test_db_clustered() {
             assert_output -p "ssl:$expected_addr:6642"
         done
     done
+}
+
+# _test_db_connection_string NBSB
+#
+# Tests that database connection string for NBSB contains the expected
+# addresses.
+#
+# The NBSB argument can be set to either `nb` or `sb` to indicate which
+# database to check.
+#
+# This test is implemented as a helper function so that we can make use of
+# the bats matrix/parallelization capabilities and is kept in this file
+# because it performs assertions through the `bats-assert` test_helper
+# libraries.
+function _test_db_connection_string() {
+    local nbsb=$1; shift
+
+    local check_var
+    [ "$nbsb" == "nb" ] && \
+        check_var=OVN_NB_CONNECT || \
+        check_var=OVN_SB_CONNECT
+    local expected_port
+    [ "$nbsb" == "nb" ] && \
+        expected_port=6641 || \
+        expected_port=6642
+
+    local cluster_addresses=()
+
+    readarray \
+        -t cluster_addresses \
+        < <(microovn_get_member_cluster_address "central" $TEST_CONTAINERS)
+    assert_equal "${#cluster_addresses[@]}" 3
+    for container in $TEST_CONTAINERS; do
+        run lxc_exec \
+            "$container" \
+            "grep ^$check_var /var/snap/microovn/common/data/ovn.env"
+        for addr in "${cluster_addresses[@]}"; do
+            local expected_addr
+            expected_addr=$(print_address \
+                "$(microovn_get_cluster_address $container)")
+            # By using a fully qualified search string we can safely use
+            # partial matching.
+            assert_output -p "ssl:${expected_addr}:${expected_port}"
+        done
+    done
+}
+
+@test "OVN Northbound DB connection string" {
+    _test_db_connection_string nb
+}
+
+@test "OVN Southbound DB connection string" {
+    _test_db_connection_string sb
 }
