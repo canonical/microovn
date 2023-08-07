@@ -20,19 +20,14 @@ func LogsDir() string {
 	return filepath.Join(pathRoot, "logs")
 }
 
-// CentralRuntimeDir returns path to the directory where OVN Central creates its runtime files
-func CentralRuntimeDir() string {
-	return filepath.Join(runtimeDir, "central")
+// OvnRuntimeDir returns path to the directory where OVN Central creates its runtime files
+func OvnRuntimeDir() string {
+	return filepath.Join(runtimeDir, "ovn")
 }
 
 // CentralDBDir returns path to the directory where OVN Central stores its databases
 func CentralDBDir() string {
 	return filepath.Join(dataDir, "central", "db")
-}
-
-// ChassisRuntimeDir returns path to the directory where OVN Controller stores its runtime files
-func ChassisRuntimeDir() string {
-	return filepath.Join(runtimeDir, "chassis")
 }
 
 // SwitchDBDir returns path to the directory where OpenvSwitch stores its database
@@ -57,22 +52,22 @@ func OvnEnvFile() string {
 
 // OvnNBDatabaseSock returns path to the local unix socket used by Northbound OVN database
 func OvnNBDatabaseSock() string {
-	return filepath.Join(CentralRuntimeDir(), "ovnnb_db.sock")
+	return filepath.Join(OvnRuntimeDir(), "ovnnb_db.sock")
 }
 
 // OvnSBDatabaseSock returns path to the local unix socket used by Southbound OVN database
 func OvnSBDatabaseSock() string {
-	return filepath.Join(CentralRuntimeDir(), "ovnsb_db.sock")
+	return filepath.Join(OvnRuntimeDir(), "ovnsb_db.sock")
 }
 
 // OvnNBControlSock returns path to the local control socket for Northbound OVN service
 func OvnNBControlSock() string {
-	return filepath.Join(CentralRuntimeDir(), "ovnnb_db.ctl")
+	return filepath.Join(OvnRuntimeDir(), "ovnnb_db.ctl")
 }
 
 // OvnSBControlSock returns path to the local control socket for Southbound OVN service
 func OvnSBControlSock() string {
-	return filepath.Join(CentralRuntimeDir(), "ovnsb_db.ctl")
+	return filepath.Join(OvnRuntimeDir(), "ovnsb_db.ctl")
 }
 
 // OvsDatabaseSock returns path to the local unix socket used by OpenvSwitch database
@@ -127,9 +122,8 @@ func getServiceCertFiles(service string) (string, string) {
 // function properly
 func RequiredDirs() []string {
 	return []string{
-		CentralRuntimeDir(),
+		OvnRuntimeDir(),
 		CentralDBDir(),
-		ChassisRuntimeDir(),
 		SwitchDBDir(),
 		SwitchRuntimeDir(),
 		SwitchDataDir(),
