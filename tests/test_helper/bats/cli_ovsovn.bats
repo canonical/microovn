@@ -23,6 +23,31 @@ setup() {
     done
 }
 
+@test "ovs-dpctl" {
+    for container in $TEST_CONTAINERS; do
+        run lxc_exec "$container" \
+            "microovn.ovs-dpctl dump-dps"
+        assert_success
+        assert_output "system@ovs-system"
+    done
+}
+
+@test "ovs-ofctl" {
+    for container in $TEST_CONTAINERS; do
+        run lxc_exec "$container" \
+            "microovn.ovs-ofctl dump-flows br-int >/dev/null"
+        assert_success
+    done
+}
+
+@test "ovs-vsctl" {
+    for container in $TEST_CONTAINERS; do
+        run lxc_exec "$container" \
+            "microovn.ovs-vsctl show >/dev/null"
+        assert_success
+    done
+}
+
 @test "ovs-appctl ovsdb-server" {
     for container in $TEST_CONTAINERS; do
         run lxc_exec "$container" \
