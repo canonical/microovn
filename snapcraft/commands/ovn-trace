@@ -2,4 +2,7 @@
 # Load the environment
 . ${SNAP}/commands/ovn-sb
 
+# ovn-trace may also interrogate the local Open vSwitch instance
+export OVS_RUNDIR="${SNAP_COMMON}/run/switch/"
+
 exec ovn-trace -c "$CERT" -p "$KEY" -C "$CA_CERT" "${@}"
