@@ -35,3 +35,17 @@ function test_ipv6_addr() {
 
     [[ $addr == *":"* ]]
 }
+
+# print_address ADDRESS
+#
+# Prints ADDRESS, encapsulating it in brackets (`[]`) if it appears to be an
+# IPv6 address.
+function print_address() {
+    local addr=$1; shift
+
+    printf "%s%s%s\n" \
+        "$(test_ipv6_addr $addr && echo '[' || true)" \
+        "$addr" \
+        "$(test_ipv6_addr $addr && echo ']' || true)"
+}
+
