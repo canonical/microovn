@@ -31,9 +31,9 @@ declare -g -A OVN_CHASSIS_PKI=(\
 # Ensure that service listening on IP_ADDR and PORT uses TLS and can be verified using
 # CA certificate used by the MicroOVN on the specified CONTAINER.
 function verify_service_cert() {
-    local container=$1
-    local ip_addr=$2
-    local port=$3
+    local container=$1; shift
+    local ip_addr=$1; shift
+    local port=$1; shift
     echo "# ($container) Checking TLS on $ip_addr:$port"
     lxc_exec "$container" "openssl s_client -CAfile $CA_CERT_PATH -cert $CLIENT_CERT_PATH \
         -key $CLIENT_KEY_PATH -verify_return_error -connect $ip_addr:$port <<< Q"
@@ -51,8 +51,8 @@ function verify_service_cert() {
 #   * Ensure that the private key is used to sign the certificate
 #   * Ensure that the certificate can be validated using CA certificate
 function _verify_cert_files() {
-    local container=$1
-    local -n certificate_map=$2
+    local container=$1; shift
+    local -n certificate_map=$1; shift
     for cert in "${!certificate_map[@]}"; do
         local key="${certificate_map[$cert]}"
 
@@ -78,8 +78,8 @@ function _verify_cert_files() {
 #
 # For more info about checks see _verify_cert_files
 function verify_central_cert_files() {
-    local container=$1
-    _verify_cert_files "$1" OVN_CENTRAL_PKI
+    local container=$1; shift
+    _verify_cert_files "$container" OVN_CENTRAL_PKI
 }
 
 # verify_central_cert_files CONTAINER
@@ -89,8 +89,8 @@ function verify_central_cert_files() {
 #
 # For more info about checks see _verify_cert_files
 function verify_chassis_cert_files() {
-    local container=$1
-    _verify_cert_files "$1"  OVN_CHASSIS_PKI
+    local container=$1; shift
+    _verify_cert_files "$container"  OVN_CHASSIS_PKI
 }
 
 # reissue_certificate CONTAINER SERVICE
@@ -101,8 +101,8 @@ function verify_chassis_cert_files() {
 # output of that command for list of valid values for SERVICE argument.
 function reissue_certificate() {
     # Issue new certificate for a specified OVN service in the container.
-    local container=$1
-    local service=$2
+    local container=$1; shift
+    local service=$1; shift
     lxc_exec "$container" "microovn certificates reissue $service"
 }
 
@@ -110,8 +110,8 @@ function reissue_certificate() {
 #
 # Print fingerprint of a certificate inside a CONTAINER
 function get_cert_fingerprint() {
-    local container=$1
-    local cert_path=$2
+    local container=$1; shift
+    local cert_path=$1; shift
     local fingerprint=""
 
     fingerprint=$(lxc_exec "$container" "openssl x509 -in $cert_path -noout -fingerprint")

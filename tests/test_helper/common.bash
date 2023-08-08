@@ -57,9 +57,9 @@ function print_address() {
 # OVN services are up and listening. This function will retry for maximum of
 # MAX_RETRY times, each time backing of for 1 second between attempts.
 function wait_for_open_port() {
-    local container=$1
-    local port=$2
-    local max_retry=$3
+    local container=$1; shift
+    local port=$1; shift
+    local max_retry=$1; shift
     local attempt=1
     local success=0
 
