@@ -69,7 +69,9 @@ services on the local host; it does not affect peer cluster members.
 .. important::
 
    Services must be running in order to be affected by the
-   :command:`certificates reissue` command.
+   :command:`certificates reissue` command. For example, running
+   :command:`certificates reissue ovnnb` on a member that does not run this
+   service is expected to fail.
 
 To re-issue a certificate for a single service:
 
