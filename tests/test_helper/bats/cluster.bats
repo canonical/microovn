@@ -16,10 +16,15 @@ setup() {
 
 @test "Expected MicroOVN cluster count" {
     # Extremely simplified check that cluster has required number of members
+    local expected_cluster_members=0
+    for container in $TEST_CONTAINERS; do
+        expected_cluster_members=$(($expected_cluster_members+1))
+    done
+
     for container in $TEST_CONTAINERS; do
         echo "Checking cluster members on $container"
         run lxc_exec "$container" "microovn cluster list --format json | jq length"
-        assert_output "3"
+        assert_output $expected_cluster_members
     done
 }
 
