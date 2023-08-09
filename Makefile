@@ -1,5 +1,6 @@
 MICROOVN_SNAP=microovn.snap
 export MICROOVN_SNAP_PATH := $(CURDIR)/$(MICROOVN_SNAP)
+export MICROOVN_TEST_ROOT := $(CURDIR)/tests
 
 ifndef MICROOVN_SNAP_CHANNEL
 	export MICROOVN_SNAP_CHANNEL="latest/stable"
@@ -17,9 +18,9 @@ check-lint: check-tabs
 		-not -name \*.swp \
 		| xargs shellcheck --severity=warning && echo Success!
 
-check-system: $(MICROOVN_SNAP)
+check-system: $(MICROOVN_SNAP) generate-tests
 	echo "Running functional tests";					\
-	bats tests/
+	bats tests/upgrade.bats
 
 $(MICROOVN_SNAP):
 	echo "Building the snap";						\
@@ -28,3 +29,6 @@ $(MICROOVN_SNAP):
 clean:
 	rm -f $(MICROOVN_SNAP_PATH);						\
 	snapcraft clean
+
+generate-tests:
+	$(MICROOVN_TEST_ROOT)/generate_tests.bash
