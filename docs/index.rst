@@ -19,3 +19,9 @@ entry to ``OVN`` for people that are not yet familiar with it by automating as
 much of a deployment process as possible. At the same time, the aim is for
 ``MicroOVN`` to provide fully fledged ``OVN`` deployment not restricted in any
 way and suitable for production environment.
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+
+   how-to/index
