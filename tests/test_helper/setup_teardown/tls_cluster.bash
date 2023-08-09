@@ -30,3 +30,19 @@ setup_file() {
 teardown_file() {
     delete_containers $TEST_CONTAINERS
 }
+
+setup() {
+    load test_helper/common.bash
+    load test_helper/lxd.bash
+    load test_helper/tls.bash
+    load test_helper/microovn.bash
+    load ../.bats/bats-support/load.bash
+    load ../.bats/bats-assert/load.bash
+
+    # Ensure TEST_CONTAINERS is populated, otherwise the tests below will
+    # provide false positive results.
+    assert [ -n "$TEST_CONTAINERS" ]
+    assert [ -n "$CENTRAL_CONTAINERS" ]
+    assert [ -n "$CHASSIS_CONTAINERS" ]
+}
+
