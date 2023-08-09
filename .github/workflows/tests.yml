@@ -116,8 +116,6 @@ jobs:
           sudo snap set lxd daemon.group=adm
           sudo lxd init --auto
           snap list
-          sudo apt update
-          sudo apt -y install bats
 
       - name: Run system tests
-        run: bats tests/${{ matrix.test-file }}
+        run: .bats/bats-core/bin/bats tests/${{ matrix.test-file }}
