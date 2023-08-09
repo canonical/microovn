@@ -21,6 +21,19 @@ function install_microovn() {
     done
 }
 
+# install_microovn_from_store CHANNEL CONTAINER1 [CONTAINER2 ...]
+#
+# Install MicroOVN snap from specified CHANNEL from Snap store in all CONTAINERs.
+function install_microovn_from_store() {
+    local channel=$1; shift
+    local containers=$*
+
+    for container in $containers; do
+        echo "# Installing MicroOVN from SnapStore in container $container" >&3
+        lxc_exec "$container" "snap install microovn --channel $channel"
+    done
+}
+
 function microovn_cluster_get_join_token() {
     local existing_member=$1; shift
     local new_member=$1; shift
@@ -232,4 +245,52 @@ function microovn_wait_for_service_starttime() {
     local pid
     pid=$(wait_until "microovn_get_service_pid $container $service $rundir")
     get_pid_start_time $container $pid
+}
+
+# wait_microovn_online CONTAINER MAX_RETRY
+#
+# Wait until all MicroOVN members reach online state from the point
+# of view of the CONTAINER. There's a 1 second delay between retry attempts
+# so MAX_RETRY parameter roughly corresponds to how many seconds it takes for this
+# function to time out.
+#
+# If cluster members do not reach "online" state before the MAX_RETRY is reached, this
+# function returns 1 as a return code.
+function wait_microovn_online() {
+    local container=$1; shift
+    local max_retry=$1; shift
+    local rc=1
+
+    # Retry with 1s backoff until all MicroOVN members show ONLINE status
+    for (( i = 1; i <= "$max_retry"; i++ )); do
+        local all_online=1
+        echo "# ($container) Waiting for MicroOVN cluster to come ONLINE ($i/$max_retry)"
+
+        # Each line in the output of command below shows individual cluster member status
+        run lxc_exec "$container" "microovn cluster list -f json | jq -r .[].status"
+
+        # Fail this iteration if 'microovn cluster list' fails.
+        if [ "$status" -ne 0 ]; then
+            all_online=0
+        fi
+
+        # Parse lines in the command output and fail this iteration if not all lines match
+        # the expected member status
+        # shellcheck disable=SC2154 # Variable "$output" is exported from previous execution of 'run'
+        while read -r status ; do
+            if [ "$status" != "ONLINE" ]; then
+                echo "# ($container) At least one member in state '$status'"
+                all_online=0
+            fi
+        done <<< "$output"
+
+        if [ $all_online -eq 1 ] ; then
+            echo "# ($container) All cLuster members reach ONLINE state"
+            rc=0
+            break
+        fi
+        sleep 1
+    done
+
+    return $rc
 }
