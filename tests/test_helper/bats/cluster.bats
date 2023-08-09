@@ -30,9 +30,21 @@ setup() {
 
 @test "Expected services up" {
     # Check that all expected services are active on cluster members
-    SERVICES="snap.microovn.central snap.microovn.chassis snap.microovn.daemon snap.microovn.switch"
+    local chassis_services="snap.microovn.chassis \
+                            snap.microovn.daemon \
+                            snap.microovn.switch"
+    local central_services="snap.microovn.central \
+                            $chassis_services"
+
     for container in $TEST_CONTAINERS; do
-        for service in $SERVICES ; do
+        local container_services
+        container_services=$(microovn_get_cluster_services "$container")
+        local check_services
+        [[ "$container_services" == *"central"* ]] && \
+            check_services=$central_services || \
+            check_services=$chassis_services
+
+        for service in $check_services; do
             echo "Checking status of $service on $container"
             run lxc_exec "$container" "systemctl is-active $service"
             assert_output "active"
