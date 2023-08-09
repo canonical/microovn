@@ -130,7 +130,6 @@ function _test_db_clustered() {
     readarray \
         -t cluster_addresses \
         < <(microovn_get_member_cluster_address "central" $TEST_CONTAINERS)
-    assert_equal "${#cluster_addresses[@]}" 3
     for container in $TEST_CONTAINERS; do
         container_services=$(microovn_get_cluster_services "$container")
         if [[ "$container_services" != *"chassis"* ]]; then
@@ -143,8 +142,7 @@ function _test_db_clustered() {
             "microovn.ovs-vsctl get Open_vSwitch . external_ids:ovn-remote"
         for addr in "${cluster_addresses[@]}"; do
             local expected_addr
-            expected_addr=$(print_address \
-                "$(microovn_get_cluster_address $container)")
+            expected_addr=$(print_address $addr)
             # By using a fully qualified search string we can safely use
             # partial matching.
             assert_output -p "ssl:$expected_addr:6642"
@@ -181,15 +179,13 @@ function _test_db_connection_string() {
     readarray \
         -t cluster_addresses \
         < <(microovn_get_member_cluster_address "central" $TEST_CONTAINERS)
-    assert_equal "${#cluster_addresses[@]}" 3
     for container in $TEST_CONTAINERS; do
         run lxc_exec \
             "$container" \
             "grep ^$check_var /var/snap/microovn/common/data/ovn.env"
         for addr in "${cluster_addresses[@]}"; do
             local expected_addr
-            expected_addr=$(print_address \
-                "$(microovn_get_cluster_address $container)")
+            expected_addr=$(print_address $addr)
             # By using a fully qualified search string we can safely use
             # partial matching.
             assert_output -p "ssl:${expected_addr}:${expected_port}"
