@@ -1,6 +1,10 @@
 MICROOVN_SNAP=microovn.snap
 export MICROOVN_SNAP_PATH := $(CURDIR)/$(MICROOVN_SNAP)
 
+ifndef MICROOVN_SNAP_CHANNEL
+	export MICROOVN_SNAP_CHANNEL="latest/stable"
+endif
+
 check: check-lint check-system
 
 check-tabs:
