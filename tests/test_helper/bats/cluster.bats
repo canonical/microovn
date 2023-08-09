@@ -1,13 +1,13 @@
 # This is a bash shell fragment -*- bash -*-
 
-load "test_helper/setup_teardown/$(basename "${BATS_TEST_FILENAME//.bats/.bash}")"
+load "${ABS_TOP_TEST_DIRNAME}test_helper/setup_teardown/$(basename "${BATS_TEST_FILENAME//.bats/.bash}")"
 
 setup() {
-    load test_helper/common.bash
-    load test_helper/lxd.bash
-    load test_helper/microovn.bash
-    load ../.bats/bats-support/load.bash
-    load ../.bats/bats-assert/load.bash
+    load ${ABS_TOP_TEST_DIRNAME}test_helper/common.bash
+    load ${ABS_TOP_TEST_DIRNAME}test_helper/lxd.bash
+    load ${ABS_TOP_TEST_DIRNAME}test_helper/microovn.bash
+    load ${ABS_TOP_TEST_DIRNAME}../.bats/bats-support/load.bash
+    load ${ABS_TOP_TEST_DIRNAME}../.bats/bats-assert/load.bash
 
     # Ensure TEST_CONTAINERS is populated, otherwise the tests below will
     # provide false positive results.
