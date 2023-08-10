@@ -1,4 +1,22 @@
-function OVN_central_services_have_enabled_tls() {
+# This is a bash shell fragment -*- bash -*-
+load "test_helper/setup_teardown/$(basename "${BATS_TEST_FILENAME//.bats/.bash}")"
+
+setup() {
+    load test_helper/common.bash
+    load test_helper/lxd.bash
+    load test_helper/tls.bash
+    load test_helper/microovn.bash
+    load ../.bats/bats-support/load.bash
+    load ../.bats/bats-assert/load.bash
+
+    # Ensure TEST_CONTAINERS is populated, otherwise the tests below will
+    # provide false positive results.
+    assert [ -n "$TEST_CONTAINERS" ]
+    assert [ -n "$CENTRAL_CONTAINERS" ]
+    assert [ -n "$CHASSIS_CONTAINERS" ]
+}
+
+@test "OVN central services have enabled TLS" {
     # Ensure that OVN service are listening on ports with TLS enabled
     local ports="6641 6642 6643 6644"
 
@@ -12,7 +30,7 @@ function OVN_central_services_have_enabled_tls() {
     done
 }
 
-function certificate_files_are_valid_certificates() {
+@test "Certificates files are valid certificates" {
     # Validate certificate files issued by MicroOVN
 
     for container in $CENTRAL_CONTAINERS; do
@@ -24,7 +42,7 @@ function certificate_files_are_valid_certificates() {
     done
 }
 
-function list_certificates_on_OVN_central_node() {
+@test "List certificates on OVN Central node" {
     # Ensure that expected certificates are listed in the output of the 'microovn certificates list'
     # command.
     local container=""
@@ -58,7 +76,7 @@ function list_certificates_on_OVN_central_node() {
 
 }
 
-function list_certificates_on_OVN_chassis_node() {
+@test "List certificates on OVN Chassis node" {
     # Ensure that expected certificates are listed in the output of the 'microovn certificates list'
     # command.
     local container=""
@@ -83,7 +101,7 @@ function list_certificates_on_OVN_chassis_node() {
 
 }
 
-function reissue_individual_certificates_on_OVN_Central_node() {
+@test "Reissue individual certificates on OVN Central node" {
     # Ensure that MicroOVN is capable of individually re-issuing certificates used on OVN central nodes
     local container=""
     container=$(echo "$CENTRAL_CONTAINERS" | awk '{print $1;}')
@@ -112,7 +130,7 @@ function reissue_individual_certificates_on_OVN_Central_node() {
     verify_central_cert_files "$container"
 }
 
-function reissue_individual_certificates_on_OVN_Chassis_node() {
+@test "Reissue individual certificates on OVN Chassis node" {
     # Ensure that MicroOVN is capable of individually re-issuing certificates used on OVN chassis nodes
     local container=""
     container=$(echo "$CHASSIS_CONTAINERS" | awk '{print $1;}')
@@ -162,7 +180,7 @@ function reissue_individual_certificates_on_OVN_Chassis_node() {
     verify_chassis_cert_files "$container"
 }
 
-function reissue_all_certificates_on_OVN_Central_node() {
+@test "Reissue all certificates on OVN Central node" {
     # Ensure that MicroOVN can reissue certificate using magic argument 'all'
     local container=""
     container=$(echo "$CENTRAL_CONTAINERS" | awk '{print $1;}')
@@ -206,7 +224,7 @@ function reissue_all_certificates_on_OVN_Central_node() {
     verify_central_cert_files "$container"
 }
 
-function reissue_all_certificates_on_OVN_Chassis_node() {
+@test "Reissue all certificates on OVN Chassis node" {
     # Ensure that MicroOVN does not issue certificates for disabled services when using magic argument 'all'
     # Remaining functionality of 'microovn certificates reissue all' is tested in "central" node test.
     local container=""
@@ -232,7 +250,7 @@ function reissue_all_certificates_on_OVN_Chassis_node() {
     verify_chassis_cert_files "$container"
 }
 
-function regenerate_ca() {
+@test "Regenerate CA" {
     # Test recreation of the entire PKI. New CA should be created and then used to
     # reissue all server/client certificates
     local container=""
