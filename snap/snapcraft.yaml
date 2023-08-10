@@ -105,6 +105,12 @@ apps:
     command: commands/ovs-vsctl
     plugs:
       - network
+  ovsdb-tool:
+    command: bin/ovsdb-tool
+  ovsdb-client:
+    command: bin/ovsdb-client
+    plugs:
+      - network
 
   refresh-expiring-certs:
     command: commands/refresh-expiring-certs
