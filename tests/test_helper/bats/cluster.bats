@@ -1,13 +1,13 @@
 # This is a bash shell fragment -*- bash -*-
 
-load "test_helper/setup_teardown/$(basename "${BATS_TEST_FILENAME//.bats/.bash}")"
+load "${ABS_TOP_TEST_DIRNAME}test_helper/setup_teardown/$(basename "${BATS_TEST_FILENAME//.bats/.bash}")"
 
 setup() {
-    load test_helper/common.bash
-    load test_helper/lxd.bash
-    load test_helper/microovn.bash
-    load ../.bats/bats-support/load.bash
-    load ../.bats/bats-assert/load.bash
+    load ${ABS_TOP_TEST_DIRNAME}test_helper/common.bash
+    load ${ABS_TOP_TEST_DIRNAME}test_helper/lxd.bash
+    load ${ABS_TOP_TEST_DIRNAME}test_helper/microovn.bash
+    load ${ABS_TOP_TEST_DIRNAME}../.bats/bats-support/load.bash
+    load ${ABS_TOP_TEST_DIRNAME}../.bats/bats-assert/load.bash
 
     # Ensure TEST_CONTAINERS is populated, otherwise the tests below will
     # provide false positive results.
@@ -16,18 +16,35 @@ setup() {
 
 @test "Expected MicroOVN cluster count" {
     # Extremely simplified check that cluster has required number of members
+    local expected_cluster_members=0
+    for container in $TEST_CONTAINERS; do
+        expected_cluster_members=$(($expected_cluster_members+1))
+    done
+
     for container in $TEST_CONTAINERS; do
         echo "Checking cluster members on $container"
         run lxc_exec "$container" "microovn cluster list --format json | jq length"
-        assert_output "3"
+        assert_output $expected_cluster_members
     done
 }
 
 @test "Expected services up" {
     # Check that all expected services are active on cluster members
-    SERVICES="snap.microovn.central snap.microovn.chassis snap.microovn.daemon snap.microovn.switch"
+    local chassis_services="snap.microovn.chassis \
+                            snap.microovn.daemon \
+                            snap.microovn.switch"
+    local central_services="snap.microovn.central \
+                            $chassis_services"
+
     for container in $TEST_CONTAINERS; do
-        for service in $SERVICES ; do
+        local container_services
+        container_services=$(microovn_get_cluster_services "$container")
+        local check_services
+        [[ "$container_services" == *"central"* ]] && \
+            check_services=$central_services || \
+            check_services=$chassis_services
+
+        for service in $check_services; do
             echo "Checking status of $service on $container"
             run lxc_exec "$container" "systemctl is-active $service"
             assert_output "active"
@@ -113,7 +130,6 @@ function _test_db_clustered() {
     readarray \
         -t cluster_addresses \
         < <(microovn_get_member_cluster_address "central" $TEST_CONTAINERS)
-    assert_equal "${#cluster_addresses[@]}" 3
     for container in $TEST_CONTAINERS; do
         container_services=$(microovn_get_cluster_services "$container")
         if [[ "$container_services" != *"chassis"* ]]; then
@@ -126,8 +142,7 @@ function _test_db_clustered() {
             "microovn.ovs-vsctl get Open_vSwitch . external_ids:ovn-remote"
         for addr in "${cluster_addresses[@]}"; do
             local expected_addr
-            expected_addr=$(print_address \
-                "$(microovn_get_cluster_address $container)")
+            expected_addr=$(print_address $addr)
             # By using a fully qualified search string we can safely use
             # partial matching.
             assert_output -p "ssl:$expected_addr:6642"
@@ -164,15 +179,13 @@ function _test_db_connection_string() {
     readarray \
         -t cluster_addresses \
         < <(microovn_get_member_cluster_address "central" $TEST_CONTAINERS)
-    assert_equal "${#cluster_addresses[@]}" 3
     for container in $TEST_CONTAINERS; do
         run lxc_exec \
             "$container" \
             "grep ^$check_var /var/snap/microovn/common/data/ovn.env"
         for addr in "${cluster_addresses[@]}"; do
             local expected_addr
-            expected_addr=$(print_address \
-                "$(microovn_get_cluster_address $container)")
+            expected_addr=$(print_address $addr)
             # By using a fully qualified search string we can safely use
             # partial matching.
             assert_output -p "ssl:${expected_addr}:${expected_port}"
