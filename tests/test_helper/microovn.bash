@@ -21,6 +21,19 @@ function install_microovn() {
     done
 }
 
+# install_microovn_from_store CHANNEL CONTAINER1 [CONTAINER2 ...]
+#
+# Install MicroOVN snap from specified CHANNEL from Snap store in all CONTAINERs.
+function install_microovn_from_store() {
+    local channel=$1; shift
+    local containers=$*
+
+    for container in $containers; do
+        echo "# Installing MicroOVN from SnapStore in container $container" >&3
+        lxc_exec "$container" "snap install microovn --channel $channel"
+    done
+}
+
 function microovn_cluster_get_join_token() {
     local existing_member=$1; shift
     local new_member=$1; shift
@@ -177,6 +190,26 @@ function microovn_ovndb_cluster_id() {
                      cluster/cid ${schema_name}"
 }
 
+# microovn_ovndb_server_id CONTAINER NBSB
+#
+# Print (short) cluster ID of OVN OVSDB cluster member
+#
+# Valid values for NBSB are `nb` for Northbound DB or `sb` for Southbound DB.
+function microovn_ovndb_server_id() {
+    local container=$1; shift
+    local nbsb=$1; shift
+
+    local schema_name;
+    schema_name=$(_ovn_schema_name "$nbsb")
+
+    local full_sid=""
+    full_sid=$(lxc_exec "$container" \
+               "microovn.ovn-appctl \
+                   -t /var/snap/microovn/common/run/ovn/ovn${nbsb}_db.ctl \
+                       cluster/sid ${schema_name}")
+    echo "${full_sid:0:4}"
+}
+
 # microovn_get_cluster_services CONTAINER
 #
 # Print MicroOVN services for CONTAINER from the point of view of CONTAINER.
@@ -232,4 +265,132 @@ function microovn_wait_for_service_starttime() {
     local pid
     pid=$(wait_until "microovn_get_service_pid $container $service $rundir")
     get_pid_start_time $container $pid
+}
+
+# wait_microovn_online CONTAINER MAX_RETRY
+#
+# Wait until all MicroOVN members reach online state from the point
+# of view of the CONTAINER. There's a 1 second delay between retry attempts
+# so MAX_RETRY parameter roughly corresponds to how many seconds it takes for this
+# function to time out.
+#
+# If cluster members do not reach "online" state before the MAX_RETRY is reached, this
+# function returns 1 as a return code.
+function wait_microovn_online() {
+    local container=$1; shift
+    local max_retry=$1; shift
+    local rc=1
+
+    # Retry with 1s backoff until all MicroOVN members show ONLINE status
+    for (( i = 1; i <= "$max_retry"; i++ )); do
+        local all_online=1
+        echo "# ($container) Waiting for MicroOVN cluster to come ONLINE ($i/$max_retry)"
+
+        # Each line in the output of command below shows individual cluster member status
+        run lxc_exec "$container" "microovn cluster list -f json | jq -r .[].status"
+
+        # Fail this iteration if 'microovn cluster list' fails.
+        if [ "$status" -ne 0 ]; then
+            all_online=0
+        fi
+
+        # Parse lines in the command output and fail this iteration if not all lines match
+        # the expected member status
+        # shellcheck disable=SC2154 # Variable "$output" is exported from previous execution of 'run'
+        while read -r status ; do
+            if [ "$status" != "ONLINE" ]; then
+                echo "# ($container) At least one member in state '$status'"
+                all_online=0
+            fi
+        done <<< "$output"
+
+        if [ $all_online -eq 1 ] ; then
+            echo "# ($container) All cLuster members reach ONLINE state"
+            rc=0
+            break
+        fi
+        sleep 1
+    done
+
+    return $rc
+}
+
+# wait_ovsdb_cluster_changes_applied CONTAINER CONTROL_PATH DB_NAME TIMEOUT
+#
+# Wait until OVN OVSDB cluster member converges with rest of the cluster. This function
+# checks output of ovn-appctl to make sure that field 'Entries not yet applied' reaches 0.
+# It requires CONTROL_PATH which points to database's .ctl file (i.e. path/to/ovnnb_db.ctl)
+# and DB_NAME which should be either "OVN_Northbound" or "OVN_Southbound.
+#
+# TIMEOUT in seconds is roughly obeyed. If conditions are not met before timeout is reached, this
+# functions returns non-zero RC
+function wait_ovsdb_cluster_changes_applied() {
+    local container=$1; shift
+    local ctl_path=$1; shift
+    local db_name=$1; shift
+    local timeout=$1; shift
+    local rc=1
+    local retries=""
+    retries=$((timeout * 2))
+
+    for (( i = 1; i <= "$retries"; i++ )); do
+        echo "# ($container) Waiting for $db_name to apply all changes ($i/$retries)"
+        run lxc_exec "$container" "microovn.ovn-appctl -t $ctl_path cluster/status $db_name"
+        # shellcheck disable=SC2154 # Variable "$output" is exported from previous execution of 'run'
+        echo "# ($container) Cluster status: $output"
+        if [[ "$output" == *"Entries not yet applied: 0"* ]]; then
+            echo "# ($container) All changes applied to $db_name"
+           rc=0
+           break
+        fi
+        sleep 0.5
+    done
+
+    return $rc
+}
+
+# wait_ovsdb_cluster_container_leave SERVER_ID CONTROL_PATH DB_NAME TIMEOUT CONTAINER1 [CONTAINER2 ...]
+#
+# Wait until all CONTAINERs confirm that cluster member with SERVER_ID is no longer present in cluster.
+#
+# This function requires CONTROL_PATH which points to database's .ctl file (i.e. path/to/ovnnb_db.ctl)
+# and DB_NAME which should be either "OVN_Northbound" or "OVN_Southbound.
+#
+# TIMEOUT in seconds is roughly obeyed. If conditions are not met before timeout is reached, this
+# functions returns non-zero RC
+function wait_ovsdb_cluster_container_leave() {
+    local target_server_id=$1; shift
+    local ctl_path=$1; shift
+    local db_name=$1; shift
+    local timeout=$1; shift
+    local monitor_containers=$*
+    local rc=1
+    local retries=""
+    retries=$((timeout * 2))
+
+    for (( i = 1; i <= "$retries"; i++ )); do
+        local container=""
+        local server_present=0
+        for container in $monitor_containers; do
+            local connection_list=""
+            echo "# ($container) Waiting for $target_server_id to depart cluster ($i/$retries)" >&3
+            run lxc_exec "$container" "microovn.ovn-appctl -t $ctl_path cluster/status $db_name"
+            # shellcheck disable=SC2154 # Variable "$output" is exported from previous execution of 'run'
+            echo "# ($container) Status: $output"
+            connection_list=$(grep -E '^Connections:' <<< "$output")
+            if [[ $connection_list == *"$target_server_id"* ]]; then
+                echo "# ($container) Server $target_server_id still present" >&3
+                ((++server_present))
+            fi
+        done
+
+        if [ "$server_present" -eq 0 ]; then
+            echo "# Server $target_server_id successfully departed." >&3
+            rc=0
+            break
+        fi
+        sleep 0.5
+    done
+
+    return $rc
 }

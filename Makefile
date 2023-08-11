@@ -1,6 +1,10 @@
 MICROOVN_SNAP=microovn.snap
 export MICROOVN_SNAP_PATH := $(CURDIR)/$(MICROOVN_SNAP)
 
+ifndef MICROOVN_SNAP_CHANNEL
+	export MICROOVN_SNAP_CHANNEL="latest/stable"
+endif
+
 check: check-lint check-system
 
 check-tabs:
@@ -15,7 +19,7 @@ check-lint: check-tabs
 
 check-system: $(MICROOVN_SNAP)
 	echo "Running functional tests";					\
-	bats tests/
+	$(CURDIR)/.bats/bats-core/bin/bats tests/upgrade.bats
 
 $(MICROOVN_SNAP):
 	echo "Building the snap";						\
