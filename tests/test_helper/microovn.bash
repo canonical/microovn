@@ -190,6 +190,26 @@ function microovn_ovndb_cluster_id() {
                      cluster/cid ${schema_name}"
 }
 
+# microovn_ovndb_server_id CONTAINER NBSB
+#
+# Print (short) cluster ID of OVN OVSDB cluster member
+#
+# Valid values for NBSB are `nb` for Northbound DB or `sb` for Southbound DB.
+function microovn_ovndb_server_id() {
+    local container=$1; shift
+    local nbsb=$1; shift
+
+    local schema_name;
+    schema_name=$(_ovn_schema_name "$nbsb")
+
+    local full_sid=""
+    full_sid=$(lxc_exec "$container" \
+               "microovn.ovn-appctl \
+                   -t /var/snap/microovn/common/run/ovn/ovn${nbsb}_db.ctl \
+                       cluster/sid ${schema_name}")
+    echo "${full_sid:0:4}"
+}
+
 # microovn_get_cluster_services CONTAINER
 #
 # Print MicroOVN services for CONTAINER from the point of view of CONTAINER.
@@ -290,6 +310,86 @@ function wait_microovn_online() {
             break
         fi
         sleep 1
+    done
+
+    return $rc
+}
+
+# wait_ovsdb_cluster_changes_applied CONTAINER CONTROL_PATH DB_NAME TIMEOUT
+#
+# Wait until OVN OVSDB cluster member converges with rest of the cluster. This function
+# checks output of ovn-appctl to make sure that field 'Entries not yet applied' reaches 0.
+# It requires CONTROL_PATH which points to database's .ctl file (i.e. path/to/ovnnb_db.ctl)
+# and DB_NAME which should be either "OVN_Northbound" or "OVN_Southbound.
+#
+# TIMEOUT in seconds is roughly obeyed. If conditions are not met before timeout is reached, this
+# functions returns non-zero RC
+function wait_ovsdb_cluster_changes_applied() {
+    local container=$1; shift
+    local ctl_path=$1; shift
+    local db_name=$1; shift
+    local timeout=$1; shift
+    local rc=1
+    local retries=""
+    retries=$((timeout * 2))
+
+    for (( i = 1; i <= "$retries"; i++ )); do
+        echo "# ($container) Waiting for $db_name to apply all changes ($i/$retries)"
+        run lxc_exec "$container" "microovn.ovn-appctl -t $ctl_path cluster/status $db_name"
+        # shellcheck disable=SC2154 # Variable "$output" is exported from previous execution of 'run'
+        echo "# ($container) Cluster status: $output"
+        if [[ "$output" == *"Entries not yet applied: 0"* ]]; then
+            echo "# ($container) All changes applied to $db_name"
+           rc=0
+           break
+        fi
+        sleep 0.5
+    done
+
+    return $rc
+}
+
+# wait_ovsdb_cluster_container_leave SERVER_ID CONTROL_PATH DB_NAME TIMEOUT CONTAINER1 [CONTAINER2 ...]
+#
+# Wait until all CONTAINERs confirm that cluster member with SERVER_ID is no longer present in cluster.
+#
+# This function requires CONTROL_PATH which points to database's .ctl file (i.e. path/to/ovnnb_db.ctl)
+# and DB_NAME which should be either "OVN_Northbound" or "OVN_Southbound.
+#
+# TIMEOUT in seconds is roughly obeyed. If conditions are not met before timeout is reached, this
+# functions returns non-zero RC
+function wait_ovsdb_cluster_container_leave() {
+    local target_server_id=$1; shift
+    local ctl_path=$1; shift
+    local db_name=$1; shift
+    local timeout=$1; shift
+    local monitor_containers=$*
+    local rc=1
+    local retries=""
+    retries=$((timeout * 2))
+
+    for (( i = 1; i <= "$retries"; i++ )); do
+        local container=""
+        local server_present=0
+        for container in $monitor_containers; do
+            local connection_list=""
+            echo "# ($container) Waiting for $target_server_id to depart cluster ($i/$retries)" >&3
+            run lxc_exec "$container" "microovn.ovn-appctl -t $ctl_path cluster/status $db_name"
+            # shellcheck disable=SC2154 # Variable "$output" is exported from previous execution of 'run'
+            echo "# ($container) Status: $output"
+            connection_list=$(grep -E '^Connections:' <<< "$output")
+            if [[ $connection_list == *"$target_server_id"* ]]; then
+                echo "# ($container) Server $target_server_id still present" >&3
+                ((++server_present))
+            fi
+        done
+
+        if [ "$server_present" -eq 0 ]; then
+            echo "# Server $target_server_id successfully departed." >&3
+            rc=0
+            break
+        fi
+        sleep 0.5
     done
 
     return $rc
