@@ -4,6 +4,7 @@ load "test_helper/setup_teardown/$(basename "${BATS_TEST_FILENAME//.bats/.bash}"
 
 setup() {
     load test_helper/lxd.bash
+    load test_helper/common.bash
     load test_helper/microovn.bash
     load test_helper/upgrade_procedures.bash
     load ../.bats/bats-support/load.bash
