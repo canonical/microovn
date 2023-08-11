@@ -60,11 +60,6 @@ func refresh(s *state.State) error {
 
 	// Enable OVN chassis.
 	if hasSwitch {
-		err = snapRestart("chassis")
-		if err != nil {
-			return fmt.Errorf("Failed to restart OVN chassis: %w", err)
-		}
-
 		// Reconfigure OVS to use OVN.
 		sbConnect, _, err := environmentString(s, 6642)
 		if err != nil {

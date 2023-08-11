@@ -1,3 +1,5 @@
+WAIT_TIMEOUT=30
+
 function container_name() {
     local container=$1; shift
     NAME_PREFIX=${NAME_PREFIX:-microovn}
@@ -18,7 +20,7 @@ function container_names() {
 
 function container_get_default_ip() {
     local container=$1; shift
-    local family=${1:-inet}; shift
+    local family=${1:-inet}
 
     local dev
     dev=$(lxc_exec "$container" "ip route show default|awk '/dev/{print\$5}'")
@@ -75,4 +77,43 @@ function wait_for_open_port() {
     done
 
     return $success
+}
+
+# get_pid_start_time CONTAINER PID
+#
+# Print the unix timestamp for when PID in CONTAINER started.
+function get_pid_start_time() {
+    local container=$1; shift
+    local pid=$1; shift
+
+    lxc_exec "$container" "stat -c %Y /proc/${pid}"
+}
+
+# wait_until WAIT_COND [ WAIT_FAILED ]
+#
+# Execute WAIT_COND until it returns 0, waiting up to WAIT_TIMEOUT seconds.
+#
+# Execute WAIT_FAILED on failure, if provided.
+wait_until() {
+    local wait_cond=$1; shift
+    local wait_failed=${1:-false}
+
+    _log_wait() {
+        local how_soon=$1; shift
+        printf '%q: wait succeeded %q\n' $wait_cond $how_soon
+    }
+
+    if $wait_cond; then _log_wait immediately; return 0; fi
+    sleep 0.1
+    if $wait_cond; then _log_wait quickly; return 0; fi
+
+    local d
+    for d in $(seq 1 "$WAIT_TIMEOUT"); do
+        sleep 1
+        if $wait_cond; then _log_wait "after $d seconds"; return 0; fi
+    done
+
+    printf '%q: wait failed after %s seconds\n' $wait_cond $d
+    $wait_failed
+    return 1
 }

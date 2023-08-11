@@ -1,3 +1,5 @@
+MICROOVN_RUNDIR=/var/snap/microovn/common/run
+
 function install_microovn() {
     local snap_file=$1; shift
     local containers=$*
@@ -202,4 +204,32 @@ function microovn_get_member_cluster_address() {
             echo "$(microovn_get_cluster_address $container)"
         fi
     done
+}
+
+# microovn_get_service_pid CONTAINER SERVICE [ RUNDIR ]
+#
+# Print PID of MicroOVN service SERVICE running in CONTAINER.
+#
+# RUNDIR can be one of 'ovn' or 'switch' and defaults to 'ovn'.
+function microovn_get_service_pid() {
+    local container=$1; shift
+    local service=$1; shift
+    local rundir=${1:-ovn}
+
+    lxc_exec "$container" "cat ${MICROOVN_RUNDIR}/${rundir}/${service}.pid"
+}
+
+# microovn_wait_for_service_starttime CONTAINER SERVICE [ RUNDIR ]
+#
+# Wait until SERVICE has started in CONTAINER and print its pid.
+#
+# RUNDIR can be one of 'ovn' or 'switch' and defaults to 'ovn'.
+function microovn_wait_for_service_starttime() {
+    local container=$1; shift
+    local service=$1; shift
+    local rundir=${1:-ovn}
+
+    local pid
+    pid=$(wait_until "microovn_get_service_pid $container $service $rundir")
+    get_pid_start_time $container $pid
 }
