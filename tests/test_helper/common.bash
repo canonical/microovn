@@ -117,3 +117,24 @@ wait_until() {
     $wait_failed
     return 1
 }
+
+# snap_print_base SNAP
+#
+# Print base for SNAP
+function snap_print_base() {
+    local snap=$1; shift
+
+    snap info --verbose "$snap" | awk '/base/{print$2}'
+}
+
+# test_snap_is_stable_base BASE-SNAP
+#
+# Returns 0 if base snap has stable channel, 1 otherwise
+function test_snap_is_stable_base() {
+    local base_snap=$1; shift
+
+    local version_info
+    version_info=$(snap info "$base_snap" | awk '/\/stable/{print$2}')
+
+    [ "$version_info" != "--" ]
+}
