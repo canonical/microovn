@@ -20,7 +20,7 @@ function container_names() {
 
 function container_get_default_ip() {
     local container=$1; shift
-    local family=${1:-inet}; shift
+    local family=${1:-inet}
 
     local dev
     dev=$(lxc_exec "$container" "ip route show default|awk '/dev/{print\$5}'")

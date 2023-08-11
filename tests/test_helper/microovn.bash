@@ -214,7 +214,7 @@ function microovn_get_member_cluster_address() {
 function microovn_get_service_pid() {
     local container=$1; shift
     local service=$1; shift
-    local rundir=${1:-ovn}; shift
+    local rundir=${1:-ovn}
 
     lxc_exec "$container" "cat ${MICROOVN_RUNDIR}/${rundir}/${service}.pid"
 }
