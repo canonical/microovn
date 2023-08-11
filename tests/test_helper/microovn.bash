@@ -249,7 +249,14 @@ function microovn_get_service_pid() {
     local service=$1; shift
     local rundir=${1:-ovn}
 
-    lxc_exec "$container" "cat ${MICROOVN_RUNDIR}/${rundir}/${service}.pid"
+    local pid
+    pid=$(lxc_exec "$container" \
+              "cat ${MICROOVN_RUNDIR}/${rundir}/${service}.pid")
+
+    # Ensure we actually got a PID
+    local re='^[0-9]+$'
+    [[ "$pid" =~ $re ]] && echo $pid || return 1
+
 }
 
 # microovn_wait_for_service_starttime CONTAINER SERVICE [ RUNDIR ]
