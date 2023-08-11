@@ -76,3 +76,13 @@ function wait_for_open_port() {
 
     return $success
 }
+
+# get_pid_start_time CONTAINER PID
+#
+# Print the unix timestamp for when PID in CONTAINER started.
+function get_pid_start_time() {
+    local container=$1; shift
+    local pid=$1; shift
+
+    lxc_exec "$container" "stat -c %Y /proc/${pid}"
+}

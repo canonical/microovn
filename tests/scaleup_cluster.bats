@@ -9,6 +9,8 @@ setup() {
     load test_helper/common.bash
     load test_helper/lxd.bash
     load test_helper/microovn.bash
+    load ../.bats/bats-support/load.bash
+    load ../.bats/bats-assert/load.bash
 }
 
 teardown() {
@@ -22,6 +24,7 @@ teardown() {
     readarray -d " " -t containers < <(container_names \
                                        "$BATS_TEST_FILENAME" \
                                        "$max_containers")
+    declare -A starttimes_ovn_controller
 
     for (( i=1; i<=max_containers; i++ )) {
         local container
@@ -44,11 +47,15 @@ teardown() {
                         "$container")
             microovn_init_join_cluster "$container" "$addr" "$token"
         fi
+        starttimes_ovn_controller[$container]=$(get_pid_start_time $container \
+            "$(microovn_get_service_pid $container ovn-controller)")
+        echo "starttime ${container} ovn-controller: \
+            ${starttimes_ovn_controller[$container]}"
 
         TEST_CONTAINERS="${containers[*]:0:$i}"
         export TEST_CONTAINERS
 
-        local test_filename=${ABS_TOP_TEST_DIRNAME=}
+        local test_filename=${ABS_TOP_TEST_DIRNAME}
         test_filename+=test_helper/bats/scaleup_cluster
         test_filename+=$(test_is_ipv6_test && echo _ipv6 || true)
         test_filename+=.bats
@@ -69,4 +76,16 @@ teardown() {
     }
 
     [ "$final_status" -eq 0 ]
+
+    echo "# Ensure ovn-controller was not restarted for scaling events"
+    for (( i=0; i<max_containers; i++ )) {
+        local container
+        container=${containers[*]:$i:1}
+
+        starttime_ovn_controller=$(get_pid_start_time $container \
+            "$(microovn_get_service_pid $container ovn-controller)")
+        echo "starttime ${container} ovn-controller: $starttime_ovn_controller"
+        assert [ $starttime_ovn_controller -eq \
+                 ${starttimes_ovn_controller[$container]} ]
+    }
 }
