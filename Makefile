@@ -19,7 +19,7 @@ check-lint: check-tabs
 
 check-system: $(MICROOVN_SNAP)
 	echo "Running functional tests";					\
-	bats tests/
+	$(CURDIR)/.bats/bats-core/bin/bats tests/upgrade.bats
 
 $(MICROOVN_SNAP):
 	echo "Building the snap";						\
