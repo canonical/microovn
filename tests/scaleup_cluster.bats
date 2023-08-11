@@ -47,8 +47,8 @@ teardown() {
                         "$container")
             microovn_init_join_cluster "$container" "$addr" "$token"
         fi
-        starttimes_ovn_controller[$container]=$(get_pid_start_time $container \
-            "$(microovn_get_service_pid $container ovn-controller)")
+        starttimes_ovn_controller[$container]=$(\
+            microovn_wait_for_service_starttime $container ovn-controller)
         echo "starttime ${container} ovn-controller: \
             ${starttimes_ovn_controller[$container]}"
 
@@ -82,6 +82,8 @@ teardown() {
         local container
         container=${containers[*]:$i:1}
 
+        starttime_ovn_controller=$(\
+            microovn_wait_for_service_starttime $container ovn-controller)
         starttime_ovn_controller=$(get_pid_start_time $container \
             "$(microovn_get_service_pid $container ovn-controller)")
         echo "starttime ${container} ovn-controller: $starttime_ovn_controller"
