@@ -125,6 +125,7 @@ parts:
       - raft
     source: https://github.com/canonical/dqlite
     source-type: git
+    source-branch: v1.15.1
     source-depth: 1
     plugin: autotools
     autotools-configure-parameters:
@@ -145,6 +146,7 @@ parts:
   raft:
     source: https://github.com/canonical/raft
     source-type: git
+    source-branch: v0.17.1
     source-depth: 1
     plugin: autotools
     autotools-configure-parameters:
