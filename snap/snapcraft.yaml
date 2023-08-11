@@ -3,7 +3,7 @@ icon: microovn.png
 base: core22
 assumes:
  - snapd2.59
-version: git
+adopt-info: ovn
 grade: stable
 source-code: https://github.com/canonical/microovn.git
 summary: Simple clustered OVN deployment
@@ -183,6 +183,18 @@ parts:
         craftctl default
 
         mkdir -p "${CRAFT_PART_INSTALL}/etc/ovn/"
+    override-stage: |
+        craftctl default
+        pkg_version=$(
+            dpkg-deb -f \
+            $CRAFT_PART_SRC/../stage_packages/ovn-host*.deb \
+            Version | sed -rne 's/([0-9.]+)[-+].*$$/\1/p')
+        git_version=$(
+            git -C $CRAFT_PROJECT_DIR describe \
+                --always \
+                --dirty \
+                --abbrev=10)
+        craftctl set version=${pkg_version}+snap${git_version}
 
   ovs:
     plugin: nil
