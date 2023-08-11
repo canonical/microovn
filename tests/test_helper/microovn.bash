@@ -218,3 +218,18 @@ function microovn_get_service_pid() {
 
     lxc_exec "$container" "cat ${MICROOVN_RUNDIR}/${rundir}/${service}.pid"
 }
+
+# microovn_wait_for_service_starttime CONTAINER SERVICE [ RUNDIR ]
+#
+# Wait until SERVICE has started in CONTAINER and print its pid.
+#
+# RUNDIR can be one of 'ovn' or 'switch' and defaults to 'ovn'.
+function microovn_wait_for_service_starttime() {
+    local container=$1; shift
+    local service=$1; shift
+    local rundir=${1:-ovn}
+
+    local pid
+    pid=$(wait_until "microovn_get_service_pid $container $service $rundir")
+    get_pid_start_time $container $pid
+}
