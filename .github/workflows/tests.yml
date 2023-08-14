@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       MICROOVN_SNAP_PATH: ${{ github.workspace }}/microovn.snap
-      MICROOVN_SNAP_CHANNEL: latest/stable
+      MICROOVN_SNAP_CHANNEL: 22.03/stable
     strategy:
       matrix: ${{ fromJson(needs.metadata.outputs.matrix) }}
     steps:
