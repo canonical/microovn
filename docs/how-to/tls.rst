@@ -132,15 +132,22 @@ revision of less than ``111``, and there's no way to automatically convert to
 encrypted communication. The following manual steps are needed to upgrade from
 plaintext to TLS:
 
-* ensure that all MicroOVN snaps in the cluster are upgraded to, at least,
-  revision ``111``
-* run ``microovn certificates regenerate-ca`` on one of the cluster members
-* run ``sudo snap restart microovn.daemon`` on **all** cluster members
+1. ensure that all MicroOVN snaps in the cluster are upgraded to, at least,
+   revision ``111``
+
+2. run ``microovn certificates regenerate-ca`` on one of the cluster members
+
+3. run ``sudo snap restart microovn.daemon`` on **all** cluster members
 
 Once this is done, OVN API services throughout the cluster will start listening
 on TLS-secured ports. However, the process is not complete yet because OVN
 Southbound and Northbound database clusters themselves are not capable of
-automatically switching to TLS communication in existing clusters. Both
+automatically switching to TLS communication in existing clusters.
+
+Manually switch OVN Northbound and Southbound clusters to TLS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Both
 database clusters need to be manually switched over by individually removing
 cluster members that use ``tcp`` connection and reconnecting them with ``ssl``.
 This process technically replaces every member in the original cluster, but
@@ -154,73 +161,67 @@ process, it is recommended to open a separate shell on each node and keep it
 open with following variables exported:
 
 .. code-block:: none
-    CONTROL_SOCKET=/var/snap/microovn/common/run/ovn/ovnnb_db.ctl
-    DB=OVN_Northbound
-    DB_FILE=/var/snap/microovn/common/data/central/db/ovnnb_db.db
-    PORT=6643
 
-**1st step**: Leave cluster with a single member:
+   CONTROL_SOCKET=/var/snap/microovn/common/run/ovn/ovnnb_db.ctl
+   DB=OVN_Northbound
+   DB_FILE=/var/snap/microovn/common/data/central/db/ovnnb_db.db
+   PORT=6643
 
-.. code-block:: none
-
-    # node-1
-    microovn.ovn-appctl -t $CONTROL_SOCKET cluster/leave $DB
-
-**2nd step**: Make sure that member properly left the cluster by inspecting
-cluster status on nodes 2 and 3 and ensuring that node 1 is no longer part of
-the cluster:
+1. Leave cluster on the node 1:
 
 .. code-block:: none
 
-    # run on node-2 and node-3
-    microovn.ovn-appctl -t /var/snap/microovn/common/run/ovn/ovnnb_db.ctl cluster/status OVN_Northbound
+   microovn.ovn-appctl -t $CONTROL_SOCKET cluster/leave $DB
 
-**3rd step**: Clean up remaining DB files on node 1:
+2. Make sure that member properly left the cluster by inspecting cluster status
+on nodes 2 and 3 and ensuring that node 1 is no longer part of the cluster:
 
 .. code-block:: none
 
-    # node-1
-    snap stop microovn.central
-    rm $DB_FILE
+   microovn.ovn-appctl -t /var/snap/microovn/common/run/ovn/ovnnb_db.ctl cluster/status OVN_Northbound
 
-**4th step**: Rejoin the cluster with node 1, using ``ssl`` as protocol for
+3. Clean up remaining DB files on node 1:
+
+.. code-block:: none
+
+   snap stop microovn.central
+   rm $DB_FILE
+
+4. Rejoin the cluster with node 1, using ``ssl`` as protocol for
 local listening port. Notice that we will still use ``tcp`` as a protocol for
 remote cluster connection because no other node listens on ``ssl`` yet. This
 will get fixed automatically when other cluster members switch to ``ssl``:
 
 .. code-block:: none
 
-    # node-1
-    microovn.ovsdb-tool join-cluster $DB_FILE $DB ssl:<local_ip>:$PORT tcp:<node_2_ip>:$PORT
-    snap restart microovn.central
+   microovn.ovsdb-tool join-cluster $DB_FILE $DB ssl:<local_ip>:$PORT tcp:<node_2_ip>:$PORT
+   snap restart microovn.central
 
-**5th step**: Monitor cluster as it converges to stable state. Use following
+5. Monitor cluster, from node 1, as it converges to stable state. Use following
 command to monitor cluster until it indicates three members and field
 ``Entries not yet applied`` reaches 0:
 
 .. code-block:: none
 
-    # node-1
-    microovn.ovn-appctl -t $CONTROL_SOCKET cluster/status $DB
+   microovn.ovn-appctl -t $CONTROL_SOCKET cluster/status $DB
 
 Now that node 1 successfully transitioned to TLS we can repeat the same steps
-on node 2 and then on node 3. The only difference is in **4th step** where we
+on node 2 and then on node 3. The only difference is in **4. step** where we
 will use protocol ``ssl`` and IP of a node 1 as last arguments for
 ``microovn.ovsdb-tool`` command. To save you some searching and replacing,
-here are the revised commands for the **4th step** to be used on node 2 and 3:
+here are the revised commands for the **4. step** to be used on node 2 and 3:
 
 .. code-block:: none
 
-    # node-{2,3}
-    microovn.ovsdb-tool join-cluster $DB_FILE $DB ssl:<local_ip>:$PORT ssl:<node_1_ip>:$PORT
-    snap restart microovn.central
+   microovn.ovsdb-tool join-cluster $DB_FILE $DB ssl:<local_ip>:$PORT ssl:<node_1_ip>:$PORT
+   snap restart microovn.central
 
-After all three nodes transitioned to TLS usage, you can once again run:
+After all three nodes transitioned to TLS usage, you can once again inspect
+cluster status on any node:
 
 .. code-block:: none
 
-    # any node
-    microovn.ovn-appctl -t $CONTROL_SOCKET cluster/status $DB
+   microovn.ovn-appctl -t $CONTROL_SOCKET cluster/status $DB
 
 to verify that all three cluster members are using ``ssl`` as their connection
 protocol.
@@ -231,10 +232,10 @@ in the **Preparation** step:
 
 .. code-block:: none
 
-    CONTROL_SOCKET=/var/snap/microovn/common/run/ovn/ovnsb_db.ctl
-    DB=OVN_Southbound
-    DB_FILE=/var/snap/microovn/common/data/central/db/ovnsb_db.db
-    PORT=6644
+   CONTROL_SOCKET=/var/snap/microovn/common/run/ovn/ovnsb_db.ctl
+   DB=OVN_Southbound
+   DB_FILE=/var/snap/microovn/common/data/central/db/ovnsb_db.db
+   PORT=6644
 
 Common issues
 -------------
