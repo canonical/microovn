@@ -217,7 +217,14 @@ parts:
      - bin/ovsdb-client
      - bin/ovsdb-server
      - bin/ovsdb-tool
+       # The lib cherry-picking is unfortunately necessary to avoid pulling in
+       # external symlinks provided by the openssl package dependency.
+       # (External symlinks, i.e. pointing at something in /, are not allowed.)
      - lib/*/libevent-2.1.so*
+     - lib/*/libnuma.so.*
+     - lib/*/bpf/*
+     - lib/*/libbpf.so.*
+     - lib/*/libxdp.so.*
      - lib/*/libunbound.so*
      - share/openvswitch
     override-build: |
