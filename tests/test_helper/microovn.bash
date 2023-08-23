@@ -4,7 +4,15 @@ function install_microovn() {
     local snap_file=$1; shift
     local containers=$*
 
+    local snap_base
+    snap_base=$(snap_print_base $snap_file)
+
     for container in $containers; do
+        if ! test_snap_is_stable_base "$snap_base"; then
+            echo "# !!NOTE!! Installing $snap_base \
+                  from edge channel for $snap_file" >&3
+            lxc_exec "$container" "snap install --edge $snap_base"
+        fi
         echo "# Deploying MicroOVN to $container" >&3
         lxc_file_push "$snap_file" "$container/tmp/microovn.snap"
         echo "# Installing MicroOVN in container $container" >&3

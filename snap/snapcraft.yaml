@@ -1,10 +1,11 @@
 name: microovn
 icon: microovn.png
-base: core22
+base: core24
+build-base: devel
 assumes:
  - snapd2.59
 adopt-info: ovn
-grade: stable
+grade: devel
 source-code: https://github.com/canonical/microovn.git
 summary: Simple clustered OVN deployment
 description: |-
@@ -133,6 +134,7 @@ parts:
       - libuv1
       - libsqlite3-0
     build-packages:
+      - make
       - libuv1-dev
       - libsqlite3-dev
       - pkg-config
@@ -153,6 +155,7 @@ parts:
       - libuv1
       - liblz4-1
     build-packages:
+      - make
       - libuv1-dev
       - liblz4-dev
       - pkg-config
@@ -214,8 +217,7 @@ parts:
      - bin/ovsdb-client
      - bin/ovsdb-server
      - bin/ovsdb-tool
-     - lib/*/libevent-2.1.so*
-     - lib/*/libunbound.so*
+     - lib/*
      - share/openvswitch
     override-build: |
         craftctl default
