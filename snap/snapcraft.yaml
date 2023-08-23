@@ -217,7 +217,8 @@ parts:
      - bin/ovsdb-client
      - bin/ovsdb-server
      - bin/ovsdb-tool
-     - lib/*
+     - lib/*/libevent-2.1.so*
+     - lib/*/libunbound.so*
      - share/openvswitch
     override-build: |
         craftctl default
