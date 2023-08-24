@@ -2,8 +2,7 @@
 Single-node
 ===========
 
-This tutorial shows how to install MicroOVN in the simplest way possible. It
-will deploy an OpenStack 2023.1 (Antelope) cloud.
+This tutorial shows how to install MicroOVN in the simplest way possible.
 
 .. caution::
 

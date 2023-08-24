@@ -2,8 +2,7 @@
 Multi-node
 ===========
 
-This tutorial shows how to install a 3-node MicroOVN cluster. It will deploy an
-OpenStack 2023.1 (Antelope) cloud.
+This tutorial shows how to install a 3-node MicroOVN cluster.
 
 One big advantage of a multi-node cluster is that it provides redundancy
 (service failover). A 3-node deployment can tolerate up to one node failure.
