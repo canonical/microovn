@@ -99,13 +99,16 @@ footer, remove the ``github_issue_links.js`` script from the ``conf.py`` file.
 Next steps
 ----------
 
-Once your repository is set up:
+Now that your repository is enabled for RTD you should:
 
 * rename this present file (``readme.rst``) to ``setup.rst``
 * rename file ``working-with-the-docs.rst`` to ``readme.rst``
 
 The new ``readme.rst`` file shows contributors how to work with the
-documentation.
+documentation. For a standalone documentation scenario, it will be the
+repository's main README file. For an integrated scenario, it will remain in
+the ``docs`` directory where it can be linked to from your project's main
+README file.
 
 .. LINKS
 .. _Sphinx and Read the Docs: https://canonical-documentation-with-sphinx-and-readthedocscom.readthedocs-hosted.com
