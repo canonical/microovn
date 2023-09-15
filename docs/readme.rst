@@ -4,11 +4,10 @@
 Working with the documentation
 ==============================
 
-**Note:** This page is for documentation contributors. It assumes that an admin
-has enabled this repository to work with Read the Docs as described in file
-``setup.rst``.
+**Note:** This page is for documentation contributors. It assumes that this
+repository has been enabled for doc builds as described in file ``setup.rst``.
 
-There are make targets defined in the ``Makefile`` that set up your local
+There are make targets defined in the ``Makefile`` file that set up your local
 environment and allow you to view the documentation. You may also need to
 occasionally change the build configuration as new content is added.
 
