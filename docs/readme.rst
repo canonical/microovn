@@ -7,9 +7,9 @@ Working with the documentation
 **Note:** This page is for documentation contributors. It assumes that this
 repository has been enabled for doc builds as described in file ``setup.rst``.
 
-There are make targets defined in the ``Makefile`` file that set up your local
-environment and allow you to view the documentation. You may also need to
-occasionally change the build configuration as new content is added.
+There are make targets defined in the documentation ``Makefile`` file that set
+up your local environment and allow you to view the documentation. You may also
+need to occasionally change the build configuration as new content is added.
 
 Set up your local environment
 -----------------------------
