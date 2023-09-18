@@ -13,6 +13,14 @@ description: |-
 
 confinement: strict
 
+slots:
+  ovn-conf:
+    interface: content
+    source:
+      read:
+        - "$SNAP_COMMON/run"
+        - "$SNAP_COMMON/data"
+
 hooks:
   install:
     plugs:
