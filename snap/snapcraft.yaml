@@ -288,3 +288,12 @@ parts:
     source: snapcraft/
     stage-packages:
       - jq
+    organize:
+      usr/bin/: bin/
+      usr/lib/: lib/
+    prime:
+      - commands/*
+      - ./*.env
+      - bin/jq
+      - lib/*/libjq.so*
+      - lib/*/libonig.so*
