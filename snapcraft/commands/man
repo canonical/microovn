@@ -1,0 +1,4 @@
+#!/bin/sh
+
+export LD_LIBRARY_PATH=${SNAP}/lib/man-db:${LD_LIBRARY_PATH}
+exec man -C /dev/null -M ${SNAP}/share/man "${@}"

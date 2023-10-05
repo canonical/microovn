@@ -26,3 +26,4 @@ way and suitable for production environment.
 
    how-to/index
    tutorial/index
+   reference/index
