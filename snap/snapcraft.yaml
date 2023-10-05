@@ -19,6 +19,12 @@ hooks:
       - network
       - network-control
 
+layout:
+  /usr/libexec/man-db:
+    bind: $SNAP/libexec/man-db
+  /usr/share/groff:
+    bind: $SNAP/share/groff
+
 apps:
   # Service
   daemon:
@@ -67,6 +73,9 @@ apps:
       - system-trace
 
   # Commands
+  man:
+    command: commands/man
+
   microovn:
     command: commands/microovn
     plugs:
@@ -182,6 +191,7 @@ parts:
      - bin/ovn-trace
      - etc/ovn
      - share/ovn
+     - share/man/*/ovn*
     override-build: |
         craftctl default
 
@@ -227,6 +237,7 @@ parts:
      - lib/*/libxdp.so.*
      - lib/*/libunbound.so*
      - share/openvswitch
+     - share/man/*/ovs*
     override-build: |
         craftctl default
 
@@ -261,6 +272,28 @@ parts:
     prime:
       - bin/microovn
       - bin/microovnd
+
+  man:
+    plugin: nil
+    stage-packages:
+      - man-db
+    organize:
+      usr/bin: bin/
+      usr/lib/: lib/
+      usr/libexec/: libexec/
+      usr/share/: share/
+    prime:
+      - bin/groff
+      - bin/grotty
+      - bin/man
+      - bin/nroff
+      - bin/pic
+      - bin/troff
+      - lib/man-db/*
+      - lib/*/libpipeline*
+      - lib/*/libgdbm*
+      - libexec/man-db/*
+      - share/groff/*
 
   wrappers:
     plugin: dump
