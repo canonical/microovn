@@ -33,12 +33,6 @@ func refresh(s *state.State) error {
 		return err
 	}
 
-	// Query existing local services.
-	hasCentral, err := localServiceActive(s, "central")
-	if err != nil {
-		return err
-	}
-
 	hasSwitch, err := localServiceActive(s, "switch")
 	if err != nil {
 		return err
@@ -48,14 +42,6 @@ func refresh(s *state.State) error {
 	err = generateEnvironment(s)
 	if err != nil {
 		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
-	}
-
-	// Enable OVN central (if needed).
-	if hasCentral {
-		err = snapRestart("central")
-		if err != nil {
-			return fmt.Errorf("Failed to start OVN central: %w", err)
-		}
 	}
 
 	// Enable OVN chassis.
