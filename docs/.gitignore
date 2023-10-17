@@ -1,6 +1,7 @@
 /*env*/
 .sphinx/venv
 .sphinx/warnings.txt
+.sphinx/.doctrees
 .sphinx/.wordlist.dic
 _build
 .DS_Store
