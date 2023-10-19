@@ -68,9 +68,9 @@ func Bootstrap(s *state.State) error {
 	// all OVS-based programs ability to specify active or passive (listen)
 	// connection types.
 	err = GenerateNewServiceCertificate(s, "client", CertificateTypeServer)
-        if err != nil {
-                return fmt.Errorf("failed to generate TLS certificate for client: %s", err)
-        }
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for client: %s", err)
+	}
 
 	// Enable OVS switch.
 	err = snapStart("switch", true)
