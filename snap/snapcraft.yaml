@@ -34,6 +34,27 @@ apps:
     command: commands/central.start
     daemon: simple
     install-mode: disable
+
+  ovn-ovsdb-server-nb:
+    command: commands/ovn-ovsdb-server-nb.start
+    daemon: simple
+    install-mode: disable
+    plugs:
+      - network
+      - network-bind
+
+  ovn-ovsdb-server-sb:
+    command: commands/ovn-ovsdb-server-sb.start
+    daemon: simple
+    install-mode: disable
+    plugs:
+      - network
+      - network-bind
+
+  ovn-northd:
+    command: commands/ovn-northd.start
+    daemon: simple
+    install-mode: disable
     plugs:
       - network
       - network-bind

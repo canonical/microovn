@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eux
+
+. "${SNAP}/ovn-central.env"
+
+# Prepare the arguments
+# By specifying "--db-nb-create-insecure-remote=no" we prevent creation of
+# hardcoded bindings and we can use database to configure remotes later.
+OVN_ARGS="--db-nb-addr="${OVN_LOCAL_IP}" \
+--db-nb-create-insecure-remote=no \
+--db-nb-cluster-local-addr="${OVN_LOCAL_IP}" \
+--db-nb-cluster-local-proto=ssl \
+--db-nb-cluster-remote-proto=ssl \
+--ovn-nb-db-ssl-key="${OVN_PKIDIR}"/ovnnb-privkey.pem \
+--ovn-nb-db-ssl-cert="${OVN_PKIDIR}"/ovnnb-cert.pem \
+--ovn-nb-db-ssl-ca-cert="${OVN_PKIDIR}"/cacert.pem"
+
+if [ "${OVN_INITIAL_NB}" != "${OVN_LOCAL_IP}" ]; then
+    OVN_ARGS="${OVN_ARGS} --db-nb-cluster-remote-addr="${OVN_INITIAL_NB}""
+fi
+
+# Start NorthBound OVN DB
+"${SNAP}/share/ovn/scripts/ovn-ctl" run_nb_ovsdb ${OVN_ARGS}
