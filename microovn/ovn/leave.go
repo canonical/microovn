@@ -71,9 +71,19 @@ func Leave(s *state.State) error {
 		logger.Warnf("Failed to get SB database specification: %s", err)
 	}
 
-	err = snapStop("central", true)
+	err = snapStop("ovn-northd", true)
 	if err != nil {
-		logger.Warnf("Failed to stop Central service: %s", err)
+		logger.Warnf("Failed to stop OVN northd service: %s", err)
+	}
+
+	err = snapStop("ovn-ovsdb-server-nb", true)
+	if err != nil {
+		logger.Warnf("Failed to stop OVN NB service: %s", err)
+	}
+
+	err = snapStop("ovn-ovsdb-server-sb", true)
+	if err != nil {
+		logger.Warnf("Failed to stop OVN SB service: %s", err)
 	}
 
 	logger.Info("Cleaning up runtime and data directories.")

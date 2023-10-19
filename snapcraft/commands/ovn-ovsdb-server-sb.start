@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eux
+
+. "${SNAP}/ovn-central.env"
+
+# Prepare the arguments
+# By specifying "--db-sb-create-insecure-remote=no" we prevent creation of
+# hardcoded bindings and we can use database to configure remotes later.
+OVN_ARGS="--db-sb-addr="${OVN_LOCAL_IP}" \
+--db-sb-create-insecure-remote=no \
+--db-sb-cluster-local-addr="${OVN_LOCAL_IP}" \
+--db-sb-cluster-local-proto=ssl \
+--db-sb-cluster-remote-proto=ssl \
+--ovn-sb-db-ssl-key="${OVN_PKIDIR}"/ovnsb-privkey.pem \
+--ovn-sb-db-ssl-cert="${OVN_PKIDIR}"/ovnsb-cert.pem \
+--ovn-sb-db-ssl-ca-cert="${OVN_PKIDIR}"/cacert.pem"
+
+if [ "${OVN_INITIAL_SB}" != "${OVN_LOCAL_IP}" ]; then
+    OVN_ARGS="${OVN_ARGS} --db-sb-cluster-remote-addr="${OVN_INITIAL_SB}""
+fi
+
+# Start SouthBound OVN DB
+"${SNAP}/share/ovn/scripts/ovn-ctl" run_sb_ovsdb ${OVN_ARGS}
