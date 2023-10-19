@@ -76,9 +76,9 @@ func Join(s *state.State) error {
 	// all OVS-based programs ability to specify active or passive (listen)
 	// connection types.
 	err = GenerateNewServiceCertificate(s, "client", CertificateTypeServer)
-        if err != nil {
-                return fmt.Errorf("failed to generate TLS certificate for client: %s", err)
-        }
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for client: %s", err)
+	}
 
 	// Copy shared CA certificate from shared database to file on disk
 	err = DumpCA(s)
