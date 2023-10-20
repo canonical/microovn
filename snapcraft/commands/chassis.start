@@ -13,15 +13,6 @@ export OVN_PKGDATADIR="${SNAP}/share/ovn"
 export OVN_SYSCONFDIR="${SNAP}/etc"
 export OVN_PKIDIR="${SNAP_COMMON}/data/pki"
 
-# Disable some commands
-mkdir -p "${OVN_RUNDIR}/bin/"
-for i in install plymouth sudo systemctl; do
-    [ -e "${OVN_RUNDIR}/bin/${i}" ] && continue
-
-    ln -s "/bin/true" "${OVN_RUNDIR}/bin/${i}"
-done
-export PATH="${OVN_RUNDIR}/bin/:${PATH}"
-
 # Prepare the arguments
 OVN_ARGS="--db-nb-addr="${OVN_LOCAL_IP}" \
 --db-sb-addr="${OVN_LOCAL_IP}" \
