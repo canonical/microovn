@@ -112,6 +112,8 @@ member.
    member. Any failure will result in subsequent communication errors for that
    service within the cluster.
 
+.. _certificates_lifecycle:
+
 Certificate lifecycle
 ---------------------
 

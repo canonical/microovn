@@ -25,3 +25,4 @@ way and suitable for production environment.
    :maxdepth: 2
 
    how-to/index
+   reference/index
