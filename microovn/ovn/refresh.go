@@ -50,11 +50,11 @@ func refresh(s *state.State) error {
 		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
 	}
 
-	// Enable OVN central (if needed).
+	// Restart OVN Northd service to account for NB/SB cluster changes.
 	if hasCentral {
-		err = snapRestart("central")
+		err = snapRestart("ovn-northd")
 		if err != nil {
-			return fmt.Errorf("Failed to start OVN central: %w", err)
+			return fmt.Errorf("Failed to restart OVN northd: %w", err)
 		}
 	}
 

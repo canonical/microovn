@@ -42,11 +42,15 @@ function rejoin_cluster_with_tls() {
 
     lxc_exec "$target_container" "microovn.ovn-appctl -t $ctl_path cluster/leave $db_name"
     wait_ovsdb_cluster_container_leave "$target_server_id" "$ctl_path" "$db_name" 30 "$monitor_containers"
-    lxc_exec "$target_container" "snap stop microovn.central"
+    lxc_exec "$target_container" "snap stop microovn.ovn-northd"
+    lxc_exec "$target_container" "snap stop microovn.ovn-ovsdb-server-nb"
+    lxc_exec "$target_container" "snap stop microovn.ovn-ovsdb-server-sb"
     lxc_exec "$target_container" "rm $db_path"
     lxc_exec "$target_container" "microovn.ovsdb-tool join-cluster $db_path $db_name \
                                   ssl:$local_ip:$port $target_proto:$target_ip:$port"
-    lxc_exec "$target_container" "snap restart microovn.central"
+    lxc_exec "$target_container" "snap restart microovn.ovn-ovsdb-server-nb"
+    lxc_exec "$target_container" "snap restart microovn.ovn-ovsdb-server-sb"
+    lxc_exec "$target_container" "snap restart microovn.ovn-northd"
     wait_ovsdb_cluster_changes_applied "$target_container" "$ctl_path" "$db_name" 30
 }
 

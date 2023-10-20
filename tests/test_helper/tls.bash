@@ -64,7 +64,7 @@ function _verify_cert_files() {
         assert [ -n "$cert_pubkey" ]
         assert [ -n "$key_pubkey" ]
         ## Ensure that public key hashes match
-        assert_equal "$(sha256sum "$cert_pubkey")" "$(sha256sum "$key_pubkey")"
+        assert_equal "$(echo "$cert_pubkey" | sha256sum)" "$(echo "$key_pubkey" | sha256sum)"
 
         # Check that certificates match CA
         lxc_exec "$container" "openssl verify -CAfile $CA_CERT_PATH $cert"

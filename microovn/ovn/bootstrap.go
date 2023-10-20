@@ -68,9 +68,9 @@ func Bootstrap(s *state.State) error {
 	// all OVS-based programs ability to specify active or passive (listen)
 	// connection types.
 	err = GenerateNewServiceCertificate(s, "client", CertificateTypeServer)
-        if err != nil {
-                return fmt.Errorf("failed to generate TLS certificate for client: %s", err)
-        }
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for client: %s", err)
+	}
 
 	// Enable OVS switch.
 	err = snapStart("switch", true)
@@ -93,9 +93,19 @@ func Bootstrap(s *state.State) error {
 	}
 
 	// Enable OVN central.
-	err = snapStart("central", true)
+	err = snapStart("ovn-ovsdb-server-nb", true)
 	if err != nil {
-		return fmt.Errorf("Failed to start OVN central: %w", err)
+		return fmt.Errorf("Failed to start OVN NB: %w", err)
+	}
+
+	err = snapStart("ovn-ovsdb-server-sb", true)
+	if err != nil {
+		return fmt.Errorf("Failed to start OVN SB: %w", err)
+	}
+
+	err = snapStart("ovn-northd", true)
+	if err != nil {
+		return fmt.Errorf("Failed to start OVN northd: %w", err)
 	}
 
 	// Generate certificate for OVN chassis (controller)

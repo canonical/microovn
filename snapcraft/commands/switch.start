@@ -10,15 +10,6 @@ export OVS_PKGDATADIR="${SNAP}/share/openvswitch"
 export OVS_BINDIR="${SNAP}/bin"
 export OVS_SBINDIR="${SNAP}/bin"
 
-# Disable some commands
-mkdir -p "${OVS_RUNDIR}/bin/"
-for i in install plymouth systemctl; do
-    [ -e "${OVS_RUNDIR}/bin/${i}" ] && continue
-
-    ln -s "/bin/true" "${OVS_RUNDIR}/bin/${i}"
-done
-export PATH="${OVS_RUNDIR}/bin/:${PATH}"
-
 # Start vswitchd
 "${SNAP}/share/openvswitch/scripts/ovs-ctl" start --system-id="$(hostname)"
 sleep infinity
