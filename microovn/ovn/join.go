@@ -76,9 +76,9 @@ func Join(s *state.State) error {
 	// all OVS-based programs ability to specify active or passive (listen)
 	// connection types.
 	err = GenerateNewServiceCertificate(s, "client", CertificateTypeServer)
-        if err != nil {
-                return fmt.Errorf("failed to generate TLS certificate for client: %s", err)
-        }
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for client: %s", err)
+	}
 
 	// Copy shared CA certificate from shared database to file on disk
 	err = DumpCA(s)
@@ -108,9 +108,19 @@ func Join(s *state.State) error {
 			return fmt.Errorf("failed to generate TLS certificate for ovn-northd service")
 		}
 
-		err = snapStart("central", true)
+		err = snapStart("ovn-ovsdb-server-nb", true)
 		if err != nil {
-			return fmt.Errorf("Failed to start OVN central: %w", err)
+			return fmt.Errorf("Failed to start OVN NB: %w", err)
+		}
+
+		err = snapStart("ovn-ovsdb-server-sb", true)
+		if err != nil {
+			return fmt.Errorf("Failed to start OVN SB: %w", err)
+		}
+
+		err = snapStart("ovn-northd", true)
+		if err != nil {
+			return fmt.Errorf("Failed to start OVN northd: %w", err)
 		}
 	}
 

@@ -33,7 +33,9 @@ setup() {
     local chassis_services="snap.microovn.chassis \
                             snap.microovn.daemon \
                             snap.microovn.switch"
-    local central_services="snap.microovn.central \
+    local central_services="snap.microovn.ovn-ovsdb-server-nb \
+                            snap.microovn.ovn-ovsdb-server-sb \
+                            snap.microovn.ovn-northd \
                             $chassis_services"
 
     for container in $TEST_CONTAINERS; do

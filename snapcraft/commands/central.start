@@ -1,67 +1,15 @@
 #!/bin/sh
-set -eux
 
-# Load the environment
-. "${SNAP_COMMON}/data/ovn.env"
+echo "This is a transitional service that can be used to start 'ovn-ovsdb-server-nb',
+'ovn-ovsdb-server-sb' and 'ovn-northd' services at the same time. However its usage is
+discouraged as it will be removed in future releases."
 
-# Setup directories
-export OVN_DBDIR="${SNAP_COMMON}/data/central/db"
-export OVN_LOGDIR="${SNAP_COMMON}/logs"
-export OVN_RUNDIR="${SNAP_COMMON}/run/ovn"
-export OVN_PKGDATADIR="${SNAP}/share/ovn"
-export OVN_SYSCONFDIR="${SNAP}/etc"
-export OVN_PKIDIR="${SNAP_COMMON}/data/pki"
-
-# Disable some commands
-mkdir -p "${OVN_RUNDIR}/bin/"
-for i in install plymouth sudo systemctl; do
-    [ -e "${OVN_RUNDIR}/bin/${i}" ] && continue
-
-    ln -s "/bin/true" "${OVN_RUNDIR}/bin/${i}"
+while true; do
+    if snapctl start --enable microovn.ovn-ovsdb-server-nb \
+                              microovn.ovn-ovsdb-server-sb \
+                              microovn.ovn-northd; then
+        snapctl stop --disable microovn.central
+        exit 0
+    fi
+    sleep 1
 done
-export PATH="${OVN_RUNDIR}/bin/:${PATH}"
-
-# Prepare the arguments
-# By specifying "--db-*-create-insecure-remote=no" we prevent creation of
-# hardcoded bindings and we can use database to configure remotes later.
-OVN_ARGS="--db-nb-addr="${OVN_LOCAL_IP}" \
---db-nb-create-insecure-remote=no \
---db-sb-addr="${OVN_LOCAL_IP}" \
---db-sb-create-insecure-remote=no \
---db-nb-cluster-local-addr="${OVN_LOCAL_IP}" \
---db-sb-cluster-local-addr="${OVN_LOCAL_IP}" \
---ovn-northd-nb-db="${OVN_NB_CONNECT}" \
---ovn-northd-sb-db="${OVN_SB_CONNECT}" \
---db-nb-cluster-local-proto=ssl \
---db-nb-cluster-remote-proto=ssl \
---db-sb-cluster-local-proto=ssl \
---db-sb-cluster-remote-proto=ssl \
---ovn-northd-ssl-key="${OVN_PKIDIR}"/ovn-northd-privkey.pem \
---ovn-northd-ssl-cert="${OVN_PKIDIR}"/ovn-northd-cert.pem \
---ovn-northd-ssl-ca-cert="${OVN_PKIDIR}"/cacert.pem \
---ovn-nb-db-ssl-key="${OVN_PKIDIR}"/ovnnb-privkey.pem \
---ovn-nb-db-ssl-cert="${OVN_PKIDIR}"/ovnnb-cert.pem \
---ovn-nb-db-ssl-ca-cert="${OVN_PKIDIR}"/cacert.pem \
---ovn-sb-db-ssl-key="${OVN_PKIDIR}"/ovnsb-privkey.pem \
---ovn-sb-db-ssl-cert="${OVN_PKIDIR}"/ovnsb-cert.pem \
---ovn-sb-db-ssl-ca-cert="${OVN_PKIDIR}"/cacert.pem"
-
-if [ "${OVN_INITIAL_NB}" != "${OVN_LOCAL_IP}" ]; then
-    OVN_ARGS="${OVN_ARGS} --db-nb-cluster-remote-addr="${OVN_INITIAL_NB}""
-fi
-
-if [ "${OVN_INITIAL_SB}" != "${OVN_LOCAL_IP}" ]; then
-    OVN_ARGS="${OVN_ARGS} --db-sb-cluster-remote-addr="${OVN_INITIAL_SB}""
-fi
-
-# Start NorthBound OVN DB
-"${SNAP}/share/ovn/scripts/ovn-ctl" run_nb_ovsdb ${OVN_ARGS} &
-
-# Start SouthBound OVN DB
-"${SNAP}/share/ovn/scripts/ovn-ctl" run_sb_ovsdb ${OVN_ARGS} &
-
-# Start NorthBOund daemon
-"${SNAP}/share/ovn/scripts/ovn-ctl" start_northd ${OVN_ARGS} \
-    --ovn-manage-ovsdb=no --no-monitor
-
-sleep infinity

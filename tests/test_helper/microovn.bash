@@ -10,14 +10,28 @@ function install_microovn() {
         echo "# Installing MicroOVN in container $container" >&3
         lxc_exec "$container" "snap install /tmp/microovn.snap --dangerous"
         echo "# Connecting plugs in container $container" >&3
-        lxc_exec "$container" "for plug in firewall-control \
-                                           hardware-observe \
-                                           hugepages-control \
-                                           network-control \
-                                           openvswitch-support \
-                                           process-control \
-                                           system-trace; do \
-                                   sudo snap connect microovn:\$plug;done"
+        # Give it few retries as snap can't connect plugs while services
+        # are still starting
+        local i
+        for (( i = 0; i < 10; i++ )); do
+            if lxc_exec "$container" "for plug in firewall-control \
+                                                  hardware-observe \
+                                                  hugepages-control \
+                                                  network-control \
+                                                  openvswitch-support \
+                                                  process-control \
+                                                  system-trace; do \
+                                          sudo snap connect microovn:\$plug;done"; then
+                break
+            fi
+
+            if [ "$i" -eq 9 ]; then
+                echo "Failed to connect MicroOVN plugs."
+                return 1
+            fi
+
+            sleep 1
+        done
     done
 }
 
