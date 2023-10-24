@@ -115,6 +115,13 @@ in the ``conf.py`` file. Example reasons for doing this include:
 * the links are local
 * the validation of the links causes errors for no good reason
 
+HTML redirects
+~~~~~~~~~~~~~~
+
+HTML redirects can be added to ensure that old links continue to work when you
+move files around. To do so, specify the old and new paths in the ``redirects``
+setting in file ``custom_conf.py``.
+
 Customisation of inclusive language checks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

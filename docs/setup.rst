@@ -85,13 +85,6 @@ and the issue link in the footer.
 If you want to deactivate only the feedback button, but keep the link in the
 footer, remove the ``github_issue_links.js`` script from the ``conf.py`` file.
 
-Add redirects
-~~~~~~~~~~~~~
-
-You can add redirects to make sure existing links and bookmarks continue
-working when you move files around. To do so, specify the old and new paths in
-the ``redirects`` setting of ``custom_conf.py``.
-
 Configure included extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

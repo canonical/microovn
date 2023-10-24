@@ -13,8 +13,7 @@ Exempt a word
 
 To exempt an individual word, place a comment on a line immediately preceding
 the line containing the word in question. This special comment is to include
-the syntax ``wokeignore:rule=<SOME_WORD>``. For instance, if the word is
-'whitelist':
+the syntax ``wokeignore:rule=<SOME_WORD>``. For instance:
 
 .. code-block:: ReST
 
