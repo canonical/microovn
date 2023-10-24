@@ -31,3 +31,18 @@ jobs:
       uses: tim-actions/dco@master
       with:
         commits: ${{ steps.get-pr-commits.outputs.commits }}
+
+  signed-commits-check:
+    runs-on: [self-hosted, linux, X64, jammy, large]
+    name: Check signed commits in PR
+    permissions:
+      contents: read
+      # Note that the action authors suggest using `on: pull_request_target`
+      # and write permissions so that the action can comment on the PR.
+      #
+      # However, I found that doing that made the job not run on subsequent
+      # updates to the PR, which is not what we want.
+      pull-requests: read
+    steps:
+      - name: Check signed commits in PR
+        uses: 1Password/check-signed-commits-action@v1
