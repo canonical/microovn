@@ -23,8 +23,10 @@ Use the ``install`` make target to set up your local environment:
 This will create a virtual environment (``.sphinx/venv``) and install
 dependency software (``.sphinx/requirements.txt``) within it.
 
-A complete set of pinned, known-working dependencies is included in
-``.sphinx/pinned-requirements.txt``.
+**Note**: The starter pack uses the latest compatible version of all tools and
+does not pin its requirements. This might change temporarily if there is an
+incompatibility with a new tool version. There is therefore no need in using a
+tool like Renovate to automatically update the requirements.
 
 View the documentation
 ----------------------
@@ -47,6 +49,49 @@ The ``run`` target is therefore very convenient when preparing to submit a
 change to the documentation. For a more manual approach, to strictly build and
 serve content, explore the ``html`` and ``serve`` make targets, respectively.
 
+Local checks
+------------
+
+Ensure the following local checks run error-free prior to submitting a change
+(PR).
+
+Local build
+~~~~~~~~~~~
+
+Run a clean build:
+
+.. code-block:: none
+
+   make clean-doc
+   make html
+
+Spelling check
+~~~~~~~~~~~~~~
+
+Ensure that there are no spelling mistakes:
+
+.. code-block:: none
+
+   make spelling
+
+Inclusive language check
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Perform a check for non-inclusive language:
+
+.. code-block:: none
+
+   make woke
+
+Link check
+~~~~~~~~~~
+
+Validate hyperlinks:
+
+.. code-block:: none
+
+   make linkcheck
+
 Change the build configuration
 ------------------------------
 
@@ -56,7 +101,10 @@ False-positive misspellings
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To add exceptions for words the spellcheck incorrectly marks as wrong, edit the
-``.wordlist.txt`` file.
+``.custom_wordlist.txt`` file.
+
+File ``.wordlist.txt`` should not be touched since it is maintained centrally.
+It contains words that apply across all projects.
 
 Unwanted link checks
 ~~~~~~~~~~~~~~~~~~~~
@@ -66,3 +114,16 @@ in the ``conf.py`` file. Example reasons for doing this include:
 
 * the links are local
 * the validation of the links causes errors for no good reason
+
+Customisation of inclusive language checks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default, the inclusive language check is applied only to reST files located
+under the documentation directory (usually ``docs``). To check Markdown files,
+for example, or to use a location other than the ``docs`` sub-tree, you must
+change how the ``woke`` tool is invoked from within ``docs/Makefile`` (see
+the `woke User Guide <https://docs.getwoke.tech/usage/#file-globs>`_ for help).
+
+Some circumstances may compel you to retain some non-inclusive words. In such
+cases you will need to create check exemptions for them. See file
+:doc:`help-woke` for how to do that.
