@@ -17,6 +17,7 @@ https://ubuntu.com/legal/contributors
 
 - Each commit should be a logical unit.
 - Each commit should pass tests individually to allow bisecting.
+- Each commit must be signed.
 - The commit message should focus on WHY the change is necessary, we get the
   what and how by looking at the code.
 - Include a Signed-off-by header in the commit message.
