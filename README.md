@@ -2,7 +2,7 @@
 
 # MicroOVN
 
-MicroOVN is [snap-deployed OVN][snapstore-microovn] with built-in clustering.
+change MicroOVN is [snap-deployed OVN][snapstore-microovn] with built-in clustering.
 [Open Virtual Network][upstream-ovn] (OVN) is an SDN platform that is commonly
 used with enterprise-grade cloud solutions.
 
