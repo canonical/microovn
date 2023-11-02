@@ -75,7 +75,7 @@ apps:
     command: commands/switch.start
     daemon: simple
     install-mode: disable
-    refresh-mode: endure
+    stop-command: commands/ovs-appctl exit --cleanup
     plugs:
       - firewall-control
       - hardware-observe
