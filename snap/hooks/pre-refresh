@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Note (mkalcok): `microovn.switch` service, by default, stops OVS
+# vswitch daemon with `--cleanup` flag that releases datapath
+# resources like ports and bridges. This hook prevents such behavior
+# by stopping the daemon without `--cleanup` flag during the snap
+# refresh.
+
+${SNAP}/commands/ovs-appctl exit || true
