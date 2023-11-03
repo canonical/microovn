@@ -63,6 +63,7 @@ apps:
     command: commands/chassis.start
     daemon: simple
     install-mode: disable
+    stop-command: commands/chassis.stop
     plugs:
       - network
       - network-bind
