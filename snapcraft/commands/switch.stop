@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+export OVS_RUNDIR="${SNAP_COMMON}/run/switch"
+
+# Stop vswitchd
+"${SNAP}/commands/ovs-appctl" exit --cleanup
+"${SNAP}/share/openvswitch/scripts/ovs-ctl" stop
