@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# NOTE(fnordahl): tell the ovn-controller to exit without cleaning up flows nor
+# SB DB state on refresh.
+${SNAP}/commands/ovn-appctl exit --restart || true
+
 # Note (mkalcok): `microovn.switch` service, by default, stops OVS
 # vswitch daemon with `--cleanup` flag that releases datapath
 # resources like ports and bridges. This hook prevents such behavior
