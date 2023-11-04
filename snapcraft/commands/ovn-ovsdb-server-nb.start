@@ -21,4 +21,5 @@ if [ "${OVN_INITIAL_NB}" != "${OVN_LOCAL_IP}" ]; then
 fi
 
 # Start NorthBound OVN DB
-"${SNAP}/share/ovn/scripts/ovn-ctl" run_nb_ovsdb ${OVN_ARGS}
+"${SNAP}/share/ovn/scripts/ovn-ctl" run_nb_ovsdb ${OVN_ARGS} \
+    --ovn-nb-log="-vsyslog:info -vfile:off"

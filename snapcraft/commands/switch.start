@@ -11,5 +11,9 @@ export OVS_BINDIR="${SNAP}/bin"
 export OVS_SBINDIR="${SNAP}/bin"
 
 # Start vswitchd
-"${SNAP}/share/openvswitch/scripts/ovs-ctl" start --system-id="$(hostname)"
+"${SNAP}/share/openvswitch/scripts/ovs-ctl" \
+    start \
+    --system-id="$(hostname)" \
+    --ovsdb-server-options="-vsyslog:info -vfile:off" \
+    --ovs-vswitchd-options="-vsyslog:info -vfile:off"
 sleep infinity
