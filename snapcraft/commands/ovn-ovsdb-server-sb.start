@@ -21,4 +21,5 @@ if [ "${OVN_INITIAL_SB}" != "${OVN_LOCAL_IP}" ]; then
 fi
 
 # Start SouthBound OVN DB
-"${SNAP}/share/ovn/scripts/ovn-ctl" run_sb_ovsdb ${OVN_ARGS}
+"${SNAP}/share/ovn/scripts/ovn-ctl" run_sb_ovsdb ${OVN_ARGS} \
+    --ovn-sb-log="-vsyslog:info -vfile:off"
