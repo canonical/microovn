@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eux
+
+export OVS_RUNDIR="${SNAP_COMMON}/run/switch/"
+export OVN_RUNDIR="${SNAP_COMMON}/run/ovn"
+
+# Stop the OVN controller
+"${SNAP}/share/ovn/scripts/ovn-ctl" stop_controller
