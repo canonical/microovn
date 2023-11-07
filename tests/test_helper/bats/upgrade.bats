@@ -18,6 +18,17 @@ setup() {
 @test "Verify that currently released snap can be upgraded" {
     echo "# Upgrading MicroOVN from revision $MICROOVN_SNAP_REV" >&3
     install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINERS
+
+    for container in $TEST_CONTAINERS; do
+        local container_services
+        container_services=$(microovn_get_cluster_services "$container")
+        if [[ "$container_services" != *"central"* ]]; then
+            continue
+        fi
+        microovn_wait_ovndb_state "$container" nb connected 15
+        microovn_wait_ovndb_state "$container" sb connected 15
+    done
+
     perform_manual_upgrade_steps $TEST_CONTAINERS
     local cluster_test_filename="${ABS_TOP_TEST_DIRNAME=}test_helper/bats/post_upgrade_cluster.bats"
     local tls_test_filename="${ABS_TOP_TEST_DIRNAME=}test_helper/bats/post_upgrade_tls.bats"

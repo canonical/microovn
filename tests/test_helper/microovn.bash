@@ -224,6 +224,25 @@ function microovn_ovndb_server_id() {
     echo "${full_sid:0:4}"
 }
 
+# microovn_wait_ovndb_state CONTAINER NBSB STATE TIMEOUT
+#
+# From the point of view of CONTAINER, wait until the 'nb' or 'sb' database as
+# represented by NBSB reaches STATE, waiting a maximum of TIMEOUT seconds.
+function microovn_wait_ovndb_state() {
+    local container=$1; shift
+    local nbsb=$1; shift
+    local state=$1; shift
+    local timeout=$1; shift
+
+    local schema_name
+    schema_name=$(_ovn_schema_name "$nbsb")
+
+    lxc_exec "$container" \
+        "timeout ${timeout} microovn.ovsdb-client wait \
+         unix:/var/snap/microovn/common/run/ovn/ovn${nbsb}_db.sock \
+         ${schema_name} ${state}"
+}
+
 # microovn_get_cluster_services CONTAINER
 #
 # Print MicroOVN services for CONTAINER from the point of view of CONTAINER.

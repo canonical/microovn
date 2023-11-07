@@ -62,6 +62,7 @@ apps:
     command: commands/chassis.start
     daemon: simple
     install-mode: disable
+    stop-command: commands/chassis.stop
     plugs:
       - network
       - network-bind
@@ -74,7 +75,7 @@ apps:
     command: commands/switch.start
     daemon: simple
     install-mode: disable
-    refresh-mode: endure
+    stop-command: commands/switch.stop
     plugs:
       - firewall-control
       - hardware-observe
