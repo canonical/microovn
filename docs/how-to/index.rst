@@ -11,3 +11,4 @@ a basic understanding of OVN.
 
    tls
    downscaling
+   logs
