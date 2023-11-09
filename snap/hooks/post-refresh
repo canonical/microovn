@@ -1,0 +1,4 @@
+#!/bin/sh
+
+mkdir -p $SNAP_COMMON/logs
+cp $SNAP/docs/microovn/how-to/logs.txt $SNAP_COMMON/logs/README
