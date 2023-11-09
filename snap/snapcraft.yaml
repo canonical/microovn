@@ -283,6 +283,25 @@ parts:
       - bin/microovn
       - bin/microovnd
 
+  docs:
+    plugin: nil
+    source: docs/
+    build-packages:
+      - python3.11-venv
+    override-build: |
+      set -ex
+      make .sphinx/venv
+      make text
+      rm -rf ${CRAFT_PART_INSTALL}/docs/microovn
+      mkdir -p ${CRAFT_PART_INSTALL}/docs
+      cp -pR _build/text ${CRAFT_PART_INSTALL}/docs/microovn
+    stage:
+      # drop doc starter pack boiler plate files
+      - -docs/microovn/help-woke.*
+      - -docs/microovn/readme.txt
+      - -docs/microovn/setup.txt
+      - -docs/microovn/_*
+
   wrappers:
     plugin: dump
     source: snapcraft/
