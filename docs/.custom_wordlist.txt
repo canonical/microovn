@@ -1,3 +1,4 @@
+appctl
 Permalink
 reST
 RST
@@ -21,8 +22,10 @@ lifecycle
 PKI
 unencrypted
 OVS
+ovs
 OpenStack
 failover
 README
 systemd
 vSwitch
+manpage
