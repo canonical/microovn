@@ -12,7 +12,9 @@ OVN_ARGS="--ovn-northd-nb-db="${OVN_NB_CONNECT}" \
 
 # Start Northd daemon
 "${SNAP}/share/ovn/scripts/ovn-ctl" start_northd ${OVN_ARGS} \
-    --ovn-manage-ovsdb=no --no-monitor
+    --ovn-manage-ovsdb=no \
+    --no-monitor \
+    --ovn-northd-log="-vsyslog:info -vfile:off"
 
 # Keep running while northd process lives
 tail --pid "$(cat "$SNAP_COMMON"/run/ovn/ovn-northd.pid)" -f /dev/null
