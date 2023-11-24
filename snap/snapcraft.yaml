@@ -288,7 +288,11 @@ parts:
     plugin: nil
     source: docs/
     build-packages:
-      - python3.11-venv
+      - libpython3-dev
+      - libxml2-dev
+      - libxslt1-dev
+      - make
+      - python3-venv
     override-build: |
       set -ex
       make .sphinx/venv
