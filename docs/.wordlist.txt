@@ -41,3 +41,7 @@ sb
 nb
 tls
 rst
+systemd
+vSwitch
+appctl
+manpage

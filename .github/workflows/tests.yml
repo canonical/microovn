@@ -6,7 +6,7 @@ on:
 jobs:
   lint:
     name: lint
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, linux, X64, jammy, large]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -23,7 +23,7 @@ jobs:
     name: build
     needs:
       - lint
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, linux, X64, jammy, large]
     env:
       MICROOVN_SNAP: microovn.snap
     steps:
@@ -60,7 +60,7 @@ jobs:
     name: Generate matrix
     needs:
       - build
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, linux, X64, jammy, large]
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
     steps:
@@ -86,7 +86,7 @@ jobs:
     name: System tests
     needs:
       - metadata
-    runs-on: ubuntu-22.04
+    runs-on: [self-hosted, linux, X64, jammy, large]
     env:
       MICROOVN_SNAP_PATH: ${{ github.workspace }}/microovn.snap
       MICROOVN_SNAP_CHANNEL: 22.03/stable
