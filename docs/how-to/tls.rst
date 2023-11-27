@@ -139,7 +139,10 @@ plaintext to TLS:
 
 2. run ``microovn certificates regenerate-ca`` on one of the cluster members
 
-3. run ``sudo snap restart microovn.daemon`` on **all** cluster members
+3. run ``sudo snap restart microovn.daemon`` on **all** cluster members. Allow
+   commands to complete before proceeding to the next step.
+
+4. run ``sudo snap restart microovn.ovn-northd`` on **all** cluster members
 
 Once this is done, OVN API services throughout the cluster will start listening
 on TLS-secured ports. However, the process is not complete yet because OVN
