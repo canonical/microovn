@@ -46,5 +46,5 @@ func (c *cmdClusterBootstrap) Run(cmd *cobra.Command, args []string) error {
 	address := util.NetworkInterfaceAddress()
 	address = util.CanonicalNetworkAddress(address, 6443)
 
-	return m.NewCluster(hostname, address, time.Second*30)
+	return m.NewCluster(hostname, address, nil, time.Second*30)
 }

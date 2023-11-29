@@ -46,5 +46,5 @@ func (c *cmdClusterJoin) Run(cmd *cobra.Command, args []string) error {
 	address := util.NetworkInterfaceAddress()
 	address = util.CanonicalNetworkAddress(address, 6443)
 
-	return m.JoinCluster(hostname, address, args[0], time.Second*30)
+	return m.JoinCluster(hostname, address, args[0], nil, time.Second*30)
 }
