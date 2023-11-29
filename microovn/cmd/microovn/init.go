@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
-	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/spf13/cobra"
 )
@@ -20,6 +19,7 @@ type cmdInit struct {
 }
 
 func (c *cmdInit) Command() *cobra.Command {
+
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Interactive configuration of MicroOVN",
@@ -60,13 +60,13 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 		// Get system address.
 		address := util.NetworkInterfaceAddress()
-		address, err = cli.AskString(fmt.Sprintf("Please choose the address MicroOVN will be listening on [default=%s]: ", address), address, nil)
+		address, err = c.common.asker.AskString(fmt.Sprintf("Please choose the address MicroOVN will be listening on [default=%s]: ", address), address, nil)
 		if err != nil {
 			return err
 		}
 		address = util.CanonicalNetworkAddress(address, 6443)
 
-		wantsBootstrap, err := cli.AskBool("Would you like to create a new MicroOVN cluster? (yes/no) [default=no]: ", "no")
+		wantsBootstrap, err := c.common.asker.AskBool("Would you like to create a new MicroOVN cluster? (yes/no) [default=no]: ", "no")
 		if err != nil {
 			return err
 		}
@@ -75,7 +75,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 			mode = "bootstrap"
 
 			// Offer overriding the name.
-			hostName, err = cli.AskString(fmt.Sprintf("Please choose a name for this system [default=%s]: ", hostName), hostName, nil)
+			hostName, err = c.common.asker.AskString(fmt.Sprintf("Please choose a name for this system [default=%s]: ", hostName), hostName, nil)
 			if err != nil {
 				return err
 			}
@@ -88,7 +88,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 		} else {
 			mode = "join"
 
-			token, err := cli.AskString("Please enter your join token: ", "", nil)
+			token, err := c.common.asker.AskString("Please enter your join token: ", "", nil)
 			if err != nil {
 				return err
 			}
@@ -104,14 +104,14 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 	// Add additional servers.
 	if mode != "join" {
-		wantsMachines, err := cli.AskBool("Would you like to add additional servers to the cluster? (yes/no) [default=no]: ", "no")
+		wantsMachines, err := c.common.asker.AskBool("Would you like to add additional servers to the cluster? (yes/no) [default=no]: ", "no")
 		if err != nil {
 			return err
 		}
 
 		if wantsMachines {
 			for {
-				tokenName, err := cli.AskString("What's the name of the new MicroOVN server? (empty to exit): ", "", func(input string) error { return nil })
+				tokenName, err := c.common.asker.AskString("What's the name of the new MicroOVN server? (empty to exit): ", "", func(input string) error { return nil })
 				if err != nil {
 					return err
 				}
