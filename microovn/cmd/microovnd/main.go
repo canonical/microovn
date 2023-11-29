@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/state"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microovn/microovn/api"
@@ -70,7 +71,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	h.PreJoin = ovn.Join
 	h.OnNewMember = ovn.Refresh
 	h.PreRemove = ovn.Leave
-	h.PostRemove = ovn.Refresh
+	h.PostRemove = func(s *state.State, force bool) error { return ovn.Refresh(s) }
 	h.OnStart = ovn.Start
 
 	return m.Start(api.Endpoints, database.SchemaExtensions, h)
