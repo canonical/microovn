@@ -11,7 +11,7 @@ import (
 )
 
 // Bootstrap will initialize a new OVN deployment.
-func Bootstrap(s *state.State) error {
+func Bootstrap(s *state.State, initConfig map[string]string) error {
 	// Make sure we don't have any other hooks firing.
 	muHook.Lock()
 	defer muHook.Unlock()

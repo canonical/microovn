@@ -10,7 +10,7 @@ import (
 )
 
 // Join will join an existing OVN deployment.
-func Join(s *state.State) error {
+func Join(s *state.State, initConfig map[string]string) error {
 	// Make sure we don't have any other hooks firing.
 	muHook.Lock()
 	defer muHook.Unlock()

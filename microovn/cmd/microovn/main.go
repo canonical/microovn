@@ -2,10 +2,12 @@
 package main
 
 import (
+	"bufio"
 	"os"
 
 	"github.com/spf13/cobra"
 
+	cli "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/microovn/microovn/version"
 )
 
@@ -19,11 +21,13 @@ type CmdControl struct {
 	FlagLogDebug   bool
 	FlagLogVerbose bool
 	FlagStateDir   string
+
+	asker cli.Asker
 }
 
 func main() {
 	// common flags.
-	commonCmd := CmdControl{}
+	commonCmd := CmdControl{asker: cli.NewAsker(bufio.NewReader(os.Stdin))}
 
 	app := &cobra.Command{
 		Use:               "microovn",

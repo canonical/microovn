@@ -16,7 +16,7 @@ import (
 // Note (mkalcok): At this point, database table `services` no longer contains entries
 // for departing cluster member, so we'll try to exit/leave/stop all possible services
 // ignoring any errors from services that are not actually running.
-func Leave(s *state.State) error {
+func Leave(s *state.State, force bool) error {
 	var err error
 	chassisName := s.Name()
 
