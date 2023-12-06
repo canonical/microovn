@@ -73,3 +73,7 @@ constructive feedback.
 .. _Support: https://discourse.ubuntu.com/c/microovn/support/164
 .. _strictly confined snap: https://snapcraft.io/docs/snap-confinement
 .. _Open Virtual Network: https://www.ovn.org/en/
+.. _Code of conduct: https://ubuntu.com/community/ethos/code-of-conduct
+.. _GitHub: https://github.com/canonical/microovn
+.. _MicroOVN Discourse: https://discourse.ubuntu.com/c/microovn/160
+.. _Support: https://discourse.ubuntu.com/c/microovn/support/164
