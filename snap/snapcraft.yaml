@@ -1,7 +1,7 @@
 name: microovn
 icon: microovn.png
-base: core24
-build-base: devel
+base: core22
+  #build-base: devel
 assumes:
  - snapd2.59
 adopt-info: ovn
@@ -18,6 +18,17 @@ hooks:
     plugs:
       - network
       - network-control
+
+architectures:
+  - build-on: [arm64]
+    build-for: [arm64]
+
+package-repositories:
+  - type: apt
+    formats: [deb]
+    path: /
+    key-id: CAE649B3B3929F8470D4D33BA024F6F0E6D6A281
+    url: https://linux.mellanox.com/public/repo/doca/latest/ubuntu22.04/aarch64
 
 apps:
   # Service
@@ -248,12 +259,20 @@ parts:
      - lib/*/libbpf.so.*
      - lib/*/libxdp.so.*
      - lib/*/libunbound.so*
+     - lib/*/libunwind.so*
+     - lib/*/libmlx5.so*
+     - lib/*/libjansson.so*
+     - lib/*/libibverbs.so*
+     - lib/*/libpcap.so*
      - share/openvswitch
     override-build: |
         craftctl default
 
-        mkdir -p "${CRAFT_PART_INSTALL}/bin/"
-        mv "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch/ovs-vswitchd" "${CRAFT_PART_INSTALL}/bin/"
+        if [ -e "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch/ovs-vswitchd" ]; then
+            mkdir -p "${CRAFT_PART_INSTALL}/bin/"
+            mv "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch/ovs-vswitchd" \
+                "${CRAFT_PART_INSTALL}/bin/"
+        fi
 
   # Main part
   microovn:
