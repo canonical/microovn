@@ -20,15 +20,15 @@ hooks:
       - network-control
 
 architectures:
-  - build-on: [arm64]
-    build-for: [arm64]
+  - build-on: [amd64]
+    build-for: [amd64]
 
 package-repositories:
   - type: apt
     formats: [deb]
     path: /
     key-id: CAE649B3B3929F8470D4D33BA024F6F0E6D6A281
-    url: https://linux.mellanox.com/public/repo/doca/latest/ubuntu22.04/aarch64
+    url: https://linux.mellanox.com/public/repo/doca/latest/ubuntu22.04/amd64
 
 apps:
   # Service
