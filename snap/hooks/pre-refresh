@@ -1,8 +1,12 @@
 #!/bin/sh
 
+# The amout of time to wait in seconds for the case where the app socket
+# accepts connections and the daemon for some reason does not service requests.
+TIMEOUT=30
+
 # NOTE(fnordahl): tell the ovn-controller to exit without cleaning up flows nor
 # SB DB state on refresh.
-${SNAP}/commands/ovn-appctl exit --restart || true
+${SNAP}/commands/ovn-appctl --timeout ${TIMEOUT} exit --restart || true
 
 # Note (mkalcok): `microovn.switch` service, by default, stops OVS
 # vswitch daemon with `--cleanup` flag that releases datapath
@@ -10,4 +14,4 @@ ${SNAP}/commands/ovn-appctl exit --restart || true
 # by stopping the daemon without `--cleanup` flag during the snap
 # refresh.
 
-${SNAP}/commands/ovs-appctl exit || true
+${SNAP}/commands/ovs-appctl --timeout ${TIMEOUT} exit || true
