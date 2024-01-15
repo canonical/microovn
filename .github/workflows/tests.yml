@@ -113,6 +113,13 @@ jobs:
 
       - name: Install dependencies
         run: |
+          wget -qO - https://linux.mellanox.com/public/repo/doca/latest/ubuntu22.04/aarch64/GPG-KEY-Mellanox.pub | gpg --dearmor | sudo sh -c 'cat - > /usr/share/keyrings/GPG-KEY-Mellanox.pub'
+          sudo sh -c 'echo deb [signed-by=/usr/share/keyrings/GPG-KEY-Mellanox.pub] https://linux.mellanox.com/public/repo/doca/latest/ubuntu22.04/amd64 ./ > /etc/apt/sources.list.d/doca.list'
+          sudo apt update
+          sudo apt -y install openvswitch-datapath-dkms
+          cat /var/lib/dkms/openvswitch/2.17.8/build/make.log || true
+          modprobe openvswitch || true
+          dmesg
           sudo snap refresh
           sudo snap set lxd daemon.group=adm
           sudo lxd init --auto
