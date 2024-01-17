@@ -39,13 +39,13 @@ teardown() {
                   $container \
                   "$(test_is_ipv6_test && echo inet6 || echo inet)")
         if [ $i -eq 1 ]; then
-            microovn_init_create_cluster "$container" "$addr"
+            microovn_init_create_cluster "$container" "$addr" ""
         else
             local token
             token=$(microovn_cluster_get_join_token \
                         "${containers[0]}" \
                         "$container")
-            microovn_init_join_cluster "$container" "$addr" "$token"
+            microovn_init_join_cluster "$container" "$addr" "$token" ""
         fi
         starttimes_ovn_controller[$container]=$(\
             microovn_wait_for_service_starttime $container ovn-controller)
