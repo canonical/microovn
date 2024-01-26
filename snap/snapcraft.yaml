@@ -4,7 +4,7 @@ base: core24
 build-base: devel
 assumes:
  - snapd2.59
-adopt-info: ovn
+adopt-info: microovn
 grade: devel
 source-code: https://github.com/canonical/microovn.git
 summary: Simple clustered OVN deployment
@@ -223,18 +223,6 @@ parts:
         craftctl default
 
         mkdir -p "${CRAFT_PART_INSTALL}/etc/ovn/"
-    override-stage: |
-        craftctl default
-        pkg_version=$(
-            dpkg-deb -f \
-            $CRAFT_PART_SRC/../stage_packages/ovn-host*.deb \
-            Version | sed -rne 's/([0-9.]+)[-+~].*$$/\1/p')
-        git_version=$(
-            git -C $CRAFT_PROJECT_DIR describe \
-                --always \
-                --dirty \
-                --abbrev=10)
-        craftctl set version=${pkg_version}+snap${git_version}
 
   ovs:
     plugin: nil
@@ -275,6 +263,8 @@ parts:
     source: microovn/
     after:
       - dqlite
+      - ovn
+      - ovs
     build-snaps:
       - go
     plugin: nil
@@ -292,8 +282,35 @@ parts:
       export CGO_LDFLAGS="-L${CRAFT_STAGE}/lib/ -L${CRAFT_STAGE}/usr/local/lib/"
       export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
 
+      # Determine versions of packages used to build MicroOVN
+      # Note (mkalcok): This code reaches into other snapcraft parts via hardcoded paths
+      #                 to determine version of packages from which they were built. It
+      #                 will require updates if these part names ever change.
+      ovn_pkg_version=$(
+          dpkg-deb -f \
+          $CRAFT_PART_SRC/../../ovn/stage_packages/ovn-host*.deb Version)
+      ovs_pkg_version=$(
+          dpkg-deb -f \
+          $CRAFT_PART_SRC/../../ovs/stage_packages/openvswitch-switch*.deb Version)
+      git_version=$(
+          git -C $CRAFT_PROJECT_DIR describe \
+              --always \
+              --dirty \
+              --abbrev=10)
+      
+      # Set Snap's version string
+      # Note (mkalcok): Short version string does not include potential package snapshot hash.
+      #                 This is required because Snap's version string is limited to 32 chars
+      #                 and inclusion of snapshot hash violates this boundary.
+      ovn_pkg_short_version=$(echo $ovn_pkg_version | sed -rne 's/([0-9.]+)[-+~].*$$/\1/p')
+      craftctl set version=${ovn_pkg_short_version}+snap${git_version}
+      
       # Build the binaries
-      go build -o "${CRAFT_PART_INSTALL}/bin/microovn" ./cmd/microovn
+      go build -o "${CRAFT_PART_INSTALL}/bin/microovn" \
+               -ldflags "-X 'main.MicroOvnVersion=${git_version}' \
+                         -X 'main.OvnVersion=${ovn_pkg_version}' \
+                         -X 'main.OvsVersion=${ovs_pkg_version}'" \
+               ./cmd/microovn
       go build -o "${CRAFT_PART_INSTALL}/bin/microovnd" -tags=libsqlite3 ./cmd/microovnd
     prime:
       - bin/microovn
