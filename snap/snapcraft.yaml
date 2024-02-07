@@ -12,6 +12,21 @@ description: |-
 
 confinement: strict
 
+slots:
+  ovn-api:
+    interface: content
+    source:
+      read:
+        - "$SNAP_COMMON/data/pki/client-cert.pem"
+        - "$SNAP_COMMON/data/pki/client-privkey.pem"
+        - "$SNAP_COMMON/data/pki/cacert.pem"
+        - "$SNAP_COMMON/data/ovn.env"
+  ovn-chassis:
+    interface: content
+    source:
+      write:
+        - "$SNAP_COMMON/run/switch"
+
 hooks:
   install:
     plugs:
