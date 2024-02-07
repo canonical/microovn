@@ -5,6 +5,7 @@ on:
   pull_request:
   schedule:
     - cron: '14 3 * * 1'
+  workflow_dispatch:
 
 jobs:
   lint:
@@ -296,7 +297,7 @@ jobs:
           mkdir -p ${{ env.COVERAGE_DIR }}
           go get -d -v ./...
           go install honnef.co/go/tools/cmd/staticcheck@v0.5.1
-          
+
         working-directory: ${{ env.SRC_DIR }}
 
       - name: Download coverage data
