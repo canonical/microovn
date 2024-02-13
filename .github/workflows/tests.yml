@@ -26,6 +26,15 @@ jobs:
     runs-on: [self-hosted, linux, X64, jammy, large]
     env:
       MICROOVN_SNAP: microovn.snap
+      # The `base_ref` will only be set for PR and contain the name of the
+      # target branch.  The `ref_name` will be correct for the final push
+      # check after a PR is merged.
+      #
+      # This setup may lead to failures on push to arbitrarily named branches
+      # on a fork, but that is a price worth paying.
+      #
+      # Contributors can raise a draft PR to get accurate results.
+      POSSIBLE_TARGET_BRANCH: "${{ github.base_ref || github.ref_name }}"
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -43,7 +52,11 @@ jobs:
           sudo snap refresh
           sudo snap set lxd daemon.group=adm
           sudo lxd init --auto
-          sudo snap install snapcraft --classic
+          test $POSSIBLE_TARGET_BRANCH = main && \
+              export SNAPCRAFT_CHANNEL=latest/edge
+          sudo snap install snapcraft \
+              --channel "${SNAPCRAFT_CHANNEL:-latest/stable}" \
+              --classic
 
       - name: Build snap
         run: make $MICROOVN_SNAP
