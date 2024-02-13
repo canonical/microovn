@@ -228,7 +228,7 @@ parts:
         pkg_version=$(
             dpkg-deb -f \
             $CRAFT_PART_SRC/../stage_packages/ovn-host*.deb \
-            Version | sed -rne 's/([0-9.]+)[-+].*$$/\1/p')
+            Version | sed -rne 's/([0-9.]+)[-+~].*$$/\1/p')
         git_version=$(
             git -C $CRAFT_PROJECT_DIR describe \
                 --always \
