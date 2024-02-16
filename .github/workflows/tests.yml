@@ -52,8 +52,9 @@ jobs:
           sudo snap refresh
           sudo snap set lxd daemon.group=adm
           sudo lxd init --auto
+          # latest/stable due to https://bugs.launchpad.net/bugs/2054099
           test $POSSIBLE_TARGET_BRANCH = main && \
-              export SNAPCRAFT_CHANNEL=latest/edge
+              export SNAPCRAFT_CHANNEL=latest/stable
           sudo snap install snapcraft \
               --channel "${SNAPCRAFT_CHANNEL:-latest/stable}" \
               --classic
