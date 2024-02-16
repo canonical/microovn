@@ -74,7 +74,7 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	h.PostRemove = func(s *state.State, force bool) error { return ovn.Refresh(s) }
 	h.OnStart = ovn.Start
 
-	return m.Start(context.Background(), api.Endpoints, database.SchemaExtensions, []string{}, h)
+	return m.Start(context.Background(), api.Endpoints, database.SchemaExtensions, api.Extensions(), h)
 }
 
 func init() {
