@@ -29,3 +29,5 @@ README
 systemd
 vSwitch
 manpage
+ESM
+Livepatch

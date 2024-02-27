@@ -47,7 +47,7 @@ In this documentation
 Project and community
 ---------------------
 
-MicroOVN is a member of the Ubuntu family. It’s an open source project that
+MicroOVN is a member of the Ubuntu family. It's an open source project that
 warmly welcomes community projects, contributions, suggestions, fixes and
 constructive feedback.
 
@@ -57,6 +57,9 @@ constructive feedback.
 * GitHub is also used as our bug tracker
 * To speak with us, you can find us in our `MicroOVN Discourse`_ category. Use
   the `Support`_ sub-category for technical assistance.
+* Optionally enable `Ubuntu Pro`_ on your OVN nodes. This is a service that
+  provides the `Livepatch Service`_ and the `Expanded Security Maintenance`_
+  (ESM) program.
 
 .. toctree::
    :hidden:
@@ -73,3 +76,6 @@ constructive feedback.
 .. _GitHub: https://github.com/canonical/microovn
 .. _MicroOVN Discourse: https://discourse.ubuntu.com/c/microovn/160
 .. _Support: https://discourse.ubuntu.com/c/microovn/support/164
+.. _Ubuntu Pro: https://ubuntu.com/pro
+.. _Livepatch Service: https://ubuntu.com/security/livepatch
+.. _Expanded Security Maintenance: https://ubuntu.com/security/esm
