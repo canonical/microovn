@@ -2,7 +2,7 @@
 set -eux
 
 # Load the environment
-. "${SNAP_COMMON}/data/ovn.env"
+. "${SNAP_COMMON}/data/env/ovn.env"
 
 # Setup directories
 export OVS_RUNDIR="${SNAP_COMMON}/run/switch/"
