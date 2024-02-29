@@ -2,3 +2,9 @@
 
 mkdir -p $SNAP_COMMON/logs
 cp $SNAP/docs/microovn/how-to/logs.txt $SNAP_COMMON/logs/README
+
+# If we upgraded from snap revision 379 (24.03.0+snap395808ff84) or earlier, ensure we move ovn.env to its own directory before running the start commands.
+if test -e "${SNAP_COMMON}/data/ovn.env" ; then
+  mkdir "${SNAP_COMMON}/data/env" || true
+  mv "${SNAP_COMMON}/data/ovn.env" "${SNAP_COMMON}/data/env/ovn.env"
+fi
