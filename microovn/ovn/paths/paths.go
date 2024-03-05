@@ -47,7 +47,7 @@ func SwitchDataDir() string {
 
 // OvnEnvFile returns path to the file used to configure env variables for OVN commands
 func OvnEnvFile() string {
-	return filepath.Join(dataDir, "ovn.env")
+	return filepath.Join(EnvDir(), "ovn.env")
 }
 
 // OvnNBDatabaseSock returns path to the local unix socket used by Northbound OVN database
@@ -78,6 +78,11 @@ func OvsDatabaseSock() string {
 // PkiDir returns path to the directory that store OVN certificates
 func PkiDir() string {
 	return filepath.Join(dataDir, "pki")
+}
+
+// EnvDir returns path to the directory that store OVN environment variables.
+func EnvDir() string {
+	return filepath.Join(dataDir, "env")
 }
 
 // PkiCaCertFile returns path to CA certificate file
@@ -129,6 +134,7 @@ func RequiredDirs() []string {
 		SwitchDataDir(),
 		LogsDir(),
 		PkiDir(),
+		EnvDir(),
 	}
 }
 
