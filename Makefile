@@ -6,6 +6,9 @@ ifndef MICROOVN_SNAP_CHANNEL
 endif
 
 ALL_TESTS := $(wildcard tests/*.bats)
+MICROOVN_SOURCES := $(shell find microovn/ -type f)
+COMMAND_WRAPPERS := $(shell find snapcraft/ -type f)
+SNAP_SOURCES := $(shell find snap/ -type f)
 
 check: check-lint check-system
 
@@ -25,7 +28,7 @@ $(ALL_TESTS): $(MICROOVN_SNAP)
 
 check-system: $(ALL_TESTS)
 
-$(MICROOVN_SNAP):
+$(MICROOVN_SNAP): $(MICROOVN_SOURCES) $(SNAP_SOURCES) $(COMMAND_WRAPPERS)
 	echo "Building the snap";						\
 	snapcraft pack -v -o $(MICROOVN_SNAP)
 
