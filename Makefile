@@ -5,6 +5,8 @@ ifndef MICROOVN_SNAP_CHANNEL
 	export MICROOVN_SNAP_CHANNEL="22.03/stable"
 endif
 
+ALL_TESTS := $(wildcard tests/*.bats)
+
 check: check-lint check-system
 
 check-tabs:
@@ -17,9 +19,11 @@ check-lint: check-tabs
 		-not -name \*.swp \
 		| xargs shellcheck --severity=warning && echo Success!
 
-check-system: $(MICROOVN_SNAP)
-	echo "Running functional tests";					\
-	$(CURDIR)/.bats/bats-core/bin/bats tests/
+$(ALL_TESTS): $(MICROOVN_SNAP)
+	echo "Running functional test $@";					\
+	$(CURDIR)/.bats/bats-core/bin/bats $@
+
+check-system: $(ALL_TESTS)
 
 $(MICROOVN_SNAP):
 	echo "Building the snap";						\
@@ -28,3 +32,5 @@ $(MICROOVN_SNAP):
 clean:
 	rm -f $(MICROOVN_SNAP_PATH);						\
 	snapcraft clean
+
+.PHONY: $(ALL_TESTS) clean check-system check-lint check-tabs
