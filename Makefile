@@ -5,6 +5,8 @@ ifndef MICROOVN_SNAP_CHANNEL
 	export MICROOVN_SNAP_CHANNEL="22.03/stable"
 endif
 
+.DEFAULT_GOAL := $(MICROOVN_SNAP)
+
 ALL_TESTS := $(wildcard tests/*.bats)
 MICROOVN_SOURCES := $(shell find microovn/ -type f)
 COMMAND_WRAPPERS := $(shell find snapcraft/ -type f)
