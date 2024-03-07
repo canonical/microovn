@@ -31,3 +31,10 @@ vSwitch
 manpage
 ESM
 Livepatch
+LXD
+Snapcraft
+linter
+linters
+submodules
+VMs
+codebase
