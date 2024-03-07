@@ -184,7 +184,7 @@ function _test_db_connection_string() {
     for container in $TEST_CONTAINERS; do
         run lxc_exec \
             "$container" \
-            "grep ^$check_var /var/snap/microovn/common/data/ovn.env"
+            "grep ^$check_var /var/snap/microovn/common/data/env/ovn.env"
         for addr in "${cluster_addresses[@]}"; do
             local expected_addr
             expected_addr=$(print_address $addr)
