@@ -5,6 +5,13 @@ ifndef MICROOVN_SNAP_CHANNEL
 	export MICROOVN_SNAP_CHANNEL="22.03/stable"
 endif
 
+.DEFAULT_GOAL := $(MICROOVN_SNAP)
+
+ALL_TESTS := $(wildcard tests/*.bats)
+MICROOVN_SOURCES := $(shell find microovn/ -type f)
+COMMAND_WRAPPERS := $(shell find snapcraft/ -type f)
+SNAP_SOURCES := $(shell find snap/ -type f)
+
 check: check-lint check-system
 
 check-tabs:
@@ -17,14 +24,18 @@ check-lint: check-tabs
 		-not -name \*.swp \
 		| xargs shellcheck --severity=warning && echo Success!
 
-check-system: $(MICROOVN_SNAP)
-	echo "Running functional tests";					\
-	$(CURDIR)/.bats/bats-core/bin/bats tests/
+$(ALL_TESTS): $(MICROOVN_SNAP)
+	echo "Running functional test $@";					\
+	$(CURDIR)/.bats/bats-core/bin/bats $@
 
-$(MICROOVN_SNAP):
+check-system: $(ALL_TESTS)
+
+$(MICROOVN_SNAP): $(MICROOVN_SOURCES) $(SNAP_SOURCES) $(COMMAND_WRAPPERS)
 	echo "Building the snap";						\
 	snapcraft pack -v -o $(MICROOVN_SNAP)
 
 clean:
 	rm -f $(MICROOVN_SNAP_PATH);						\
 	snapcraft clean
+
+.PHONY: $(ALL_TESTS) clean check-system check-lint check-tabs
