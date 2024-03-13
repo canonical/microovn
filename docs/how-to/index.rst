@@ -12,5 +12,3 @@ a basic understanding of OVN.
    tls
    downscaling
    logs
-   building
-   testing
