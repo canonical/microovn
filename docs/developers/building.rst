@@ -2,7 +2,7 @@
 Build and install MicroOVN from source
 ======================================
 
-This how-to contains steps needed for building MicroOVN form its source code.
+This how-to contains steps needed for building MicroOVN from its source code.
 This is useful, for example, if you want to contribute to the MicroOVN and you
 want to test your changes locally.
 
@@ -72,8 +72,6 @@ do it automatically for locally installed snaps.
 
 .. code-block:: none
 
-   # Switch to root account
-   sudo -i
    for plug in firewall-control \
                 hardware-observe \
                 hugepages-control \
@@ -81,8 +79,7 @@ do it automatically for locally installed snaps.
                 openvswitch-support \
                 process-control \
                 system-trace; do \
-       snap connect microovn:$plug;done
-   exit
+       sudo snap connect microovn:$plug;done
 
 To verify that all the required plugs are correctly connected to their slots,
 you can run:

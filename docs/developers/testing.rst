@@ -29,26 +29,26 @@ To perform linting, go into the repository's root directory and run:
 Functional tests
 ----------------
 
-These tests build the MicroOVN snap and use it to deploy the ``OVN`` cluster
+These tests build the MicroOVN snap and use it to deploy the OVN cluster
 in LXD containers. This cluster is then used for running functional test
 suites.
 
-Functional test requirements
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Satisfy the test requirements
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 There is no need to run tests in dedicated VMs or in isolated environments as
 all functional tests run inside containers and no changes are made to the host
 running them.
 
-Functional tests need to build the MicroOVN snap and run multiple containers
-via LXD, so make sure you first complete steps and requirements for
-:doc:`building MicroOVN from source <building>`.
+MicroOVN needs to be built prior to running the functional tests. See the
+:doc:`Build MicroOVN <building>` page.
 
-The final step is to ensure that you have installed required
-`Bash Automated Testing System (BATS)`_. Due to the reliance on its latest
-features, MicroOVN uses ``BATS`` directly from its source. If you cloned the
-MicroOVN repository with submodules (using ``--recurse-submodules`` flag), you
-are all set and you will have the following **non-empty** directories:
+Secondly, ensure that you have installed
+`Bash Automated Testing System (BATS)`_, a software dependency. Due to the
+reliance on its latest features, MicroOVN uses ``BATS`` directly from its
+source. If you cloned the MicroOVN repository with submodules (using
+``--recurse-submodules`` flag), you are all set and you will have the following
+**non-empty** directories:
 
 * ``.bats/bats-assert/``
 * ``.bats/bats-core/``
@@ -85,7 +85,7 @@ To run individual test suites you can execute:
    specify the ``-O`` argument as well.
 
 Clean up
-~~~~~~~~~~~
+~~~~~~~~
 
 Functional test suites will attempt to clean up their containers. However, if
 a test crashes, or if it's forcefully killed, you may need to do some manual
