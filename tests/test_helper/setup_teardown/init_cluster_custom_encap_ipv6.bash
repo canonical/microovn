@@ -10,25 +10,39 @@ setup_file() {
     export TEST_CONTAINERS
     launch_containers jammy $TEST_CONTAINERS
     wait_containers_ready $TEST_CONTAINERS
+
+    # Create a dedicated bridge for the east-west traffic
+    network_output=$(create_lxd_network "br-east-west")
+    ipv6_subnet=$(echo "$network_output" | cut -d'|' -f2)
+
+    # Give each container an IP address from the subnet
+    east_west_ips_to_containers=$(connect_containers_to_network_ipv6 "$TEST_CONTAINERS" "br-east-west" $ipv6_subnet)
+
+    IFS=',' read -ra east_west_addrs <<< "$east_west_ips_to_containers"
+    EAST_WEST_ADDRS=("${east_west_addrs[@]}")
+    export EAST_WEST_ADDRS
+
     install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINERS
     local leader
-    for container in $TEST_CONTAINERS; do
+    for pair in "${EAST_WEST_ADDRS[@]}"; do
+        IFS=';' read -r container ip_east_west <<< "$pair"
+
         local addr
         addr=$(container_get_default_ip "$container" \
                "$(test_is_ipv6_test && echo inet6 || echo inet)")
         assert [ -n "$addr" ]
         if [ -z "$leader" ]; then
-            microovn_init_create_cluster "$container" "$addr" ""
+            microovn_init_create_cluster "$container" "$addr" "$ip_east_west"
             leader="$container"
         else
             local token
             token=$(microovn_cluster_get_join_token "$leader" "$container")
-            microovn_init_join_cluster "$container" "$addr" "$token" ""
+            microovn_init_join_cluster "$container" "$addr" "$token" "$ip_east_west"
         fi
     done
 }
 
 teardown_file() {
     delete_containers $TEST_CONTAINERS
+    delete_lxd_network "br-east-west"
 }
-

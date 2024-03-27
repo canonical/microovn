@@ -107,6 +107,28 @@ function wait_ovn_services() {
 function microovn_init_create_cluster() {
     local container=$1; shift
     local address=$1; shift
+    local custom_encapsulation_ip=$1; shift
+
+    custom_encapsulation_ip_dialog=""
+    if [ -n "$custom_encapsulation_ip" ]; then
+        custom_encapsulation_ip_dialog=$(cat <<EOF
+expect "Would you like to define a custom encapsulation IP address for $container?" {
+    send "yes\n"
+}
+
+expect "Please enter the custom encapsulation IP address for $container" {
+    send "$custom_encapsulation_ip\n"
+}
+EOF
+)
+    else
+        custom_encapsulation_ip_dialog=$(cat <<EOF
+expect "Would you like to define a custom encapsulation IP address for $container?" {
+    send "\n"
+}
+EOF
+)
+    fi
 
     cat << EOF | lxc_exec "$container" "expect -"
 spawn "sudo" "microovn" "init"
@@ -120,8 +142,10 @@ expect "Would you like to create a new MicroOVN cluster?" {
 }
 
 expect "Please choose a name for this system" {
-    send "\n"
+    send "$container\n"
 }
+
+$custom_encapsulation_ip_dialog
 
 expect "Would you like to add additional servers to the cluster?" {
     send "no\n"
@@ -135,6 +159,29 @@ function microovn_init_join_cluster() {
     local container=$1; shift
     local address=$1; shift
     local token=$1; shift
+    local custom_encapsulation_ip=$1; shift
+
+    custom_encapsulation_ip_dialog=""
+    if [ -n "$custom_encapsulation_ip" ]; then
+        custom_encapsulation_ip_dialog=$(cat <<EOF
+expect "Would you like to define a custom encapsulation IP address for $container?" {
+    send "yes\n"
+}
+
+expect "Please enter the custom encapsulation IP address for $container" {
+    send "$custom_encapsulation_ip\n"
+}
+EOF
+)
+    else
+        custom_encapsulation_ip_dialog=$(cat <<EOF
+expect "Would you like to define a custom encapsulation IP address for $container?" {
+    send "\n"
+}
+EOF
+)
+    fi
+
     cat << EOF | lxc_exec "$container" "expect -"
 spawn "sudo" "microovn" "init"
 
@@ -149,6 +196,8 @@ expect "Would you like to create a new MicroOVN cluster?" {
 expect "Please enter your join token:" {
     send "$token\n"
 }
+
+$custom_encapsulation_ip_dialog
 
 expect eof
 EOF

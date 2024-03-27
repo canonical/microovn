@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
+	"github.com/canonical/lxd/shared/validate"
 	"github.com/canonical/microcluster/microcluster"
 	"github.com/spf13/cobra"
 )
@@ -27,6 +28,24 @@ func (c *cmdInit) Command() *cobra.Command {
 	}
 
 	return cmd
+}
+
+func (c *cmdInit) wantsCustomEncapsulationIP(hostName string) (string, string, error) {
+	wantsCustomEncapsulationIP, err := c.common.asker.AskBool(fmt.Sprintf("Would you like to define a custom encapsulation IP address for %s? (yes/no) [default=no]: ", hostName), "no")
+	if err != nil {
+		return "", "", err
+	}
+
+	if wantsCustomEncapsulationIP {
+		encapIP, err := c.common.asker.AskString(fmt.Sprintf("Please enter the custom encapsulation IP address for %s: ", hostName), "", validate.Required(validate.IsNetworkAddress))
+		if err != nil {
+			return "", "", err
+		}
+
+		return fmt.Sprintf("%s.ovn-encap-ip", hostName), encapIP, nil
+	}
+
+	return "", "", nil
 }
 
 func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
@@ -71,6 +90,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
+		var optionalConfig map[string]string
 		if wantsBootstrap {
 			mode = "bootstrap"
 
@@ -80,8 +100,18 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 				return err
 			}
 
+			// Handle custom encapsulation IP for this system at bootstrap time.
+			key, encapIP, err := c.wantsCustomEncapsulationIP(hostName)
+			if err != nil {
+				return err
+			}
+
+			if key != "" && encapIP != "" {
+				optionalConfig = map[string]string{key: encapIP}
+			}
+
 			// Bootstrap the cluster.
-			err = m.NewCluster(hostName, address, nil, time.Second*30)
+			err = m.NewCluster(hostName, address, optionalConfig, time.Second*30)
 			if err != nil {
 				return err
 			}
@@ -93,7 +123,17 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 				return err
 			}
 
-			err = m.JoinCluster(hostName, address, token, nil, time.Second*30)
+			// Handle custom encapsulation IP for this system at join time.
+			key, encapIP, err := c.wantsCustomEncapsulationIP(hostName)
+			if err != nil {
+				return err
+			}
+
+			if key != "" && encapIP != "" {
+				optionalConfig = map[string]string{key: encapIP}
+			}
+
+			err = m.JoinCluster(hostName, address, token, optionalConfig, time.Second*30)
 			if err != nil {
 				return err
 			}
@@ -124,6 +164,21 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 				token, err := m.NewJoinToken(tokenName)
 				if err != nil {
 					return err
+				}
+
+				// Register a potential custom encapsulation IP for other systems,
+				// so that when they will join the cluster, their encapsulation IP
+				// for the Geneve tunnel will be automatically configured.
+				key, encapIP, err := c.wantsCustomEncapsulationIP(tokenName)
+				if err != nil {
+					return err
+				}
+
+				if key != "" && encapIP != "" {
+					_, _, err = m.SQL(fmt.Sprintf("INSERT INTO config (key, value) VALUES ('%s', '%s')", key, encapIP))
+					if err != nil {
+						return err
+					}
 				}
 
 				fmt.Println(token)
