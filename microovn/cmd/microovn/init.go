@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/microcluster/microcluster"
@@ -31,7 +30,7 @@ func (c *cmdInit) Command() *cobra.Command {
 
 func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 	// Connect to the daemon.
-	m, err := microcluster.App(context.Background(), microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
+	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
 	if err != nil {
 		return err
 	}
@@ -81,7 +80,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 			}
 
 			// Bootstrap the cluster.
-			err = m.NewCluster(hostName, address, nil, time.Second*30)
+			err = m.NewCluster(context.Background(), hostName, address, nil)
 			if err != nil {
 				return err
 			}
@@ -93,7 +92,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 				return err
 			}
 
-			err = m.JoinCluster(hostName, address, token, nil, time.Second*30)
+			err = m.JoinCluster(context.Background(), hostName, address, token, nil)
 			if err != nil {
 				return err
 			}
@@ -121,7 +120,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 				}
 
 				// Issue the token.
-				token, err := m.NewJoinToken(tokenName)
+				token, err := m.NewJoinToken(context.Background(), tokenName)
 				if err != nil {
 					return err
 				}
