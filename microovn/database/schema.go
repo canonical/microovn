@@ -10,9 +10,9 @@ import (
 
 // SchemaExtensions is a list of schema extensions that can be passed to the MicroCluster daemon.
 // Each entry will increase the database schema version by one, and will be applied after internal schema updates.
-var SchemaExtensions = map[int]schema.Update{
-	1: schemaUpdate1,
-	2: schemaUpdateCascadeDeleteServices,
+var SchemaExtensions = []schema.Update{
+	schemaUpdate1,
+	schemaUpdateCascadeDeleteServices,
 }
 
 func schemaUpdate1(ctx context.Context, tx *sql.Tx) error {
