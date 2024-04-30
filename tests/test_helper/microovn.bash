@@ -8,6 +8,9 @@ function install_microovn() {
     snap_base=$(snap_print_base $snap_file)
 
     for container in $containers; do
+        # Note: Temporary workaround to avoid blocking issue in snapd 2.62
+        lxc_exec "$container" "snap refresh snapd --channel latest/beta"
+
         if ! test_snap_is_stable_base "$snap_base"; then
             echo "# !!NOTE!! Installing $snap_base \
                   from edge channel for $snap_file" >&3
