@@ -9,7 +9,7 @@ jobs:
     runs-on: [self-hosted, linux, X64, jammy, large]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -37,7 +37,7 @@ jobs:
       POSSIBLE_TARGET_BRANCH: "${{ github.base_ref || github.ref_name }}"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Clear FORWARD firewall rules
         run: |
@@ -78,7 +78,7 @@ jobs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Generate matrix
         id: generate-matrix
@@ -107,7 +107,7 @@ jobs:
       matrix: ${{ fromJson(needs.metadata.outputs.matrix) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
