@@ -16,12 +16,14 @@ const defaultDBConnectWait = 30 //Default time to wait for connection to ovsdb
 const OvsdbConnected = "connected"
 const OvsdbRemoved = "removed"
 
-// ovsdbSpec is a helper structure for precise identification of ovsdb databases. A lot of
-// ovn/ovs commands take path to either database file, database socket or process control socket
-// along with the database name. This structure can be used for such cases.
-type ovsdbSpec struct {
-	Target string
-	Name   string
+// OvsdbSpec is a helper structure that encapsulates properties of an OVN/OVS database.
+type OvsdbSpec struct {
+	SocketURL    string // URL to an open database socket (e.g "unix:/path/db.sock")
+	Name         string // Name of the database within the db file (e.g. "OVN_Northbound")
+	ShortName    string // Shorthand name for the database (e.g. "nb")
+	FriendlyName string // Human friendly name of the database ideal for logging purposes (e.g. "Northbound")
+	Schema       string // Path to a schema file for the database
+	IsCentral    bool   // Whether the database is used by OVN central services
 }
 
 // OvsdbType is an enumeration of valid types of ovsdb databases which this package recognizes
@@ -34,26 +36,38 @@ const (
 	OvsdbTypeSwitchLocal
 )
 
-// newOvsdbSpec is a helper function that takes OvsdbType as an argument and generates
-// proper ovsdbSpec for given type.
-func newOvsdbSpec(dbType OvsdbType) (*ovsdbSpec, error) {
-	var dbSpec *ovsdbSpec
+// NewOvsdbSpec is a helper function that takes OvsdbType as an argument and generates
+// proper OvsdbSpec for given type.
+func NewOvsdbSpec(dbType OvsdbType) (*OvsdbSpec, error) {
+	var dbSpec *OvsdbSpec
 	var err error
 
 	if dbType == OvsdbTypeNBLocal {
-		dbSpec = &ovsdbSpec{
-			Target: paths.OvnNBDatabaseSock(),
-			Name:   "OVN_Northbound",
+		dbSpec = &OvsdbSpec{
+			SocketURL:    fmt.Sprintf("unix:%s", paths.OvnNBDatabaseSock()),
+			Schema:       paths.OvsdbNbSchema(),
+			Name:         "OVN_Northbound",
+			FriendlyName: "Northbound",
+			ShortName:    "nb",
+			IsCentral:    true,
 		}
 	} else if dbType == OvsdbTypeSBLocal {
-		dbSpec = &ovsdbSpec{
-			Target: paths.OvnSBDatabaseSock(),
-			Name:   "OVN_Southbound",
+		dbSpec = &OvsdbSpec{
+			SocketURL:    fmt.Sprintf("unix:%s", paths.OvnSBDatabaseSock()),
+			Schema:       paths.OvsdbSbSchema(),
+			Name:         "OVN_Southbound",
+			FriendlyName: "Southbound",
+			ShortName:    "sb",
+			IsCentral:    true,
 		}
 	} else if dbType == OvsdbTypeSwitchLocal {
-		dbSpec = &ovsdbSpec{
-			Target: paths.OvsDatabaseSock(),
-			Name:   "Open_vSwitch",
+		dbSpec = &OvsdbSpec{
+			SocketURL:    fmt.Sprintf("unix:%s", paths.OvsDatabaseSock()),
+			Schema:       paths.OvsdbSwitchSchema(),
+			Name:         "Open_vSwitch",
+			FriendlyName: "OpenvSwitch",
+			ShortName:    "switch",
+			IsCentral:    false,
 		}
 	} else {
 		err = errors.New("unknown ovsdb type")
@@ -64,21 +78,21 @@ func newOvsdbSpec(dbType OvsdbType) (*ovsdbSpec, error) {
 
 // waitForDBState as the name suggests, waits for specified ovsdb database to settle in
 // specified state. If database does not reach this state within timeout, this function returns error.
-// Target specified in "db" parameter does not need to necessarily exist before this function is executed,
-// creation of the database socket (db.Target) will be awaited as well.
-func waitForDBState(s *state.State, db *ovsdbSpec, dbState string, timeout int) error {
+// SocketURL specified in "db" parameter does not need to necessarily exist before this function is executed,
+// creation of the database socket (db.SocketURL) will be awaited as well.
+func waitForDBState(s *state.State, db *OvsdbSpec, dbState string, timeout int) error {
 	_, err := shared.RunCommandContext(
 		s.Context,
 		"ovsdb-client",
 		"--timeout",
 		strconv.Itoa(timeout),
 		"wait",
-		fmt.Sprintf("unix:%s", db.Target),
+		db.SocketURL,
 		db.Name,
 		dbState,
 	)
 	if err != nil {
-		return fmt.Errorf("database in '%s' (%s) failed to reach state '%s': %w", db.Name, db.Target, dbState, err)
+		return fmt.Errorf("database in '%s' (%s) failed to reach state '%s': %w", db.Name, db.SocketURL, dbState, err)
 	}
 	return nil
 }
@@ -99,7 +113,7 @@ func ovnDBCtl(s *state.State, dbType OvsdbType, timeout int, args ...string) (st
 		return "", errors.New("unknown DB type. OVN commands work only with NB or SB database")
 	}
 
-	dbSpec, err := newOvsdbSpec(dbType)
+	dbSpec, err := NewOvsdbSpec(dbType)
 	if err != nil {
 		return "", err
 	}
@@ -134,7 +148,7 @@ func SBCtl(s *state.State, args ...string) (string, error) {
 // state before timeout (defined in defaultDBConnectWait), an error is returned and command is not executed.
 func VSCtl(s *state.State, args ...string) (string, error) {
 
-	dbSpec, err := newOvsdbSpec(OvsdbTypeSwitchLocal)
+	dbSpec, err := NewOvsdbSpec(OvsdbTypeSwitchLocal)
 	if err != nil {
 		return "", err
 	}
@@ -177,10 +191,4 @@ func ControllerCtl(s *state.State, args ...string) (string, error) {
 	)
 
 	return stdout, err
-}
-
-// GetOvsdbLocalPath returns path to the database file or local unix socket based on the supplied "dbType"
-func GetOvsdbLocalPath(dbType OvsdbType) (string, error) {
-	spec, err := newOvsdbSpec(dbType)
-	return spec.Target, err
 }

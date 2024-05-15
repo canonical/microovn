@@ -51,7 +51,7 @@ func Leave(s *state.State, force bool) error {
 	}
 
 	// Wait for NB and SB cluster members to complete departure process
-	nbDatabase, err := newOvsdbSpec(OvsdbTypeNBLocal)
+	nbDatabase, err := NewOvsdbSpec(OvsdbTypeNBLocal)
 	if err == nil {
 		err = waitForDBState(s, nbDatabase, OvsdbRemoved, defaultDBConnectWait)
 		if err != nil {
@@ -61,7 +61,7 @@ func Leave(s *state.State, force bool) error {
 		logger.Warnf("Failed to get NB database specification: %s", err)
 	}
 
-	sbDatabase, err := newOvsdbSpec(OvsdbTypeSBLocal)
+	sbDatabase, err := NewOvsdbSpec(OvsdbTypeSBLocal)
 	if err == nil {
 		err = waitForDBState(s, sbDatabase, OvsdbRemoved, defaultDBConnectWait)
 		if err != nil {

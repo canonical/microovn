@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 )
 
+var snapRoot = os.Getenv("SNAP")
 var pathRoot = os.Getenv("SNAP_COMMON")
 var runtimeDir = filepath.Join(pathRoot, "run")
 var dataDir = filepath.Join(pathRoot, "data")
@@ -112,6 +113,17 @@ func PkiOvnControllerCertFiles() (string, string) {
 
 func PkiClientCertFiles() (string, string) {
 	return getServiceCertFiles("client")
+}
+
+// OvsdbSbSchema returns path to schema file for OVN Southbound database
+func OvsdbSbSchema() string { return filepath.Join(snapRoot, "share", "ovn", "ovn-sb.ovsschema") }
+
+// OvsdbNbSchema returns path to schema file for OVN Northbound database
+func OvsdbNbSchema() string { return filepath.Join(snapRoot, "share", "ovn", "ovn-nb.ovsschema") }
+
+// OvsdbSwitchSchema returns path to schema file for OpenvSwitch
+func OvsdbSwitchSchema() string {
+	return filepath.Join(snapRoot, "share", "openvswitch", "vswitch.ovsschema")
 }
 
 // getServiceCertFiles returns path to certificate and key of give service in format

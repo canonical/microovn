@@ -81,11 +81,11 @@ func refresh(s *state.State) error {
 }
 
 func updateOvnListenConfig(s *state.State) error {
-	nbDB, err := GetOvsdbLocalPath(OvsdbTypeNBLocal)
+	nbDB, err := NewOvsdbSpec(OvsdbTypeNBLocal)
 	if err != nil {
 		return fmt.Errorf("Failed to get path to OVN NB database socket: %w", err)
 	}
-	sbDB, err := GetOvsdbLocalPath(OvsdbTypeSBLocal)
+	sbDB, err := NewOvsdbSpec(OvsdbTypeSBLocal)
 	if err != nil {
 		return fmt.Errorf("Failed to get path to OVN SB database socket: %w", err)
 	}
@@ -94,7 +94,7 @@ func updateOvnListenConfig(s *state.State) error {
 	_, err = NBCtl(
 		s,
 		"--no-leader-only",
-		fmt.Sprintf("--db=unix:%s", nbDB),
+		fmt.Sprintf("--db=%s", nbDB.SocketURL),
 		"set-connection",
 		fmt.Sprintf("p%s:6641:[::]", protocol),
 	)
@@ -105,7 +105,7 @@ func updateOvnListenConfig(s *state.State) error {
 	_, err = SBCtl(
 		s,
 		"--no-leader-only",
-		fmt.Sprintf("--db=unix:%s", sbDB),
+		fmt.Sprintf("--db=%s", sbDB.SocketURL),
 		"set-connection",
 		fmt.Sprintf("p%s:6642:[::]", protocol),
 	)
