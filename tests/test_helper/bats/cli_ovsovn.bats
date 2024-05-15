@@ -22,6 +22,18 @@ teardown() {
             break
         done
     fi
+
+    if [ "$BATS_TEST_DESCRIPTION" = "ovn-nbctl daemon" ]; then
+        for container in $TEST_CONTAINERS; do
+            lxc_exec "$container" "killall ovn-nbctl"
+        done
+    fi
+
+    if [ "$BATS_TEST_DESCRIPTION" = "ovn-sbctl daemon" ]; then
+        for container in $TEST_CONTAINERS; do
+            lxc_exec "$container" "killall ovn-sbctl"
+        done
+    fi
 }
 
 @test "ovs-appctl ovs-vswitchd" {
@@ -93,10 +105,42 @@ teardown() {
     done
 }
 
+@test "ovn-nbctl daemon" {
+    local ovn_nbctl_socket
+
+    for container in $TEST_CONTAINERS; do
+        run lxc_exec "$container" \
+            "OVN_NB_DAEMON=/dev/null microovn.ovn-nbctl show"
+        assert_failure
+
+        ovn_nbctl_socket=$(lxc_exec "$container" \
+            "microovn.ovn-nbctl --detach")
+        run lxc_exec "$container" \
+            "OVN_NB_DAEMON=$ovn_nbctl_socket microovn.ovn-nbctl show"
+        assert_success
+    done
+}
+
 @test "ovn-sbctl" {
     for container in $TEST_CONTAINERS; do
         run lxc_exec "$container" \
             "microovn.ovn-sbctl show > /dev/null"
+        assert_success
+    done
+}
+
+@test "ovn-sbctl daemon" {
+    local ovn_sbctl_socket
+
+    for container in $TEST_CONTAINERS; do
+        run lxc_exec "$container" \
+            "OVN_SB_DAEMON=/dev/null microovn.ovn-sbctl show"
+        assert_failure
+
+        ovn_sbctl_socket=$(lxc_exec "$container" \
+            "microovn.ovn-sbctl --detach")
+        run lxc_exec "$container" \
+            "OVN_SB_DAEMON=$ovn_sbctl_socket microovn.ovn-sbctl show"
         assert_success
     done
 }

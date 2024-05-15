@@ -119,10 +119,12 @@ apps:
     command: commands/ovn-nbctl
     plugs:
       - network
+      - network-bind
   ovn-sbctl:
     command: commands/ovn-sbctl
     plugs:
       - network
+      - network-bind
   ovn-trace:
     command: commands/ovn-trace
     plugs:
