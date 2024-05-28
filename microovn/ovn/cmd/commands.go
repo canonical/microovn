@@ -192,3 +192,28 @@ func ControllerCtl(s *state.State, args ...string) (string, error) {
 
 	return stdout, err
 }
+
+// OvsdbClient is a wrapper function that executes 'ovsdb-client' command. It first ensures that the database
+// is connected and returns error if the database is not connected within <connectTimeout> seconds. Then it runs
+// "ovsdb-client" command with timeout of <resultTimeout> seconds.
+// Argument "args" should contain array of strings with subcommand and other arguments that will be passed directly
+// to the "ovsdb-client". Note that it is not necessary to pass "-t" argument, as the timeout is automatically included.
+func OvsdbClient(s *state.State, dbSpec *OvsdbSpec, connectTimeout int, resultTimeout int, args ...string) (string, error) {
+	err := WaitForDBState(s, dbSpec, OvsdbConnected, connectTimeout)
+	if err != nil {
+		return "", err
+	}
+
+	arguments := []string{"-t", strconv.Itoa(resultTimeout)}
+	arguments = append(arguments, args...)
+
+	stdout, _, err := shared.RunCommandSplit(
+		s.Context,
+		nil,
+		nil,
+		"ovsdb-client",
+		arguments...,
+	)
+
+	return stdout, err
+}
