@@ -7,6 +7,7 @@ import (
 
 	"github.com/canonical/microcluster/state"
 
+	"github.com/canonical/microovn/microovn/node"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 )
 
@@ -29,7 +30,7 @@ func Start(s *state.State) error {
 		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
 	}
 
-	centralActive, err := localServiceActive(s, "central")
+	centralActive, err := node.HasServiceActive(s, "central")
 	if err != nil {
 		return fmt.Errorf("failed to query local services: %w", err)
 	}

@@ -1,15 +1,13 @@
 package certificates
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
-	"github.com/canonical/microovn/microovn/database"
+	"github.com/canonical/microovn/microovn/node"
 	"github.com/canonical/microovn/microovn/ovn"
 )
 
@@ -17,29 +15,24 @@ import (
 func enabledOvnServices(s *state.State) ([]string, error) {
 	var enabledServices []string
 
-	// Get list of existing local OVN services.
-	err := s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
-		name := s.Name()
-		services, err := database.GetServices(ctx, tx, database.ServiceFilter{Member: &name})
-		if err != nil {
-			return err
-		}
-
-		for _, srv := range services {
-			if srv.Service == "central" {
-				enabledServices = append(enabledServices, "ovnnb", "ovnsb", "ovn-northd")
-			}
-
-			if srv.Service == "switch" {
-				enabledServices = append(enabledServices, "ovn-controller")
-			}
-		}
-		return nil
-	})
-
+	hasCentral, err := node.HasServiceActive(s, "central")
 	if err != nil {
 		enabledServices = nil
 		err = fmt.Errorf("failed to lookup local services eligible for certificate refresh: %s", err)
+	}
+
+	hasSwitch, err := node.HasServiceActive(s, "switch")
+	if err != nil {
+		enabledServices = nil
+		err = fmt.Errorf("failed to lookup local services eligible for certificate refresh: %s", err)
+	}
+
+	if hasCentral {
+		enabledServices = append(enabledServices, "ovnnb", "ovnsb", "ovn-northd")
+	}
+
+	if hasSwitch {
+		enabledServices = append(enabledServices, "ovn-controller")
 	}
 
 	// We always want a client certificate
