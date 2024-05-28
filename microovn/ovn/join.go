@@ -6,7 +6,9 @@ import (
 	"fmt"
 
 	"github.com/canonical/microcluster/state"
+
 	"github.com/canonical/microovn/microovn/database"
+	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 )
 
 // Join will join an existing OVN deployment.
@@ -140,7 +142,7 @@ func Join(s *state.State, initConfig map[string]string) error {
 		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 	}
 
-	_, err = VSCtl(
+	_, err = ovnCmd.VSCtl(
 		s,
 		"set", "open_vswitch", ".",
 		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
