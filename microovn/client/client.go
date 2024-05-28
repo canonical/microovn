@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/microcluster/client"
 
 	"github.com/canonical/microovn/microovn/api/types"
+	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 )
 
 // GetServices returns the list of configured OVN services.
@@ -72,4 +73,30 @@ func RegenerateCA(ctx context.Context, c *client.Client) (types.RegenerateCaResp
 
 	return *response, nil
 
+}
+
+// GetExpectedOvsdbSchemaVersion queries given MicroOVN node and returns an expected schema version for the specified
+// database. This is not necessarily the schema version that's being used by currently running OVN/OVS processes on the
+// node. Rather it's a version of a schema that was supplied with currently installed OVN/OVS packages on the node.
+// A discrepancy between these two can occur when MicroOVN gets upgraded, but cluster-wide schema upgrade was not
+// triggered, or completed, yet.
+func GetExpectedOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd.OvsdbSpec) (string, error) {
+	var response string
+
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
+	err := c.Query(queryCtx, "GET", api.NewURL().Path("ovsdb", "schema", dbSpec.ShortName, "expected"), nil, &response)
+
+	if err != nil {
+		hostUrl := c.URL()
+		return "", fmt.Errorf(
+			"failed to get expected %s OVSDB schema version from host '%s': %w",
+			dbSpec.FriendlyName,
+			hostUrl.String(),
+			err,
+		)
+	}
+
+	return response, nil
 }
