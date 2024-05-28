@@ -7,7 +7,7 @@ import (
 	"github.com/canonical/microcluster/rest"
 	"github.com/canonical/microcluster/state"
 
-	"github.com/canonical/microovn/microovn/ovn"
+	"github.com/canonical/microovn/microovn/node"
 )
 
 // /1.0/services endpoint.
@@ -18,7 +18,7 @@ var servicesCmd = rest.Endpoint{
 }
 
 func cmdServicesGet(s *state.State, r *http.Request) response.Response {
-	services, err := ovn.ListServices(s)
+	services, err := node.ListServices(s)
 	if err != nil {
 		return response.InternalError(err)
 	}

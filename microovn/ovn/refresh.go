@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/microcluster/state"
 
+	"github.com/canonical/microovn/microovn/node"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 )
 
@@ -36,12 +37,12 @@ func refresh(s *state.State) error {
 	}
 
 	// Query existing local services.
-	hasCentral, err := localServiceActive(s, "central")
+	hasCentral, err := node.HasServiceActive(s, "central")
 	if err != nil {
 		return err
 	}
 
-	hasSwitch, err := localServiceActive(s, "switch")
+	hasSwitch, err := node.HasServiceActive(s, "switch")
 	if err != nil {
 		return err
 	}

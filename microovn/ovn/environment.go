@@ -42,31 +42,6 @@ func networkProtocol(s *state.State) string {
 
 }
 
-// localServiceActive function accepts service names (like "central" or "switch") and returns true/false based
-// on whether the selected service is running on this node.
-func localServiceActive(s *state.State, serviceName string) (bool, error) {
-	serviceActive := false
-	err := s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
-		// Get list of all active local services.
-		name := s.Name()
-		services, err := database.GetServices(ctx, tx, database.ServiceFilter{Member: &name})
-		if err != nil {
-			return err
-		}
-
-		// Check if the specified service is among active local services.
-		for _, srv := range services {
-			if srv.Service == serviceName {
-				serviceActive = true
-			}
-		}
-
-		return nil
-	})
-
-	return serviceActive, err
-}
-
 // Builds environment variable strings for OVN.
 func environmentString(s *state.State, port int) (string, string, error) {
 	var err error

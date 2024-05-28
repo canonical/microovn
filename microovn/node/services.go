@@ -1,4 +1,4 @@
-package ovn
+package node
 
 import (
 	"context"
@@ -35,4 +35,30 @@ func ListServices(s *state.State) (types.Services, error) {
 	}
 
 	return services, nil
+}
+
+// HasServiceActive function accepts service names (like "central" or "switch") and returns true/false based
+// on whether the selected service is running on this node.
+func HasServiceActive(s *state.State, serviceName string) (bool, error) {
+	serviceActive := false
+
+	err := s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+		// Get list of all active local services.
+		name := s.Name()
+		services, err := database.GetServices(ctx, tx, database.ServiceFilter{Member: &name})
+		if err != nil {
+			return err
+		}
+
+		// Check if the specified service is among active local services.
+		for _, srv := range services {
+			if srv.Service == serviceName {
+				serviceActive = true
+			}
+		}
+
+		return nil
+	})
+
+	return serviceActive, err
 }
