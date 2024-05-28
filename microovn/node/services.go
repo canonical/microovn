@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/microcluster/cluster"
 	"github.com/canonical/microcluster/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
@@ -61,4 +62,35 @@ func HasServiceActive(s *state.State, serviceName string) (bool, error) {
 	})
 
 	return serviceActive, err
+}
+
+// FindService returns list of cluster members that have the specified service enabled.
+func FindService(s *state.State, service string) ([]cluster.InternalClusterMember, error) {
+	var membersWithService []cluster.InternalClusterMember
+
+	err := s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+		clusterMembers, err := cluster.GetInternalClusterMembers(ctx, tx)
+		if err != nil {
+			return err
+		}
+
+		for _, member := range clusterMembers {
+			memberHasService, err := database.ServiceExists(ctx, tx, member.Name, service)
+			if err != nil {
+				return err
+			}
+
+			if memberHasService {
+				membersWithService = append(membersWithService, member)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to find nodes with service '%s': '%s'", service, err)
+	}
+
+	return membersWithService, nil
 }

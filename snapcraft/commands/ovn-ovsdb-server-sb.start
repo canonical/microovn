@@ -14,7 +14,8 @@ OVN_ARGS="--db-sb-addr="${OVN_LOCAL_IP}" \
 --db-sb-election-timer="${ELECTION_TIMER}" \
 --ovn-sb-db-ssl-key="${OVN_PKIDIR}"/ovnsb-privkey.pem \
 --ovn-sb-db-ssl-cert="${OVN_PKIDIR}"/ovnsb-cert.pem \
---ovn-sb-db-ssl-ca-cert="${OVN_PKIDIR}"/cacert.pem"
+--ovn-sb-db-ssl-ca-cert="${OVN_PKIDIR}"/cacert.pem \
+--db-cluster-schema-upgrade=no"
 
 if [ "${OVN_INITIAL_SB}" != "${OVN_LOCAL_IP}" ]; then
     OVN_ARGS="${OVN_ARGS} --db-sb-cluster-remote-addr="${OVN_INITIAL_SB}""
