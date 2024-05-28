@@ -1,4 +1,4 @@
-package ovn
+package cmd
 
 import (
 	"errors"
@@ -12,7 +12,7 @@ import (
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )
 
-const defaultDBConnectWait = 30 //Default time to wait for connection to ovsdb
+const DefaultDBConnectWait = 30 //Default time to wait for connection to ovsdb
 const OvsdbConnected = "connected"
 const OvsdbRemoved = "removed"
 
@@ -76,11 +76,11 @@ func NewOvsdbSpec(dbType OvsdbType) (*OvsdbSpec, error) {
 	return dbSpec, err
 }
 
-// waitForDBState as the name suggests, waits for specified ovsdb database to settle in
+// WaitForDBState as the name suggests, waits for specified ovsdb database to settle in
 // specified state. If database does not reach this state within timeout, this function returns error.
 // SocketURL specified in "db" parameter does not need to necessarily exist before this function is executed,
 // creation of the database socket (db.SocketURL) will be awaited as well.
-func waitForDBState(s *state.State, db *OvsdbSpec, dbState string, timeout int) error {
+func WaitForDBState(s *state.State, db *OvsdbSpec, dbState string, timeout int) error {
 	_, err := shared.RunCommandContext(
 		s.Context,
 		"ovsdb-client",
@@ -118,7 +118,7 @@ func ovnDBCtl(s *state.State, dbType OvsdbType, timeout int, args ...string) (st
 		return "", err
 	}
 
-	err = waitForDBState(s, dbSpec, OvsdbConnected, timeout)
+	err = WaitForDBState(s, dbSpec, OvsdbConnected, timeout)
 	if err != nil {
 		return "", err
 	}
@@ -129,23 +129,23 @@ func ovnDBCtl(s *state.State, dbType OvsdbType, timeout int, args ...string) (st
 // NBCtl is a convenience function for execution of ovn-nbctl command. Parameter "args" is list of arguments
 // that are passed directly to the shell command. Before the command is executed, this
 // function ensures that underlying database is in connected state. If the database does not reach "connected"
-// state before timeout (defined in defaultDBConnectWait), an error is returned and command is not executed.
+// state before timeout (defined in DefaultDBConnectWait), an error is returned and command is not executed.
 func NBCtl(s *state.State, args ...string) (string, error) {
-	return ovnDBCtl(s, OvsdbTypeNBLocal, defaultDBConnectWait, args...)
+	return ovnDBCtl(s, OvsdbTypeNBLocal, DefaultDBConnectWait, args...)
 }
 
 // SBCtl is a convenience function for execution of ovn-sbctl command. Parameter "args" is list of arguments
 // that are passed directly to the shell command. Before the command is executed, this
 // function ensures that underlying database is in connected state. If the database does not reach "connected"
-// state before timeout (defined in defaultDBConnectWait), an error is returned and command is not executed.
+// state before timeout (defined in DefaultDBConnectWait), an error is returned and command is not executed.
 func SBCtl(s *state.State, args ...string) (string, error) {
-	return ovnDBCtl(s, OvsdbTypeSBLocal, defaultDBConnectWait, args...)
+	return ovnDBCtl(s, OvsdbTypeSBLocal, DefaultDBConnectWait, args...)
 }
 
 // VSCtl is a convenience function for execution of ovs-vsctl command. Parameter "args" is list of arguments
 // that are passed directly to the shell command. Before the command is executed, this
 // function ensures that underlying database is in connected state. If the database does not reach "connected"
-// state before timeout (defined in defaultDBConnectWait), an error is returned and command is not executed.
+// state before timeout (defined in DefaultDBConnectWait), an error is returned and command is not executed.
 func VSCtl(s *state.State, args ...string) (string, error) {
 
 	dbSpec, err := NewOvsdbSpec(OvsdbTypeSwitchLocal)
@@ -153,7 +153,7 @@ func VSCtl(s *state.State, args ...string) (string, error) {
 		return "", err
 	}
 
-	err = waitForDBState(s, dbSpec, OvsdbConnected, defaultDBConnectWait)
+	err = WaitForDBState(s, dbSpec, OvsdbConnected, DefaultDBConnectWait)
 	if err != nil {
 		return "", err
 	}

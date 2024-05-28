@@ -6,6 +6,8 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 
 	"github.com/canonical/microcluster/state"
+
+	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 )
 
 // Start will update the existing OVN central and OVS switch configs.
@@ -44,7 +46,7 @@ func Start(s *state.State) error {
 		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 	}
 
-	_, err = VSCtl(
+	_, err = ovnCmd.VSCtl(
 		s,
 		"set", "open_vswitch", ".",
 		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),

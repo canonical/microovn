@@ -7,6 +7,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/canonical/microcluster/state"
+
+	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 )
 
 // Refresh will update the existing OVN central and OVS switch configs.
@@ -66,7 +68,7 @@ func refresh(s *state.State) error {
 			return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 		}
 
-		_, err = VSCtl(
+		_, err = ovnCmd.VSCtl(
 			s,
 			"set", "open_vswitch", ".",
 			fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
@@ -81,17 +83,17 @@ func refresh(s *state.State) error {
 }
 
 func updateOvnListenConfig(s *state.State) error {
-	nbDB, err := NewOvsdbSpec(OvsdbTypeNBLocal)
+	nbDB, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
 	if err != nil {
 		return fmt.Errorf("Failed to get path to OVN NB database socket: %w", err)
 	}
-	sbDB, err := NewOvsdbSpec(OvsdbTypeSBLocal)
+	sbDB, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeSBLocal)
 	if err != nil {
 		return fmt.Errorf("Failed to get path to OVN SB database socket: %w", err)
 	}
 
 	protocol := networkProtocol(s)
-	_, err = NBCtl(
+	_, err = ovnCmd.NBCtl(
 		s,
 		"--no-leader-only",
 		fmt.Sprintf("--db=%s", nbDB.SocketURL),
@@ -102,7 +104,7 @@ func updateOvnListenConfig(s *state.State) error {
 		return errors.Errorf("Error setting ovn NB connection string: %s", err)
 	}
 
-	_, err = SBCtl(
+	_, err = ovnCmd.SBCtl(
 		s,
 		"--no-leader-only",
 		fmt.Sprintf("--db=%s", sbDB.SocketURL),
