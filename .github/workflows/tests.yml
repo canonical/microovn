@@ -6,7 +6,7 @@ on:
 jobs:
   lint:
     name: lint
-    runs-on: [self-hosted, linux, X64, jammy, large]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -73,7 +73,7 @@ jobs:
     name: Generate matrix
     needs:
       - build
-    runs-on: [self-hosted, linux, X64, jammy, large]
+    runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
     steps:
