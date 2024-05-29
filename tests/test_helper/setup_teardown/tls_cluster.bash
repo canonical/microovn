@@ -11,7 +11,7 @@ setup_file() {
     export TEST_CONTAINERS
     export CENTRAL_CONTAINERS
     export CHASSIS_CONTAINERS
-    launch_containers jammy $TEST_CONTAINERS
+    launch_containers $TEST_CONTAINERS
     wait_containers_ready $TEST_CONTAINERS
     install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINERS
     bootstrap_cluster $TEST_CONTAINERS

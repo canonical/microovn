@@ -1,10 +1,9 @@
 function launch_containers() {
-    local image_name=$1; shift
     local containers=$*
-
+    local image="${MICROOVN_TEST_CONTAINER_IMAGE:-ubuntu:lts}"
     for container in $containers; do
-        echo "# Launching $container" >&3
-        lxc launch -q "ubuntu:$image_name" "$container" < \
+        echo "# Launching '$image' container: $container" >&3
+        lxc launch -q "$image" "$container" < \
             "$BATS_TEST_DIRNAME/lxd-instance-config.yaml"
     done
 }
