@@ -20,7 +20,7 @@ setup_file() {
     export CENTRAL_CONTAINERS
     export CHASSIS_CONTAINERS
 
-    launch_containers jammy $TEST_CONTAINERS
+    launch_containers $TEST_CONTAINERS
     wait_containers_ready $TEST_CONTAINERS
     install_microovn_from_store "$MICROOVN_SNAP_CHANNEL" $TEST_CONTAINERS
     bootstrap_cluster $TEST_CONTAINERS

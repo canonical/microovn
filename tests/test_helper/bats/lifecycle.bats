@@ -8,7 +8,7 @@ setup_file() {
 
     TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 1)
     export TEST_CONTAINERS
-    launch_containers jammy $TEST_CONTAINERS
+    launch_containers $TEST_CONTAINERS
     wait_containers_ready $TEST_CONTAINERS
 }
 
