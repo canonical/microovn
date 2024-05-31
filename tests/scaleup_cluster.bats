@@ -30,7 +30,7 @@ teardown() {
         local container
         container=${containers[*]:$((( $i - 1 ))):1}
 
-        launch_containers jammy $container
+        launch_containers $container
         wait_containers_ready $container
         install_microovn "$MICROOVN_SNAP_PATH" $container
 
