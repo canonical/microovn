@@ -7,7 +7,7 @@ permissions:
 
 jobs:
   cla-check:
-    runs-on: [self-hosted, linux, X64, jammy, large]
+    runs-on: ubuntu-latest
     permissions:
       pull-requests: read
     name: Canonical CLA signed
@@ -16,7 +16,7 @@ jobs:
         uses: canonical/has-signed-canonical-cla@v1
 
   dco-check:
-    runs-on: [self-hosted, linux, X64, jammy, large]
+    runs-on: ubuntu-latest
     permissions:
       pull-requests: read  # for tim-actions/get-pr-commits to get list of commits from the PR
     name: Signed-off-by (DCO)
@@ -33,7 +33,7 @@ jobs:
         commits: ${{ steps.get-pr-commits.outputs.commits }}
 
   signed-commits-check:
-    runs-on: [self-hosted, linux, X64, jammy, large]
+    runs-on: ubuntu-latest
     name: Check signed commits in PR
     permissions:
       contents: read
