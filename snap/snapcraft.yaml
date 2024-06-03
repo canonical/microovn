@@ -150,7 +150,7 @@ apps:
   ovsdb-tool:
     command: bin/ovsdb-tool
   ovsdb-client:
-    command: bin/ovsdb-client
+    command: commands/ovsdb-client
     plugs:
       - network
 
