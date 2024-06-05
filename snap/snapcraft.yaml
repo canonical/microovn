@@ -329,9 +329,14 @@ parts:
       - libxslt1-dev
       - make
       - python3-venv
+      - rustc
+      - cargo
     override-build: |
       set -ex
-      make .sphinx/venv
+      make \
+          .sphinx/venv \
+          PIPOPTS="--no-binary :all:" \
+          || ( cat .sphinx/venv/pip_install.log && exit 1 )
       make text
       rm -rf ${CRAFT_PART_INSTALL}/docs/microovn
       mkdir -p ${CRAFT_PART_INSTALL}/docs
