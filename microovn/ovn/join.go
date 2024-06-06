@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
 
+	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/microcluster/state"
 	"github.com/canonical/microovn/microovn/database"
 )
@@ -140,13 +142,60 @@ func Join(s *state.State, initConfig map[string]string) error {
 		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 	}
 
+	// Encapsulation IP configuration
+
+	// A custom encapsulation IP address can be defined for a join member by a bootstrapping member.
+	// In this case, the custom IP address will be stored in the database by the bootstrapping member
+	// after its creation. This block is typically executed by a `microovn cluster join` command
+	var ovnEncapIp string
+	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+		item, err := database.GetConfigItem(ctx, tx, fmt.Sprintf("%s.ovn-encap-ip", s.Name()))
+		if err != nil {
+			if err == api.StatusErrorf(http.StatusNotFound, "ConfigItem not found") {
+				return nil
+			}
+
+			return err
+		}
+
+		ovnEncapIp = item.Value
+
+		// Remove the config item as we only need it one time for the OVS configuration.
+		err = database.DeleteConfigItem(ctx, tx, item.Key)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("Failed to get custom encapsulation IP address from database: %w", err)
+	}
+
+	// A custom encapsulation IP address can also be directly passed as an initConfig parameter.
+	// This block is typically executed by a `microovn cluster init` or by an external project
+	// triggering this join hook.
+	if initConfig != nil {
+		for k, v := range initConfig {
+			if k == fmt.Sprintf("%s.ovn-encap-ip", s.Name()) {
+				ovnEncapIp = v
+				break
+			}
+		}
+	}
+
+	if ovnEncapIp == "" {
+		ovnEncapIp = s.Address().Hostname()
+	}
+
 	_, err = VSCtl(
 		s,
 		"set", "open_vswitch", ".",
 		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
 		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
 		"external_ids:ovn-encap-type=geneve",
-		fmt.Sprintf("external_ids:ovn-encap-ip=%s", s.Address().Hostname()),
+		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIp),
 	)
 
 	if err != nil {
