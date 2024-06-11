@@ -12,6 +12,7 @@ import (
 	"github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/state"
 
+	"github.com/canonical/microovn/microovn/api/types"
 	microovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/canonical/microovn/microovn/node"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
@@ -138,15 +139,21 @@ func isClusterUpgradeReady(s *state.State, dbSpec *ovnCmd.OvsdbSpec, targetVersi
 		clientUrl := c.URL()
 		clientUrlString := clientUrl.String()
 		logger.Debugf("Requesting OVSDB %s schema status from '%s'", dbSpec.FriendlyName, clientUrlString)
-		result, err := microovnClient.GetExpectedOvsdbSchemaVersion(ctx, c, dbSpec)
-		if err != nil {
+		result, errType := microovnClient.GetExpectedOvsdbSchemaVersion(ctx, c, dbSpec)
+		if errType != types.OvsdbSchemaFetchErrorNone {
+			var errMsg string
+			if errType == types.OvsdbSchemaFetchErrorNotSupported {
+				errMsg = "API endpoint not found. Perhaps this MicroOVN requires upgrade?"
+			} else {
+				errMsg = "API endpoint returned error. Try looking into logs on the target member."
+			}
 			logger.Errorf(
 				"Failed to get OVN %s DB schema status from '%s': %s",
 				dbSpec.FriendlyName,
 				clientUrlString,
-				err,
+				errMsg,
 			)
-			return err
+			return fmt.Errorf("failed to contact %s", clientUrlString)
 		}
 		results[clientUrlString] = result
 		return nil
