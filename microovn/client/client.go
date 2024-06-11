@@ -86,6 +86,23 @@ func GetExpectedOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec
 	return getOvsdbSchemaVersion(ctx, c, dbSpec, "expected")
 }
 
+// GetAllExpectedOvsdbSchemaVersions returns types.OvsdbSchemaReport. It is a list containing every node of the MicroOVN
+// deployment and for each node it contains node's Hostname, a version of the OVSDB schema expected on that node and
+// whether there were any errors while fetching information from that node.
+func GetAllExpectedOvsdbSchemaVersions(ctx context.Context, c *client.Client, dbSpec *ovnCmd.OvsdbSpec) (types.OvsdbSchemaReport, error) {
+	var response types.OvsdbSchemaReport
+
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
+	err := c.Query(queryCtx, "GET", api.NewURL().Path("ovsdb", "schema", dbSpec.ShortName, "expected", "all"), nil, &response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get expected ovsdb schema versions from cluster: %w", err)
+	}
+
+	return response, nil
+}
+
 // GetActiveOvsdbSchemaVersion queries MicroOVN cluster for a version of the schema that's currently used by a database
 // specified by the "dbSpec" argument.
 func GetActiveOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd.OvsdbSpec) (string, types.OvsdbSchemaFetchError) {

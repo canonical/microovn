@@ -14,6 +14,7 @@ var Endpoints = []rest.Endpoint{
 	certificates.IssueCertificatesEndpoint,
 	certificates.IssueCertificatesAllEndpoint,
 	certificates.RegenerateCaEndpoint,
-	ovsdb.ExpectedSchemaVersion,
 	ovsdb.ActiveSchemaVersion,
+	ovsdb.AllExpectedSchemaVersions,
+	ovsdb.ExpectedSchemaVersion,
 }

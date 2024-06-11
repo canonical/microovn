@@ -1,6 +1,7 @@
 package ovsdb
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/microcluster/client"
 	"github.com/canonical/microcluster/rest"
 	"github.com/canonical/microcluster/state"
 	"github.com/canonical/microovn/microovn/api/types"
@@ -33,6 +35,12 @@ var ExpectedSchemaVersion = rest.Endpoint{
 	Get:  rest.EndpointAction{Handler: getExpectedSchemaVersion, AllowUntrusted: false, ProxyTarget: false},
 }
 
+// AllExpectedSchemaVersions defines endpoints for /1.0/ovsdb/schema/<db-name>/expected/all
+var AllExpectedSchemaVersions = rest.Endpoint{
+	Path: "ovsdb/schema/{db}/expected/all",
+	Get:  rest.EndpointAction{Handler: getAllExpectedSchemaVersions, AllowUntrusted: false, ProxyTarget: false},
+}
+
 // ActiveSchemaVersion defines endpoints for /1.0/ovsdb/schema/<db-name>/active
 var ActiveSchemaVersion = rest.Endpoint{
 	Path: "ovsdb/schema/{db}/active",
@@ -56,6 +64,54 @@ func getExpectedSchemaVersion(s *state.State, r *http.Request) response.Response
 	}
 
 	return response.SyncResponse(true, expectedVersion)
+}
+
+// getAllExpectedSchemaVersions implements GET method for /1.0/ovsdb/schema/<db-name>/expected/all.
+// It returns expected schema version for the given database from each node in the deployment.
+// The response is in the format of types.OvsdbSchemaReport
+func getAllExpectedSchemaVersions(s *state.State, r *http.Request) response.Response {
+	dbSpec, errResponse := parseDbSpec(r)
+	if errResponse != nil {
+		return errResponse
+	}
+
+	// Get local expected schema version and store it in the final result
+	localExpectedVersion, err := ovsdb.ExpectedOvsdbSchemaVersion(s, dbSpec)
+	if err != nil {
+		logger.Errorf("failed to get expected OVSDB schema version for '%s' database: %s", dbSpec.FriendlyName, err)
+		return response.ErrorResponse(500, "Internal Server Error")
+	}
+
+	responseData := types.OvsdbSchemaReport{
+		types.OvsdbSchemaVersionResult{
+			SchemaVersion: localExpectedVersion,
+			Host:          s.Address().Hostname(),
+			Error:         types.OvsdbSchemaFetchErrorNone,
+		},
+	}
+
+	// Get clients for each member in the cluster
+	clusterClient, err := s.Cluster(r)
+	if err != nil {
+		logger.Errorf("Failed to get a client for every cluster member: %s", err)
+		return response.ErrorResponse(500, "Internal Server Error")
+	}
+
+	// Fetch expected schema versions from each cluster member.
+	_ = clusterClient.Query(s.Context, true, func(ctx context.Context, c *client.Client) error {
+		clientUrl := c.URL()
+		logger.Debugf("Fetching expected OVN %s schema version from '%s'", dbSpec.FriendlyName, clientUrl.String())
+		nodeStatus := types.OvsdbSchemaVersionResult{Host: clientUrl.Hostname()}
+
+		result, responseSuccess := microovnClient.GetExpectedOvsdbSchemaVersion(ctx, c, dbSpec)
+		nodeStatus.Error = responseSuccess
+		nodeStatus.SchemaVersion = result
+
+		responseData = append(responseData, nodeStatus)
+		return nil
+	})
+
+	return response.SyncResponse(true, &responseData)
 }
 
 // getActiveSchemaVersion implements GET method for /1.0/ovsdb/schema/<db-name>/active. It returns
