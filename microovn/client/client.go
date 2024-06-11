@@ -3,7 +3,9 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/canonical/lxd/shared/api"
@@ -80,23 +82,36 @@ func RegenerateCA(ctx context.Context, c *client.Client) (types.RegenerateCaResp
 // node. Rather it's a version of a schema that was supplied with currently installed OVN/OVS packages on the node.
 // A discrepancy between these two can occur when MicroOVN gets upgraded, but cluster-wide schema upgrade was not
 // triggered, or completed, yet.
-func GetExpectedOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd.OvsdbSpec) (string, error) {
+func GetExpectedOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd.OvsdbSpec) (string, types.OvsdbSchemaFetchError) {
+	return getOvsdbSchemaVersion(ctx, c, dbSpec, "expected")
+}
+
+// GetActiveOvsdbSchemaVersion queries MicroOVN cluster for a version of the schema that's currently used by a database
+// specified by the "dbSpec" argument.
+func GetActiveOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd.OvsdbSpec) (string, types.OvsdbSchemaFetchError) {
+	return getOvsdbSchemaVersion(ctx, c, dbSpec, "active")
+}
+
+// getOvsdbSchemaVersion is a general function that is used to fetch OVSDB schema version via MicroOVN API. It targets
+// /1.0/ovsdb/schema/<db-name>/<target> endpoints, where <db-name> is ovnCmd.OvsdbSpec.ShortName and <target> is
+// either "active", "expected", or other variations that MicroOVN API supports.
+func getOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd.OvsdbSpec, target string) (string, types.OvsdbSchemaFetchError) {
 	var response string
 
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
-	err := c.Query(queryCtx, "GET", api.NewURL().Path("ovsdb", "schema", dbSpec.ShortName, "expected"), nil, &response)
+	err := c.Query(queryCtx, "GET", api.NewURL().Path("ovsdb", "schema", dbSpec.ShortName, target), nil, &response)
 
 	if err != nil {
-		hostUrl := c.URL()
-		return "", fmt.Errorf(
-			"failed to get expected %s OVSDB schema version from host '%s': %w",
-			dbSpec.FriendlyName,
-			hostUrl.String(),
-			err,
-		)
+		var errorStatus api.StatusError
+		errIdentified := errors.As(err, &errorStatus)
+		if errIdentified && errorStatus.Status() == http.StatusNotFound {
+			return "", types.OvsdbSchemaFetchErrorNotSupported
+		} else {
+			return "", types.OvsdbSchemaFetchErrorGeneric
+		}
 	}
 
-	return response, nil
+	return response, types.OvsdbSchemaFetchErrorNone
 }
