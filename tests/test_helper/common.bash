@@ -139,7 +139,6 @@ function test_snap_is_stable_base() {
     [ "$version_info" != "--" ]
 }
 
-
 # get_upgrade_test_version TEST_FILE_NAME TEST_PREFIX
 #
 # Parse test filename of an "upgrade" test to determine which version should the
@@ -177,4 +176,45 @@ function get_upgrade_test_version() {
         upgrade_from_version="${upgrade_from_version}/stable"
     fi
     echo "$upgrade_from_version"
+}
+
+# netns_add CONTAINER NAME
+#
+# Add netns named NAME in CONTAINER.
+function netns_add() {
+    local container=$1; shift
+    local name=$1; shift
+
+    lxc_exec "$container" "ip netns add $name"
+}
+
+# netns_delete CONTAINER NAME
+#
+# Delete netns named NAME in CONTAINER.
+function netns_delete() {
+    local container=$1; shift
+    local name=$1; shift
+
+    lxc_exec "$container" "ip netns delete $name"
+}
+
+# netns_ifadd CONTAINER NAME IFNAME LLADDR CIDR
+#
+# Move the device identified by IFNAME into netns NAME in CONTAINER, set
+# Link-Layer Address to LLADDR, add CIDR and bring the interface up.
+function netns_ifadd() {
+    local container=$1; shift
+    local name=$1; shift
+    local ifname=$1; shift
+    local lladdr=$1; shift
+    local cidr=$1; shift
+
+    lxc_exec "$container" \
+        "ip link set netns $name dev $ifname"
+    lxc_exec "$container" \
+        "ip netns exec $name ip link set address $lladdr dev $ifname"
+    lxc_exec "$container" \
+        "ip netns exec $name ip address add $cidr dev $ifname"
+    lxc_exec "$container" \
+        "ip netns exec $name ip link set up dev $ifname"
 }
