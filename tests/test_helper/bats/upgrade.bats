@@ -31,6 +31,11 @@ setup() {
     done
 
     perform_manual_upgrade_steps $TEST_CONTAINERS
+
+    for container in $TEST_CONTAINERS; do
+        wait_microovn_online "$container" 60
+    done
+
     local cluster_test_filename="${ABS_TOP_TEST_DIRNAME=}test_helper/bats/post_upgrade_cluster.bats"
     local tls_test_filename="${ABS_TOP_TEST_DIRNAME=}test_helper/bats/post_upgrade_tls.bats"
 
