@@ -8,6 +8,7 @@ import (
 	"github.com/canonical/microcluster/state"
 
 	"github.com/canonical/microovn/microovn/database"
+	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 )
 
 // Bootstrap will initialize a new OVN deployment.
@@ -131,7 +132,7 @@ func Bootstrap(s *state.State, initConfig map[string]string) error {
 		return err
 	}
 
-	_, err = VSCtl(
+	_, err = ovnCmd.VSCtl(
 		s,
 		"set", "open_vswitch", ".",
 		fmt.Sprintf("external_ids:system-id=%s", s.Name()),

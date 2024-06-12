@@ -7,6 +7,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/canonical/microcluster/state"
+
+	"github.com/canonical/microovn/microovn/node"
+	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 )
 
 // Refresh will update the existing OVN central and OVS switch configs.
@@ -34,12 +37,12 @@ func refresh(s *state.State) error {
 	}
 
 	// Query existing local services.
-	hasCentral, err := localServiceActive(s, "central")
+	hasCentral, err := node.HasServiceActive(s, "central")
 	if err != nil {
 		return err
 	}
 
-	hasSwitch, err := localServiceActive(s, "switch")
+	hasSwitch, err := node.HasServiceActive(s, "switch")
 	if err != nil {
 		return err
 	}
@@ -66,7 +69,7 @@ func refresh(s *state.State) error {
 			return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 		}
 
-		_, err = VSCtl(
+		_, err = ovnCmd.VSCtl(
 			s,
 			"set", "open_vswitch", ".",
 			fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
@@ -81,20 +84,20 @@ func refresh(s *state.State) error {
 }
 
 func updateOvnListenConfig(s *state.State) error {
-	nbDB, err := GetOvsdbLocalPath(OvsdbTypeNBLocal)
+	nbDB, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
 	if err != nil {
 		return fmt.Errorf("Failed to get path to OVN NB database socket: %w", err)
 	}
-	sbDB, err := GetOvsdbLocalPath(OvsdbTypeSBLocal)
+	sbDB, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeSBLocal)
 	if err != nil {
 		return fmt.Errorf("Failed to get path to OVN SB database socket: %w", err)
 	}
 
 	protocol := networkProtocol(s)
-	_, err = NBCtl(
+	_, err = ovnCmd.NBCtl(
 		s,
 		"--no-leader-only",
-		fmt.Sprintf("--db=unix:%s", nbDB),
+		fmt.Sprintf("--db=%s", nbDB.SocketURL),
 		"set-connection",
 		fmt.Sprintf("p%s:6641:[::]", protocol),
 	)
@@ -102,10 +105,10 @@ func updateOvnListenConfig(s *state.State) error {
 		return errors.Errorf("Error setting ovn NB connection string: %s", err)
 	}
 
-	_, err = SBCtl(
+	_, err = ovnCmd.SBCtl(
 		s,
 		"--no-leader-only",
-		fmt.Sprintf("--db=unix:%s", sbDB),
+		fmt.Sprintf("--db=%s", sbDB.SocketURL),
 		"set-connection",
 		fmt.Sprintf("p%s:6642:[::]", protocol),
 	)

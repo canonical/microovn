@@ -4,6 +4,7 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/state"
 
+	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )
 
@@ -22,7 +23,7 @@ func Leave(s *state.State, force bool) error {
 
 	// Gracefully exit OVN controller causing chassis to be automatically removed.
 	logger.Infof("Stopping OVN Controller and removing Chassis '%s' from OVN SB database.", chassisName)
-	_, err = ControllerCtl(s, "exit")
+	_, err = ovnCmd.ControllerCtl(s, "exit")
 	if err != nil {
 		logger.Warnf("Failed to gracefully stop OVN Controller: %s", err)
 	}
@@ -39,21 +40,21 @@ func Leave(s *state.State, force bool) error {
 
 	// Leave SB and NB clusters
 	logger.Info("Leaving OVN Northbound cluster")
-	_, err = AppCtl(s, paths.OvnNBControlSock(), "cluster/leave", "OVN_Northbound")
+	_, err = ovnCmd.AppCtl(s, paths.OvnNBControlSock(), "cluster/leave", "OVN_Northbound")
 	if err != nil {
 		logger.Warnf("Failed to leave OVN Northbound cluster: %s", err)
 	}
 
 	logger.Info("Leaving OVN Southbound cluster")
-	_, err = AppCtl(s, paths.OvnSBControlSock(), "cluster/leave", "OVN_Southbound")
+	_, err = ovnCmd.AppCtl(s, paths.OvnSBControlSock(), "cluster/leave", "OVN_Southbound")
 	if err != nil {
 		logger.Warnf("Failed to leave OVN Southbound cluster: %s", err)
 	}
 
 	// Wait for NB and SB cluster members to complete departure process
-	nbDatabase, err := newOvsdbSpec(OvsdbTypeNBLocal)
+	nbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
 	if err == nil {
-		err = waitForDBState(s, nbDatabase, OvsdbRemoved, defaultDBConnectWait)
+		err = ovnCmd.WaitForDBState(s, nbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
 		if err != nil {
 			logger.Warnf("Failed to wait for NB cluster departure: %s", err)
 		}
@@ -61,9 +62,9 @@ func Leave(s *state.State, force bool) error {
 		logger.Warnf("Failed to get NB database specification: %s", err)
 	}
 
-	sbDatabase, err := newOvsdbSpec(OvsdbTypeSBLocal)
+	sbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeSBLocal)
 	if err == nil {
-		err = waitForDBState(s, sbDatabase, OvsdbRemoved, defaultDBConnectWait)
+		err = ovnCmd.WaitForDBState(s, sbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
 		if err != nil {
 			logger.Warnf("Failed to wait for SB cluster departure: %s", err)
 		}

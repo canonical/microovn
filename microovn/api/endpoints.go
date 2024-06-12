@@ -3,6 +3,7 @@ package api
 
 import (
 	"github.com/canonical/microcluster/rest"
+	"github.com/canonical/microovn/microovn/api/ovsdb"
 
 	"github.com/canonical/microovn/microovn/api/certificates"
 )
@@ -13,4 +14,7 @@ var Endpoints = []rest.Endpoint{
 	certificates.IssueCertificatesEndpoint,
 	certificates.IssueCertificatesAllEndpoint,
 	certificates.RegenerateCaEndpoint,
+	ovsdb.ActiveSchemaVersion,
+	ovsdb.AllExpectedSchemaVersions,
+	ovsdb.ExpectedSchemaVersion,
 }
