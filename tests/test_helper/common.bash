@@ -100,7 +100,7 @@ wait_until() {
 
     _log_wait() {
         local how_soon=$1; shift
-        printf '%q: wait succeeded %q\n' $wait_cond $how_soon
+        printf '%q: wait succeeded %q\n' "$wait_cond" $how_soon
     }
 
     if $wait_cond; then _log_wait immediately; return 0; fi
@@ -113,7 +113,7 @@ wait_until() {
         if $wait_cond; then _log_wait "after $d seconds"; return 0; fi
     done
 
-    printf '%q: wait failed after %s seconds\n' $wait_cond $d
+    printf '%q: wait failed after %s seconds\n' "$wait_cond" $d
     $wait_failed
     return 1
 }
