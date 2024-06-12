@@ -218,3 +218,52 @@ function netns_ifadd() {
     lxc_exec "$container" \
         "ip netns exec $name ip link set up dev $ifname"
 }
+
+function _netns_dst_base_name() {
+    local dst=$1; shift
+    local netns=$1
+
+    echo "${netns:+$netns-}${dst//[\.:]/_}"
+}
+
+# ping_start CONTAINER DST [ NETNS ]
+#
+# Start ping to DST in CONTAINER in the background, optionally using network
+# namespace NETNS.
+#
+# Output from ping and the PID will be recorded as files in '/tmp/' in
+# CONTAINER, and the process and results can be reaped by a subsequent call to
+# ``ping_reap``.
+function ping_start() {
+    local container=$1; shift
+    local dst=$1; shift
+    local netns=$1
+
+    local base_filename
+    base_filename=$(_netns_dst_base_name "$dst" "$netns")
+
+    lxc_exec "$container" \
+        "${netns:+ip netns exec $netns} \
+         ping $dst > /tmp/${base_filename}.stdout & \
+         echo \$! > /tmp/${base_filename}.pid"
+}
+
+# ping_reap CONTAINER DST [ NETNS ]
+#
+# Stop ping process previously started by a call to ``ping_start`` and print
+# its recorded output.
+function ping_reap() {
+    local container=$1; shift
+    local dst=$1; shift
+    local netns=$1
+
+    local base_filename
+    base_filename=$(_netns_dst_base_name "$dst" "$netns")
+
+
+    lxc_exec "$container" \
+        "pid=\$(cat /tmp/${base_filename}.pid) && \
+         kill -INT \$pid && \
+         while kill -0 \$pid; do sleep 0.1;done && \
+         cat /tmp/${base_filename}.stdout"
+}
