@@ -14,7 +14,30 @@ setup() {
     assert [ -n "$TEST_CONTAINERS" ]
 }
 
-@test "Expected MicroOVN cluster count" {
+cluster_register_test_functions() {
+    for db in nb sb; do
+        bats_test_function \
+            --description "OVN ${db^^} DB clustered" \
+            -- cluster_test_db_clustered "$db"
+        bats_test_function \
+            --description "OVN ${db^^} DB connection string" \
+            -- cluster_test_db_connection_string "$db"
+    done
+    bats_test_function \
+        --description "Expected MicroOVN cluster count" \
+        -- cluster_expected_count
+    bats_test_function \
+        --description "Expected services up" \
+        -- cluster_expected_services_up
+    bats_test_function \
+        --description "Expected address family for cluster address" \
+        -- cluster_expected_address_family
+    bats_test_function \
+        --description "Open_vSwitch external_ids:ovn-remote addresses" \
+        -- cluster_ovs_ovn_remote_addresses
+}
+
+cluster_expected_count() {
     # Extremely simplified check that cluster has required number of members
     local expected_cluster_members=0
     for container in $TEST_CONTAINERS; do
@@ -28,7 +51,7 @@ setup() {
     done
 }
 
-@test "Expected services up" {
+cluster_expected_services_up() {
     # Check that all expected services are active on cluster members
     local chassis_services="snap.microovn.chassis \
                             snap.microovn.daemon \
@@ -54,7 +77,7 @@ setup() {
     done
 }
 
-@test "Expected address family for cluster address" {
+cluster_expected_address_family() {
     for container in $TEST_CONTAINERS; do
         local addr
         addr=$(microovn_get_cluster_address "$container")
@@ -66,7 +89,7 @@ setup() {
     done
 }
 
-# _test_db_clustered NBSB
+# cluster_test_db_clustered NBSB
 #
 # Tests that database is clustered and listens to the expected address.  The
 # check is run in all containers that lists `central` as one of its services.
@@ -78,7 +101,7 @@ setup() {
 # the bats matrix/parallelization capabilities and is kept in this file
 # because it performs assertions through the `bats-assert` test_helper
 # libraries.
-function _test_db_clustered() {
+cluster_test_db_clustered() {
     local nbsb=$1; shift
 
     local cluster_id_str
@@ -115,17 +138,7 @@ function _test_db_clustered() {
     done
 }
 
-@test "OVN Northbound DB clustered" {
-    # Check Northbound database clustered using expected address/protocol.
-    _test_db_clustered nb
-}
-
-@test "OVN Southbound DB clustered" {
-    # Check Southbound database clustered using expected address/protocol.
-    _test_db_clustered sb
-}
-
-@test "Chassis Open_vSwitch external_ids:ovn-remote addresses" {
+cluster_ovs_ovn_remote_addresses() {
     local cluster_addresses=()
     local container_services
 
@@ -164,7 +177,7 @@ function _test_db_clustered() {
 # the bats matrix/parallelization capabilities and is kept in this file
 # because it performs assertions through the `bats-assert` test_helper
 # libraries.
-function _test_db_connection_string() {
+cluster_test_db_connection_string() {
     local nbsb=$1; shift
 
     local check_var
@@ -195,10 +208,4 @@ function _test_db_connection_string() {
     done
 }
 
-@test "OVN Northbound DB connection string" {
-    _test_db_connection_string nb
-}
-
-@test "OVN Southbound DB connection string" {
-    _test_db_connection_string sb
-}
+cluster_register_test_functions
