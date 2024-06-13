@@ -23,7 +23,7 @@ jobs:
     name: build
     needs:
       - lint
-    runs-on: [self-hosted, linux, X64, jammy, large]
+    runs-on: ubuntu-latest
     env:
       MICROOVN_SNAP: microovn.snap
       # The `base_ref` will only be set for PR and contain the name of the
@@ -99,7 +99,7 @@ jobs:
     name: System tests
     needs:
       - metadata
-    runs-on: [self-hosted, linux, X64, jammy, large]
+    runs-on: ubuntu-latest
     env:
       MICROOVN_SNAP_PATH: ${{ github.workspace }}/microovn.snap
       MICROOVN_SNAP_CHANNEL: 22.03/stable
