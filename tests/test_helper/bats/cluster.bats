@@ -14,6 +14,17 @@ setup() {
     assert [ -n "$TEST_CONTAINERS" ]
 }
 
+cluster_register_test_functions() {
+    for db in nb sb; do
+        bats_test_function \
+            --description "OVN ${db^^} DB clustered" \
+            -- cluster_test_db_clustered "$db"
+        bats_test_function \
+            --description "OVN ${db^^} DB connection string" \
+            -- cluster_test_db_connection_string "$db"
+    done
+}
+
 @test "Expected MicroOVN cluster count" {
     # Extremely simplified check that cluster has required number of members
     local expected_cluster_members=0
@@ -66,7 +77,7 @@ setup() {
     done
 }
 
-# _test_db_clustered NBSB
+# cluster_test_db_clustered NBSB
 #
 # Tests that database is clustered and listens to the expected address.  The
 # check is run in all containers that lists `central` as one of its services.
@@ -78,7 +89,7 @@ setup() {
 # the bats matrix/parallelization capabilities and is kept in this file
 # because it performs assertions through the `bats-assert` test_helper
 # libraries.
-function _test_db_clustered() {
+cluster_test_db_clustered() {
     local nbsb=$1; shift
 
     local cluster_id_str
@@ -115,15 +126,6 @@ function _test_db_clustered() {
     done
 }
 
-@test "OVN Northbound DB clustered" {
-    # Check Northbound database clustered using expected address/protocol.
-    _test_db_clustered nb
-}
-
-@test "OVN Southbound DB clustered" {
-    # Check Southbound database clustered using expected address/protocol.
-    _test_db_clustered sb
-}
 
 @test "Chassis Open_vSwitch external_ids:ovn-remote addresses" {
     local cluster_addresses=()
@@ -164,7 +166,7 @@ function _test_db_clustered() {
 # the bats matrix/parallelization capabilities and is kept in this file
 # because it performs assertions through the `bats-assert` test_helper
 # libraries.
-function _test_db_connection_string() {
+cluster_test_db_connection_string() {
     local nbsb=$1; shift
 
     local check_var
@@ -195,10 +197,4 @@ function _test_db_connection_string() {
     done
 }
 
-@test "OVN Northbound DB connection string" {
-    _test_db_connection_string nb
-}
-
-@test "OVN Southbound DB connection string" {
-    _test_db_connection_string sb
-}
+cluster_register_test_functions
