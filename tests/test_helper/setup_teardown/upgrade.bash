@@ -2,6 +2,7 @@ setup_file() {
     load test_helper/common.bash
     load test_helper/lxd.bash
     load test_helper/microovn.bash
+    load test_helper/upgrade_procedures.bash
     load ../.bats/bats-support/load.bash
     load ../.bats/bats-assert/load.bash
 
@@ -41,6 +42,23 @@ setup_file() {
     export MICROOVN_SNAP_REV=""
     MICROOVN_SNAP_REV=$(lxc_exec "$container" "snap list | grep microovn | awk '{print \$3;}'")
     assert [ -n "$MICROOVN_SNAP_REV" ]
+
+    if [ -n "$UPGRADE_DO_UPGRADE" ]; then
+        echo "# Upgrading MicroOVN from revision $MICROOVN_SNAP_REV" >&3
+        install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINERS
+
+        for container in $TEST_CONTAINERS; do
+            local container_services
+            container_services=$(microovn_get_cluster_services "$container")
+            if [[ "$container_services" != *"central"* ]]; then
+                continue
+            fi
+            microovn_wait_ovndb_state "$container" nb connected 15
+            microovn_wait_ovndb_state "$container" sb connected 15
+        done
+
+        perform_manual_upgrade_steps $TEST_CONTAINERS
+    fi
 }
 
 teardown_file() {

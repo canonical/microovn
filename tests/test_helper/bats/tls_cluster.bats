@@ -16,7 +16,37 @@ setup() {
     assert [ -n "$CHASSIS_CONTAINERS" ]
 }
 
-@test "OVN central services have enabled TLS" {
+tls_cluster_register_test_functions() {
+    bats_test_function \
+        --description "OVN central services have enabled TLS" \
+        -- tls_cluster_central_have_tls
+    bats_test_function \
+        --description "Certificates files are valid certificates" \
+        -- tls_cluster_certificates_valid
+    bats_test_function \
+        --description "List certificates on OVN Central node" \
+        -- tls_cluster_central_list_certificates
+    bats_test_function \
+        --description "List certificates on OVN Chassis node" \
+        -- tls_cluster_chassis_list_certificates
+    bats_test_function \
+        --description "Reissue individual certificates on OVN Central node" \
+        -- tls_cluster_central_reissue_certificates
+    bats_test_function \
+        --description "Reissue individual certificates on OVN Chassis node" \
+        -- tls_cluster_chassis_reissue_certificates
+    bats_test_function \
+        --description "Reissue all certificates on OVN Central node" \
+        -- tls_cluster_central_reissue_all_certificates
+    bats_test_function \
+        --description "Reissue all certificates on OVN Chassis node" \
+        -- tls_cluster_chassis_reissue_all_certificates
+    bats_test_function \
+        --description "Regenerate CA" \
+        -- tls_cluster_regenerate_ca
+}
+
+tls_cluster_central_have_tls() {
     # Ensure that OVN service are listening on ports with TLS enabled
     local ports="6641 6642 6643 6644"
 
@@ -30,7 +60,7 @@ setup() {
     done
 }
 
-@test "Certificates files are valid certificates" {
+tls_cluster_certificates_valid() {
     # Validate certificate files issued by MicroOVN
 
     for container in $CENTRAL_CONTAINERS; do
@@ -42,7 +72,7 @@ setup() {
     done
 }
 
-@test "List certificates on OVN Central node" {
+tls_cluster_central_list_certificates() {
     # Ensure that expected certificates are listed in the output of the 'microovn certificates list'
     # command.
     local container=""
@@ -76,7 +106,7 @@ setup() {
 
 }
 
-@test "List certificates on OVN Chassis node" {
+tls_cluster_chassis_list_certificates() {
     # Ensure that expected certificates are listed in the output of the 'microovn certificates list'
     # command.
     local container=""
@@ -101,7 +131,7 @@ setup() {
 
 }
 
-@test "Reissue individual certificates on OVN Central node" {
+tls_cluster_central_reissue_certificates() {
     # Ensure that MicroOVN is capable of individually re-issuing certificates used on OVN central nodes
     local container=""
     container=$(echo "$CENTRAL_CONTAINERS" | awk '{print $1;}')
@@ -130,7 +160,7 @@ setup() {
     verify_central_cert_files "$container"
 }
 
-@test "Reissue individual certificates on OVN Chassis node" {
+tls_cluster_chassis_reissue_certificates() {
     # Ensure that MicroOVN is capable of individually re-issuing certificates used on OVN chassis nodes
     local container=""
     container=$(echo "$CHASSIS_CONTAINERS" | awk '{print $1;}')
@@ -180,7 +210,7 @@ setup() {
     verify_chassis_cert_files "$container"
 }
 
-@test "Reissue all certificates on OVN Central node" {
+tls_cluster_central_reissue_all_certificates() {
     # Ensure that MicroOVN can reissue certificate using magic argument 'all'
     local container=""
     container=$(echo "$CENTRAL_CONTAINERS" | awk '{print $1;}')
@@ -224,7 +254,7 @@ setup() {
     verify_central_cert_files "$container"
 }
 
-@test "Reissue all certificates on OVN Chassis node" {
+tls_cluster_chassis_reissue_all_certificates() {
     # Ensure that MicroOVN does not issue certificates for disabled services when using magic argument 'all'
     # Remaining functionality of 'microovn certificates reissue all' is tested in "central" node test.
     local container=""
@@ -250,7 +280,7 @@ setup() {
     verify_chassis_cert_files "$container"
 }
 
-@test "Regenerate CA" {
+tls_cluster_regenerate_ca() {
     # Test recreation of the entire PKI. New CA should be created and then used to
     # reissue all server/client certificates
     local container=""
@@ -285,3 +315,5 @@ setup() {
         verify_chassis_cert_files "$container"
     done
 }
+
+tls_cluster_register_test_functions

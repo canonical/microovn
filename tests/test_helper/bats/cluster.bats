@@ -23,9 +23,21 @@ cluster_register_test_functions() {
             --description "OVN ${db^^} DB connection string" \
             -- cluster_test_db_connection_string "$db"
     done
+    bats_test_function \
+        --description "Expected MicroOVN cluster count" \
+        -- cluster_expected_count
+    bats_test_function \
+        --description "Expected services up" \
+        -- cluster_expected_services_up
+    bats_test_function \
+        --description "Expected address family for cluster address" \
+        -- cluster_expected_address_family
+    bats_test_function \
+        --description "Open_vSwitch external_ids:ovn-remote addresses" \
+        -- cluster_ovs_ovn_remote_addresses
 }
 
-@test "Expected MicroOVN cluster count" {
+cluster_expected_count() {
     # Extremely simplified check that cluster has required number of members
     local expected_cluster_members=0
     for container in $TEST_CONTAINERS; do
@@ -39,7 +51,7 @@ cluster_register_test_functions() {
     done
 }
 
-@test "Expected services up" {
+cluster_expected_services_up() {
     # Check that all expected services are active on cluster members
     local chassis_services="snap.microovn.chassis \
                             snap.microovn.daemon \
@@ -65,7 +77,7 @@ cluster_register_test_functions() {
     done
 }
 
-@test "Expected address family for cluster address" {
+cluster_expected_address_family() {
     for container in $TEST_CONTAINERS; do
         local addr
         addr=$(microovn_get_cluster_address "$container")
@@ -126,8 +138,7 @@ cluster_test_db_clustered() {
     done
 }
 
-
-@test "Chassis Open_vSwitch external_ids:ovn-remote addresses" {
+cluster_ovs_ovn_remote_addresses() {
     local cluster_addresses=()
     local container_services
 

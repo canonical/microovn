@@ -1,51 +1,10 @@
 # This is a bash shell fragment -*- bash -*-
 
+# Instruct the ``setup_file`` function to perform the upgrade.
+export UPGRADE_DO_UPGRADE=1
 load "test_helper/setup_teardown/$(basename "${BATS_TEST_FILENAME//.bats/.bash}")"
 
-setup() {
-    load test_helper/lxd.bash
-    load test_helper/common.bash
-    load test_helper/microovn.bash
-    load test_helper/upgrade_procedures.bash
-    load ../.bats/bats-support/load.bash
-    load ../.bats/bats-assert/load.bash
-
-    # Ensure TEST_CONTAINERS is populated, otherwise the tests below will
-    # provide false positive results.
-    assert [ -n "$TEST_CONTAINERS" ]
-}
-
-
-@test "Verify that currently released snap can be upgraded" {
-    echo "# Upgrading MicroOVN from revision $MICROOVN_SNAP_REV" >&3
-    install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINERS
-
-    for container in $TEST_CONTAINERS; do
-        local container_services
-        container_services=$(microovn_get_cluster_services "$container")
-        if [[ "$container_services" != *"central"* ]]; then
-            continue
-        fi
-        microovn_wait_ovndb_state "$container" nb connected 15
-        microovn_wait_ovndb_state "$container" sb connected 15
-    done
-
-    perform_manual_upgrade_steps $TEST_CONTAINERS
-    local cluster_test_filename="${ABS_TOP_TEST_DIRNAME=}test_helper/bats/post_upgrade_cluster.bats"
-    local tls_test_filename="${ABS_TOP_TEST_DIRNAME=}test_helper/bats/post_upgrade_tls.bats"
-
-    # Note that the outer bats runner will perform validation on the
-    # number of tests ran based on TAP output, so it is important that
-    # the inner bats runner uses a different format for its output.
-    run bats -F junit $cluster_test_filename
-
-    echo "# $output" >&3
-    echo "#" >&3
-    assert_success
-
-    run bats -F junit $tls_test_filename
-
-    echo "# $output" >&3
-    echo "#" >&3
-    assert_success
-}
+# Load test cases to run after the upgrade is complete.  Note that only files
+# that dynamically define the tests with ``bats_test_function`` can be loaded.
+load test_helper/bats/cluster.bats
+load test_helper/bats/tls_cluster.bats
