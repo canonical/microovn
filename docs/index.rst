@@ -38,6 +38,10 @@ In this documentation
 
 .. grid:: 1 1 2 2
 
+   .. grid-item:: :doc:`Explanation <explanation/index>`
+
+      **Discussion and clarification** of key topics
+
    .. grid-item:: :doc:`Reference <reference/index>`
 
       **Technical information** - specifications, APIs, architecture
@@ -67,6 +71,7 @@ constructive feedback.
 
    how-to/index
    tutorial/index
+   explanation/index
    reference/index
    developers/index
 
