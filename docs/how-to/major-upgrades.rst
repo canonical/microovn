@@ -6,7 +6,7 @@ MicroOVN is released in channels that signify which version of ``OVN`` it
 bundles (e.g. ``22.03/stable`` channel comes with ``OVN 22.03``). These
 channels track a specific major version,  and wont upgrade to next major
 version on their own. To upgrade to next major version of MicroOVN, you have
-to change MicroOVN's snap channel.
+to change ``microovn`` snap channel.
 
 In this how-to, we'll upgrade a cluster with four members, running
 ``MicroOVN 22.03``, to ``MicroOVN 24.03``.
