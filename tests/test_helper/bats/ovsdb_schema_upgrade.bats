@@ -1,5 +1,9 @@
 # This is a bash shell fragment -*- bash -*-
 
+# Define test filename prefix that helps to determine from which version should
+# the upgrade be tested.
+export TEST_NAME_PREFIX="ovsdb_schema_upgrade"
+
 load "test_helper/setup_teardown/$(basename "${BATS_TEST_FILENAME//.bats/.bash}")"
 
 setup() {
