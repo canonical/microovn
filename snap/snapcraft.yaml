@@ -333,10 +333,7 @@ parts:
       - cargo
     override-build: |
       set -ex
-      make \
-          .sphinx/venv \
-          PIPOPTS="--no-binary :all:" \
-          || ( cat .sphinx/venv/pip_install.log && exit 1 )
+      make .sphinx/venv || ( cat .sphinx/venv/pip_install.log && exit 1 )
       make text
       rm -rf ${CRAFT_PART_INSTALL}/docs/microovn
       mkdir -p ${CRAFT_PART_INSTALL}/docs
