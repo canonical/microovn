@@ -10,3 +10,4 @@ covers topics useful for code or documentation contributors.
 
    building
    testing
+   release-process
