@@ -1,7 +1,6 @@
 name: microovn
 icon: microovn.png
 base: core24
-build-base: devel
 assumes:
  - snapd2.59
 adopt-info: microovn
@@ -165,6 +164,7 @@ parts:
   dqlite:
     source: https://github.com/canonical/dqlite
     source-type: git
+    source-branch: v1.16.4
     source-depth: 1
     plugin: autotools
     autotools-configure-parameters:
