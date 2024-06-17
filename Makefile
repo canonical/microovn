@@ -1,10 +1,6 @@
 MICROOVN_SNAP=microovn.snap
 export MICROOVN_SNAP_PATH := $(CURDIR)/$(MICROOVN_SNAP)
 
-ifndef MICROOVN_SNAP_CHANNEL
-	export MICROOVN_SNAP_CHANNEL="22.03/stable"
-endif
-
 .DEFAULT_GOAL := $(MICROOVN_SNAP)
 
 ALL_TESTS := $(wildcard tests/*.bats)

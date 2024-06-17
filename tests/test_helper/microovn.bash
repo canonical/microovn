@@ -45,14 +45,21 @@ function install_microovn() {
 
 # install_microovn_from_store CHANNEL CONTAINER1 [CONTAINER2 ...]
 #
-# Install MicroOVN snap from specified CHANNEL from Snap store in all CONTAINERs.
+# Install MicroOVN snap from specified CHANNEL from Snap store in all CONTAINERs. If
+# the CHANNEL argument is an empty string, a default channel will be used.
 function install_microovn_from_store() {
     local channel=$1; shift
     local containers=$*
+    local source_channel=""
+    local channel_pretty_name="default"
 
+    if [ -n "$channel" ]; then
+        channel_pretty_name="$channel"
+        source_channel="--channel $channel"
+    fi
     for container in $containers; do
-        echo "# Installing MicroOVN from SnapStore in container $container" >&3
-        lxc_exec "$container" "snap install microovn --channel $channel"
+        echo "# Installing MicroOVN from SnapStore ('$channel_pretty_name' channel) in container $container" >&3
+        lxc_exec "$container" "snap install microovn $source_channel"
     done
 }
 

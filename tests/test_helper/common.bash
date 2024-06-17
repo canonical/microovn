@@ -138,3 +138,43 @@ function test_snap_is_stable_base() {
 
     [ "$version_info" != "--" ]
 }
+
+
+# get_upgrade_test_version TEST_FILE_NAME TEST_PREFIX
+#
+# Parse test filename of an "upgrade" test to determine which version should the
+# test upgrade from.
+#
+# MicroOVN upgrade tests need to define initial MicroOVN version to be deployed, so that
+# the tests can verify if the upgrade is possible. Initial version is defined in filename.
+#
+# For example, by passing "upgrade_22.03.bats" TEST_FILE_NAME and "upgrade" TEST_PREFIX into
+# this function, it returns "22.03/stable".
+#
+# If there's no version defined in the test filename, (e.g. TEST_FILE_NAME is "upgrade.bats"
+# and TEST_PREFIX is "upgrade"), an empty string is returned.
+#
+# If filename does not match expected formats "<TEST_PREFIX>_<MAJOR_VERSION>.<MINOR_VERSION>.bats",
+# or "<TEST_PREFIX>.bats", this function returns with error code.
+function get_upgrade_test_version() {
+    local test_name=$1; shift
+    local test_prefix=$1; shift
+
+    upgrade_from_version=""
+
+    if [ "$test_name" != "${test_prefix}.bats" ]; then
+        upgrade_from_version=$(sed -nr 's/^'"$test_prefix"'_([0-9]+\.[0-9]+)\.bats/\1/p' <<< "$test_name")
+
+        if [ -z "$upgrade_from_version" ]; then
+            echo "Failed to determine MicroOVN upgrade version for this test: '$test_name'." >&2
+            echo "" >&2
+            echo "Expected test name is '${test_prefix}_<major_version>.<minor_version>.bats'" >&2
+            echo "where '<major_version>.<minor_version>' determine MicroOVN track from which" >&2
+            echo "the test will be performed." >&2
+            exit 1
+        fi
+
+        upgrade_from_version="${upgrade_from_version}/stable"
+    fi
+    echo "$upgrade_from_version"
+}
