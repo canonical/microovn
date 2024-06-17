@@ -9,10 +9,11 @@ setup_file() {
     ABS_TOP_TEST_DIRNAME="${BATS_TEST_DIRNAME}/"
     export ABS_TOP_TEST_DIRNAME
 
-    # Env variable MICROOVN_SNAP_CHANNEL must be specified for tests to know
-    # from which channel should be MicroOVN installed before upgrading
-    assert [ -n "$MICROOVN_SNAP_CHANNEL" ]
+    # Determine MicroOVN channel from which we are upgrading
+    test_name=$(basename "$BATS_TEST_FILENAME")
+    MICROOVN_SNAP_CHANNEL=$(get_upgrade_test_version "$test_name" "$TEST_NAME_PREFIX")
 
+    # Create test deployment
     TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 4)
     CENTRAL_CONTAINERS=""
     CHASSIS_CONTAINERS=""
