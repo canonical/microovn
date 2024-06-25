@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/config"
 	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/rest"
 	"github.com/canonical/microcluster/state"
 	"github.com/spf13/cobra"
 
@@ -62,6 +63,7 @@ func (c *cmdDaemon) Command() *cobra.Command {
 }
 
 func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
+
 	m, err := microcluster.App(microcluster.Args{StateDir: c.flagStateDir, Verbose: c.global.flagLogVerbose, Debug: c.global.flagLogDebug})
 	if err != nil {
 		return err
@@ -75,7 +77,8 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	h.PostRemove = func(s *state.State, force bool) error { return ovn.Refresh(s) }
 	h.OnStart = ovn.Start
 
-	return m.Start(context.Background(), api.Endpoints, database.SchemaExtensions, api.Extensions(), h)
+	m.AddServers([]rest.Server{api.Server})
+	return m.Start(context.Background(), database.SchemaExtensions, api.Extensions(), h)
 }
 
 func init() {
