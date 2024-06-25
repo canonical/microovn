@@ -6,15 +6,24 @@ import (
 	"github.com/canonical/microovn/microovn/api/ovsdb"
 
 	"github.com/canonical/microovn/microovn/api/certificates"
+	"github.com/canonical/microovn/microovn/api/types"
 )
 
-// Endpoints is a global list of all API endpoints on the /1.0 endpoint of microovn.
-var Endpoints = []rest.Endpoint{
-	servicesCmd,
-	certificates.IssueCertificatesEndpoint,
-	certificates.IssueCertificatesAllEndpoint,
-	certificates.RegenerateCaEndpoint,
-	ovsdb.ActiveSchemaVersion,
-	ovsdb.AllExpectedSchemaVersions,
-	ovsdb.ExpectedSchemaVersion,
+// Server is an extension to the default microcluster server, which serves the supplied endpoints over "/1.0"
+var Server = rest.Server{
+	CoreAPI:   true,
+	ServeUnix: true,
+	Resources: []rest.Resources{
+		{
+			PathPrefix: types.APIVersion,
+			Endpoints: []rest.Endpoint{servicesCmd,
+				certificates.IssueCertificatesEndpoint,
+				certificates.IssueCertificatesAllEndpoint,
+				certificates.RegenerateCaEndpoint,
+				ovsdb.ActiveSchemaVersion,
+				ovsdb.AllExpectedSchemaVersions,
+				ovsdb.ExpectedSchemaVersion,
+			},
+		},
+	},
 }
