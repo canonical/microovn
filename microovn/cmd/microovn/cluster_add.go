@@ -35,7 +35,7 @@ func (c *cmdClusterAdd) Run(cmd *cobra.Command, args []string) error {
 
 	token, err := m.NewJoinToken(args[0])
 	if err != nil {
-		return err
+		return fmt.Errorf("Unable to add MicroCluster, name %q is taken",args[0])
 	}
 
 	fmt.Println(token)
