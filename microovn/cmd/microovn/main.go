@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	cli "github.com/canonical/lxd/shared/cmd"
-	"github.com/canonical/microovn/microovn/version"
 )
 
 // CmdControl has functions that are common to the microctl commands.
@@ -42,7 +41,7 @@ func main() {
 	app := &cobra.Command{
 		Use:               "microovn",
 		Short:             "Command for managing the MicroOVN deployment",
-		Version:           version.Version,
+		Version:           MicroOvnVersion,
 		SilenceUsage:      true,
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
 	}
