@@ -296,7 +296,10 @@ parts:
                          -X 'main.OvnVersion=${ovn_pkg_version}' \
                          -X 'main.OvsVersion=${ovs_pkg_version}'" \
                ./cmd/microovn
-      go build -o "${CRAFT_PART_INSTALL}/bin/microovnd" -tags=libsqlite3 ./cmd/microovnd
+      go build -o "${CRAFT_PART_INSTALL}/bin/microovnd" \
+               -ldflags "-X 'main.MicroOvnVersion=${git_version}'" \
+               -tags=libsqlite3 \
+               ./cmd/microovnd
     prime:
       - bin/microovn
       - bin/microovnd
