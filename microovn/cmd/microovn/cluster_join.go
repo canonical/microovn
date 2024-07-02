@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/canonical/lxd/lxd/util"
 	"github.com/canonical/microcluster/microcluster"
@@ -31,7 +30,7 @@ func (c *cmdClusterJoin) Run(cmd *cobra.Command, args []string) error {
 		return cmd.Help()
 	}
 
-	m, err := microcluster.App(context.Background(), microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
+	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
 	if err != nil {
 		return fmt.Errorf("Unable to configure MicroCluster: %w", err)
 	}
@@ -46,5 +45,5 @@ func (c *cmdClusterJoin) Run(cmd *cobra.Command, args []string) error {
 	address := util.NetworkInterfaceAddress()
 	address = util.CanonicalNetworkAddress(address, 6443)
 
-	return m.JoinCluster(hostname, address, args[0], nil, time.Second*30)
+	return m.JoinCluster(context.Background(), hostname, address, args[0], nil)
 }

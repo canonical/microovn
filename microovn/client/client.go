@@ -22,7 +22,7 @@ func GetServices(ctx context.Context, c *client.Client) (types.Services, error) 
 
 	services := types.Services{}
 
-	err := c.Query(queryCtx, "GET", api.NewURL().Path("services"), nil, &services)
+	err := c.Query(queryCtx, "GET", types.APIVersion, api.NewURL().Path("services"), nil, &services)
 	if err != nil {
 		return nil, fmt.Errorf("Failed listing services: %w", err)
 	}
@@ -37,7 +37,7 @@ func ReissueCertificate(ctx context.Context, c *client.Client, serviceName strin
 	defer cancel()
 
 	response := types.IssueCertificateResponse{}
-	err := c.Query(queryCtx, "PUT", api.NewURL().Path("certificates", serviceName), nil, &response)
+	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("certificates", serviceName), nil, &response)
 	if err != nil {
 		return response, fmt.Errorf("failed to reissue certificate: %w", err)
 	}
@@ -52,7 +52,7 @@ func ReissueAllCertificate(ctx context.Context, c *client.Client) (types.IssueCe
 	defer cancel()
 
 	response := types.IssueCertificateResponse{}
-	err := c.Query(queryCtx, "PUT", api.NewURL().Path("certificates"), nil, &response)
+	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("certificates"), nil, &response)
 	if err != nil {
 		return response, fmt.Errorf("failed to reissue certificate: %w", err)
 	}
@@ -68,7 +68,7 @@ func RegenerateCA(ctx context.Context, c *client.Client) (types.RegenerateCaResp
 
 	response := types.NewRegenerateCaResponse()
 
-	err := c.Query(queryCtx, "PUT", api.NewURL().Path("ca"), nil, &response)
+	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("ca"), nil, &response)
 	if err != nil {
 		return *response, fmt.Errorf("failed to generate new CA: %w", err)
 	}
@@ -95,7 +95,7 @@ func GetAllExpectedOvsdbSchemaVersions(ctx context.Context, c *client.Client, db
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
-	err := c.Query(queryCtx, "GET", api.NewURL().Path("ovsdb", "schema", dbSpec.ShortName, "expected", "all"), nil, &response)
+	err := c.Query(queryCtx, "GET", types.APIVersion, api.NewURL().Path("ovsdb", "schema", dbSpec.ShortName, "expected", "all"), nil, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get expected ovsdb schema versions from cluster: %w", err)
 	}
@@ -118,7 +118,7 @@ func getOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
-	err := c.Query(queryCtx, "GET", api.NewURL().Path("ovsdb", "schema", dbSpec.ShortName, target), nil, &response)
+	err := c.Query(queryCtx, "GET", types.APIVersion, api.NewURL().Path("ovsdb", "schema", dbSpec.ShortName, target), nil, &response)
 
 	if err != nil {
 		var errorStatus api.StatusError

@@ -61,20 +61,55 @@ setup() {
     local upgrade_container_index=0
     local old_container_index=0
     local containers_size="${#containers_to_upgrade[@]}"
+    local upgraded_size=0
 
     for ((container_index = 0; container_index < "$containers_size"; container_index++)) do
         local container="${containers_to_upgrade[$container_index]}"
         # Upgrade MicroOVN cluster, one cluster member at a time.
         install_microovn "$MICROOVN_SNAP_PATH" "$container"
+        upgraded_size=$(( "$upgraded_size" + 1 ))
 
-        # break out of the loop if every container has been upgraded
-        if [ $(( "$container_index" + 1 )) -eq  "$containers_size" ]; then
+        # Check if the node is fully online. If it's not, then we have a dqlite schema upgrade and need to upgrade all nodes first.
+        # If all nodes are reporting ONLINE, then we can move on to check the ovsdb schema before upgrading all nodes.
+        wait_ovn_services "$container"
+        run wait_microovn_online "$container" 30
+        if [ "$status" = 0 ] ; then
+            echo "# ($container) reports all systems are reachable. No dqlite schema update detected"
             break
         fi
 
-        # Get current `microovn status`
-        wait_ovn_services "$container"
-        wait_microovn_online "$container" 30
+        # If we upgraded all systems because of a dqlite schema update, ensure all nodes are online.
+        if [ "$upgraded_size" -eq "$containers_size" ] ; then
+            grep -q 0 <<< "$status"
+        else
+            # check that the schema upgrade was not triggered yet if we have not updated all nodes.
+            local current_sb=""
+            local current_nb=""
+            current_nb=$(get_current_ovsdb_schema_version "$probe_container" "nb")
+            current_sb=$(get_current_ovsdb_schema_version "$probe_container" "sb")
+            assert [ "$current_nb" == "$original_nb" ]
+            assert [ "$current_sb" == "$original_sb" ]
+        fi
+    done
+
+    for ((container_index = 0; container_index < "$containers_size"; container_index++)) do
+        # If the current container index is larger or equal to the upgraded size, then we haven't run the update for that node.
+        if [ "$container_index" -ge  "$upgraded_size" ]; then
+            local container="${containers_to_upgrade[$container_index]}"
+            # Upgrade MicroOVN cluster, one cluster member at a time.
+            echo "# Upgrading ($container) before ovsdb schema verification"
+            install_microovn "$MICROOVN_SNAP_PATH" "$container"
+            upgraded_size=$(( "$upgraded_size" + 1 ))
+
+            wait_ovn_services "$container"
+            wait_microovn_online "$container" 30
+        fi
+
+        # break out of the loop if every container has been upgraded
+        if [ $(( "$container_index" + 1 )) -eq  "$containers_size" ] || [ "$upgraded_size" -eq "$containers_size" ]; then
+            break
+        fi
+
         local status=""
         status=$(lxc_exec "$container" "microovn status")
 
