@@ -91,7 +91,7 @@ func getAllExpectedSchemaVersions(s *state.State, r *http.Request) response.Resp
 	}
 
 	// Get clients for each member in the cluster
-	clusterClient, err := s.Cluster(r)
+	clusterClient, err := s.Cluster(false)
 	if err != nil {
 		logger.Errorf("Failed to get a client for every cluster member: %s", err)
 		return response.ErrorResponse(500, "Internal Server Error")
@@ -160,7 +160,7 @@ func forwardActiveSchemaVersion(s *state.State, r *http.Request, dbSpec *ovnCmd.
 		return response.ErrorResponse(500, "Internal Server Error")
 	}
 
-	clusterClients, err := s.Cluster(r)
+	clusterClients, err := s.Cluster(false)
 
 	for _, client_ := range clusterClients {
 		for _, node_ := range centralNodes {

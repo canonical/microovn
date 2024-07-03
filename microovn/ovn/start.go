@@ -15,12 +15,14 @@ import (
 // Start will update the existing OVN central and OVS switch configs.
 func Start(s *state.State) error {
 	// Skip if the database isn't ready.
-	if !s.Database.IsOpen() {
+	err := s.Database.IsOpen(s.Context)
+	if err != nil {
+		logger.Warn("Skipping OVN configuration, cluster database is offline", logger.Ctx{"error": err})
 		return nil
 	}
 
 	// Make sure the storage exists.
-	err := createPaths()
+	err = createPaths()
 	if err != nil {
 		return err
 	}

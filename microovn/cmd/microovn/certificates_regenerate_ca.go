@@ -31,7 +31,7 @@ func (c *cmdCertificatesRegenerateCa) Command() *cobra.Command {
 // to issue new CA certificate and re-issue all OVN service certificates across the whole cluster.
 func (c *cmdCertificatesRegenerateCa) Run(_ *cobra.Command, _ []string) error {
 	var response types.RegenerateCaResponse
-	m, err := microcluster.App(context.Background(), microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
+	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
 	if err != nil {
 		return err
 	}

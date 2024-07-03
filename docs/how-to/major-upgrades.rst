@@ -133,7 +133,38 @@ on it:
    connected to OVN Chassis located on this member, while services come
    back up and reconfigure datapaths.
 
-After the snap is successfully upgraded, we can check the cluster status with:
+After the snap is successfully upgraded, there may be changes to either the ``dqlite`` schema or the ``ovsdb`` schema, or both.
+We can check the cluster status with:
+
+.. code-block:: none
+
+   sudo microovn cluster list -f compact
+
+Systems that report ``UPGRADING`` have encountered a ``dqlite`` schema update and are awaiting all cluster members to receive the update.
+The systems that report ``NEEDS UPGRADE`` have not yet received the update and continue to function as before. Any systems that are ``UPGRADING`` will be unreachable by these systems.
+
+.. code-block:: none
+
+   NAME        ADDRESS          ROLE                              FINGERPRINT                                STATUS
+   movn1  10.75.224.44:6443   voter     0e359bed39fb0aaedcb730c707b89701abfb0a65ed5e0f9b5ff883a75c914683  UPGRADING
+   movn2  10.75.224.233:6443  stand-by  b084c2fadd4ca66ffd8fb7e58a1f90f2bbec1fec5ec6d4091eba7e7fbbb66981  NEEDS UPGRADE
+   movn3  10.75.224.128:6443  voter     fc9efe07194030ec212a75d32e525a321eb973a0cf071c2bc8841480457a248a  NEEDS UPGRADE
+   movn4  10.75.224.11:6443   voter     fa3380a109f48e5bce60ba942cf24617d5db3b4f371dedc6ef732303ada7ed0b  NEEDS UPGRADE
+
+After all systems are refreshed, they should report ``ONLINE`` once again:
+
+.. code-block:: none
+
+   NAME        ADDRESS          ROLE                              FINGERPRINT                             STATUS
+   movn1  10.75.224.44:6443   voter     0e359bed39fb0aaedcb730c707b89701abfb0a65ed5e0f9b5ff883a75c914683  ONLINE
+   movn2  10.75.224.233:6443  stand-by  b084c2fadd4ca66ffd8fb7e58a1f90f2bbec1fec5ec6d4091eba7e7fbbb66981  ONLINE
+   movn3  10.75.224.128:6443  voter     fc9efe07194030ec212a75d32e525a321eb973a0cf071c2bc8841480457a248a  ONLINE
+   movn4  10.75.224.11:6443   voter     fa3380a109f48e5bce60ba942cf24617d5db3b4f371dedc6ef732303ada7ed0b  ONLINE
+
+
+If there was no ``dqlite`` schema update, there may still be an ``ovsdb`` schema update.
+In this case the systems may report ``ONLINE`` as soon as the first system is refreshed.
+The cluster status can be viewed with:
 
 .. code-block:: none
 
@@ -199,6 +230,12 @@ members are upgraded, at which point the schema upgrade will be triggered.
 
    It is expected, as it takes few seconds for the member to reconnect back to
    the cluster. The error message should go away after few seconds.
+
+   If you run ``microovn status`` and you encounter the following error, it means there is also a ``dqlite`` schema update, which can be viewed with ``sudo microovn cluster list``:
+
+   .. code-block:: none
+
+      Failed listing services: Database is waiting for an upgrade. 3 cluster members have not yet received the update
 
 Continue with cluster upgrade
 -----------------------------
