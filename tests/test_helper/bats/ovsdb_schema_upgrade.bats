@@ -110,6 +110,9 @@ setup() {
             break
         fi
 
+        # Get current `microovn status`
+        wait_ovn_services "$container"
+        wait_microovn_upgrading "$container" 30
         local status=""
         status=$(lxc_exec "$container" "microovn status")
 
@@ -150,6 +153,8 @@ setup() {
         assert [ "$current_sb" == "$original_sb" ]
     done
 
+
+    wait_microovn_online "$container" 60
     # After all cluster members are upgraded, verify that the cluster reports upgraded schema version
     # as well.
     local timeout=30
