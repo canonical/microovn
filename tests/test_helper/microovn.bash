@@ -381,8 +381,7 @@ function microovn_wait_for_service_starttime() {
 # If cluster members do not reach "online" state before the MAX_RETRY is reached, this
 # function returns 1 as a return code.
 
-function wait_microovn_state(){
-    local state=$1; shift
+function wait_microovn_online(){
     local container=$1; shift
     local max_retry=$1; shift
     local rc=1
@@ -390,10 +389,11 @@ function wait_microovn_state(){
     # Retry with 1s backoff until all MicroOVN members show ONLINE status
     for (( i = 1; i <= "$max_retry"; i++ )); do
         local all_online=1
-        echo "# ($container) Waiting for MicroOVN cluster to come $state ($i/$max_retry)"
+        echo "# ($container) Waiting for MicroOVN cluster to come ONLINE ($i/$max_retry)"
 
         # Each line in the output of command below shows individual cluster member status
         run lxc_exec "$container" "microovn cluster list -f json | jq -r .[].status"
+
         # Fail this iteration if 'microovn cluster list' fails.
         if [ "$status" -ne 0 ]; then
             all_online=0
@@ -403,16 +403,14 @@ function wait_microovn_state(){
         # the expected member status
         # shellcheck disable=SC2154 # Variable "$output" is exported from previous execution of 'run'
         while read -r status ; do
-            commandout="$(echo "$status" | grep "$state" | wc -l)"
-            echo $commandout
-            if [ "$commandout" -eq 0 ]; then
+            if [ "$status" != "ONLINE" ]; then
                 echo "# ($container) At least one member in state '$status'"
                 all_online=0
             fi
         done <<< "$output"
 
         if [ $all_online -eq 1 ] ; then
-            echo "# ($container) All cLuster members reach $state state"
+            echo "# ($container) All cLuster members reach ONLINE state"
             rc=0
             break
         fi
@@ -421,14 +419,6 @@ function wait_microovn_state(){
 
     return $rc
 
-}
-
-function wait_microovn_online() {
-    wait_microovn_state "ONLINE" $1 $2
-}
-
-function wait_microovn_upgrading() {
-    wait_microovn_state "\(UPGRADING\|NEEDS UPGRADE\|ONLINE\)" $1 $2
 }
 
 # wait_ovsdb_cluster_changes_applied CONTAINER CONTROL_PATH DB_NAME TIMEOUT
