@@ -63,24 +63,31 @@ setup() {
     local containers_size="${#containers_to_upgrade[@]}"
     local upgraded_size=0
 
+    # Loop below detects and performs internal dqlite schema upgrade if necessary.
+    # When upgrading dqlite, all nodes have to be upgraded before cluster becomes
+    # usable again.
     for ((container_index = 0; container_index < "$containers_size"; container_index++)) do
         local container="${containers_to_upgrade[$container_index]}"
         # Upgrade MicroOVN cluster, one cluster member at a time.
         install_microovn "$MICROOVN_SNAP_PATH" "$container"
         upgraded_size=$(( "$upgraded_size" + 1 ))
 
-        # Check if the node is fully online. If it's not, then we have a dqlite schema upgrade and need to upgrade all nodes first.
-        # If all nodes are reporting ONLINE, then we can move on to check the ovsdb schema before upgrading all nodes.
-        wait_ovn_services "$container"
-        run wait_microovn_online "$container" 30
-        if [ "$status" = 0 ] ; then
-            echo "# ($container) reports all systems are reachable. No dqlite schema update detected"
-            break
+        # After the first host is upgraded, we can try to determine whether internal Dqlite schema upgrade
+        # is required.
+        if [ "$container_index" -eq 0 ]; then
+            wait_ovn_services "$container"
+            run wait_microovn_online "$container" 30
+            # If all nodes show up as ONLINE we can assume that Dqlite upgrade is not necessary
+            if [ "$status" = 0 ] ; then
+                echo "# ($container) reports all systems are reachable. No dqlite schema update detected" >&3
+                break
+            fi
         fi
 
         # If we upgraded all systems because of a dqlite schema update, ensure all nodes are online.
         if [ "$upgraded_size" -eq "$containers_size" ] ; then
-            grep -q 0 <<< "$status"
+            run wait_microovn_online "$container" 45
+            assert_success
         else
             # check that the schema upgrade was not triggered yet if we have not updated all nodes.
             local current_sb=""
@@ -92,6 +99,8 @@ setup() {
         fi
     done
 
+    # If the loop above did not upgrade all the nodes in the deployment, loop below walks through the gradual upgrade
+    # of all the nodes, performing checks to make sure that OVSDB schema upgrade completed succesfully.
     for ((container_index = 0; container_index < "$containers_size"; container_index++)) do
         # If the current container index is larger or equal to the upgraded size, then we haven't run the update for that node.
         if [ "$container_index" -ge  "$upgraded_size" ]; then
@@ -110,9 +119,6 @@ setup() {
             break
         fi
 
-        # Get current `microovn status`
-        wait_ovn_services "$container"
-        wait_microovn_upgrading "$container" 30
         local status=""
         status=$(lxc_exec "$container" "microovn status")
 
@@ -153,8 +159,6 @@ setup() {
         assert [ "$current_sb" == "$original_sb" ]
     done
 
-
-    wait_microovn_online "$container" 60
     # After all cluster members are upgraded, verify that the cluster reports upgraded schema version
     # as well.
     local timeout=30
