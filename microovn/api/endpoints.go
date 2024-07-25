@@ -6,6 +6,7 @@ import (
 	"github.com/canonical/microovn/microovn/api/ovsdb"
 
 	"github.com/canonical/microovn/microovn/api/certificates"
+	"github.com/canonical/microovn/microovn/api/services"
 	"github.com/canonical/microovn/microovn/api/types"
 )
 
@@ -16,7 +17,8 @@ var Server = rest.Server{
 	Resources: []rest.Resources{
 		{
 			PathPrefix: types.APIVersion,
-			Endpoints: []rest.Endpoint{servicesCmd,
+			Endpoints: []rest.Endpoint{
+				services.ListCmd,
 				certificates.IssueCertificatesEndpoint,
 				certificates.IssueCertificatesAllEndpoint,
 				certificates.RegenerateCaEndpoint,

@@ -1,4 +1,4 @@
-package api
+package services
 
 import (
 	"net/http"
@@ -11,7 +11,7 @@ import (
 )
 
 // /1.0/services endpoint.
-var servicesCmd = rest.Endpoint{
+var ListCmd = rest.Endpoint{
 	Path: "services",
 
 	Get: rest.EndpointAction{Handler: cmdServicesGet, ProxyTarget: true},
