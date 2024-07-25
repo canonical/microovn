@@ -62,6 +62,12 @@ func main() {
 	var cmdStatus = cmdStatus{common: &commonCmd}
 	app.AddCommand(cmdStatus.Command())
 
+	var cmdDisable = cmdDisable{common: &commonCmd}
+	app.AddCommand(cmdDisable.Command())
+
+	var cmdEnable = cmdEnable{common: &commonCmd}
+	app.AddCommand(cmdEnable.Command())
+
 	// Nested.
 	var cmdCluster = cmdCluster{common: &commonCmd}
 	app.AddCommand(cmdCluster.Command())
