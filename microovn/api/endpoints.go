@@ -19,6 +19,7 @@ var Server = rest.Server{
 			PathPrefix: types.APIVersion,
 			Endpoints: []rest.Endpoint{
 				services.ListCmd,
+				services.ServiceControlCmd,
 				certificates.IssueCertificatesEndpoint,
 				certificates.IssueCertificatesAllEndpoint,
 				certificates.RegenerateCaEndpoint,
