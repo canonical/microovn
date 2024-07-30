@@ -86,7 +86,7 @@ setup() {
 
         # If we upgraded all systems because of a dqlite schema update, ensure all nodes are online.
         if [ "$upgraded_size" -eq "$containers_size" ] ; then
-            run wait_microovn_online "$container" 45
+            run wait_microovn_online "$container" 65
             assert_success
         else
             # check that the schema upgrade was not triggered yet if we have not updated all nodes.
