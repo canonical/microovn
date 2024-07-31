@@ -251,6 +251,7 @@ parts:
       - ovs
     build-snaps:
       - go
+      - golangci-lint
     plugin: nil
     override-pull: |
       craftctl default
@@ -275,6 +276,9 @@ parts:
           exit 1
       fi
       rm -f $fmt_tmp
+
+      # Check that `golangci-lint` is happy with the code.
+      golangci-lint run --verbose
 
       # Determine versions of packages used to build MicroOVN
       # Note (mkalcok): This code reaches into other snapcraft parts via hardcoded paths
