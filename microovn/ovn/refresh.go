@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/microovn/microovn/node"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/snap"
 )
 
 // Refresh will update the existing OVN central and OVS switch configs.
@@ -55,7 +56,7 @@ func refresh(s *state.State) error {
 
 	// Restart OVN Northd service to account for NB/SB cluster changes.
 	if hasCentral {
-		err = snapRestart("ovn-northd")
+		err = snap.SnapRestart("ovn-northd")
 		if err != nil {
 			return fmt.Errorf("Failed to restart OVN northd: %w", err)
 		}
