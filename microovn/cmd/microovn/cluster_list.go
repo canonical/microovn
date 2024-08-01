@@ -30,7 +30,7 @@ func (c *cmdClusterList) Command() *cobra.Command {
 }
 
 func (c *cmdClusterList) Run(_ *cobra.Command, _ []string) error {
-	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
+	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
 		return err
 	}
