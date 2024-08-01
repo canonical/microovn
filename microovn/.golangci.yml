@@ -3,3 +3,4 @@ linters:
   enable:
     - errcheck
     - gosimple
+    - govet
