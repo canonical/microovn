@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/microcluster/state"
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/node"
+	"github.com/canonical/microovn/microovn/snap"
 )
 
 type SrvName string
@@ -37,17 +38,17 @@ func DisableService(s *state.State, service string) error {
 	}
 
 	if SrvName(service) == SrvCentral {
-		err = snapStop("ovn-ovsdb-server-nb", true)
+		err = snap.Stop("ovn-ovsdb-server-nb", true)
 		if err != nil {
 			return err
 		}
-		err = snapStop("ovn-ovsdb-server-sb", true)
+		err = snap.Stop("ovn-ovsdb-server-sb", true)
 		if err != nil {
 			return err
 		}
-		err = snapStop("ovn-northd", true)
+		err = snap.Stop("ovn-northd", true)
 	} else {
-		err = snapStop(service, true)
+		err = snap.Stop(service, true)
 	}
 
 	if err != nil {
@@ -75,7 +76,7 @@ func EnableService(s *state.State, service string) error {
 	if !CheckValidService(service) {
 		return errors.New("Service does not exist")
 	}
-	err = snapStart(service, true)
+	err = snap.Start(service, true)
 	if err != nil {
 		return fmt.Errorf("Snapctl error, likely due to service not existing:\n%w", err)
 	}

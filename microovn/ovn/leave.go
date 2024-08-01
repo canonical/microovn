@@ -6,6 +6,7 @@ import (
 
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/paths"
+	"github.com/canonical/microovn/microovn/snap"
 )
 
 // Leave function gracefully departs from the OVN cluster before the member is removed from MicroOVN
@@ -28,12 +29,12 @@ func Leave(s *state.State, force bool) error {
 		logger.Warnf("Failed to gracefully stop OVN Controller: %s", err)
 	}
 
-	err = snapStop("chassis", true)
+	err = snap.Stop("chassis", true)
 	if err != nil {
 		logger.Warnf("Failed to stop Chassis service: %s", err)
 	}
 
-	err = snapStop("switch", true)
+	err = snap.Stop("switch", true)
 	if err != nil {
 		logger.Warnf("Failed to stop Switch service: %s", err)
 	}
@@ -72,17 +73,17 @@ func Leave(s *state.State, force bool) error {
 		logger.Warnf("Failed to get SB database specification: %s", err)
 	}
 
-	err = snapStop("ovn-northd", true)
+	err = snap.Stop("ovn-northd", true)
 	if err != nil {
 		logger.Warnf("Failed to stop OVN northd service: %s", err)
 	}
 
-	err = snapStop("ovn-ovsdb-server-nb", true)
+	err = snap.Stop("ovn-ovsdb-server-nb", true)
 	if err != nil {
 		logger.Warnf("Failed to stop OVN NB service: %s", err)
 	}
 
-	err = snapStop("ovn-ovsdb-server-sb", true)
+	err = snap.Stop("ovn-ovsdb-server-sb", true)
 	if err != nil {
 		logger.Warnf("Failed to stop OVN SB service: %s", err)
 	}
