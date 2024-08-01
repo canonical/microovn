@@ -34,7 +34,7 @@ func regenerateCaPut(s *state.State, r *http.Request) response.Response {
 		logger.Info("Re-issuing CA certificate and private key")
 		err = ovn.GenerateNewCACertificate(s)
 		if err != nil {
-			logger.Errorf("Failed to generate new CA certificate: %w", err)
+			logger.Errorf("Failed to generate new CA certificate: %v", err)
 			responseData.NewCa = false
 			return response.SyncResponse(false, &responseData)
 		} else {
@@ -44,7 +44,7 @@ func regenerateCaPut(s *state.State, r *http.Request) response.Response {
 		// Get clients for rest of the cluster members
 		cluster, err := s.Cluster(false)
 		if err != nil {
-			logger.Errorf("Failed to get a client for every cluster member: %w", err)
+			logger.Errorf("Failed to get a client for every cluster member: %v", err)
 			return response.SyncResponse(false, &responseData)
 		}
 
@@ -72,13 +72,13 @@ func regenerateCaPut(s *state.State, r *http.Request) response.Response {
 	logger.Info("Re-issuing all local OVN certificates")
 	err = ovn.DumpCA(s)
 	if err != nil {
-		logger.Errorf("%w", err)
+		logger.Errorf("%v", err)
 		return response.SyncResponse(false, &responseData)
 	}
 
 	reissuedCertificates, err := reissueAllCertificates(s)
 	if err != nil {
-		logger.Errorf("Failed to reissue certificates with new CA: %w", err)
+		logger.Errorf("Failed to reissue certificates with new CA: %v", err)
 	}
 	responseData.ReissuedCertificates[s.Name()] = *reissuedCertificates
 

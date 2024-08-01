@@ -21,7 +21,7 @@ func issueCertificatesAllPut(s *state.State, _ *http.Request) response.Response 
 	logger.Info("Re-issuing certificate for all enabled OVN services.")
 	responseData, err := reissueAllCertificates(s)
 	if err != nil {
-		logger.Errorf("failed to issue certificates for all services: %w", err)
+		logger.Errorf("failed to issue certificates for all services: %v", err)
 		return response.ErrorResponse(500, "Internal server error.")
 	}
 
