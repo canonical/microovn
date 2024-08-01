@@ -161,6 +161,10 @@ func forwardActiveSchemaVersion(s *state.State, r *http.Request, dbSpec *ovnCmd.
 	}
 
 	clusterClients, err := s.Cluster(false)
+	if err != nil {
+		logger.Errorf("failed to get cluster clients: %v", err)
+		return response.ErrorResponse(500, "Internal Server Error")
+	}
 
 	for _, client_ := range clusterClients {
 		for _, node_ := range centralNodes {
