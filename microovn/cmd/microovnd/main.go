@@ -3,9 +3,7 @@ package main
 
 import (
 	"context"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/config"
@@ -79,10 +77,6 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 
 	m.AddServers([]rest.Server{api.Server})
 	return m.Start(context.Background(), database.SchemaExtensions, api.Extensions(), h)
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {
