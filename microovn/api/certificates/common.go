@@ -1,6 +1,7 @@
 package certificates
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/canonical/lxd/shared/logger"
@@ -14,17 +15,16 @@ import (
 // enabledOvnServices returns list of OVN services enabled on this MicroOVN cluster member.
 func enabledOvnServices(s *state.State) ([]string, error) {
 	var enabledServices []string
+	var wrappedError error
 
 	hasCentral, err := node.HasServiceActive(s, "central")
 	if err != nil {
-		enabledServices = nil
-		err = fmt.Errorf("failed to lookup local services eligible for certificate refresh: %s", err)
+		wrappedError = errors.Join(wrappedError, fmt.Errorf("failed to lookup local services eligible for certificate refresh: %s", err))
 	}
 
 	hasSwitch, err := node.HasServiceActive(s, "switch")
 	if err != nil {
-		enabledServices = nil
-		err = fmt.Errorf("failed to lookup local services eligible for certificate refresh: %s", err)
+		wrappedError = errors.Join(wrappedError, fmt.Errorf("failed to lookup local services eligible for certificate refresh: %s", err))
 	}
 
 	if hasCentral {
@@ -38,7 +38,7 @@ func enabledOvnServices(s *state.State) ([]string, error) {
 	// We always want a client certificate
 	enabledServices = append(enabledServices, "client")
 
-	return enabledServices, err
+	return enabledServices, wrappedError
 }
 
 // reissueAllCertificates issues new certificates, using current CA, for every OVN service that is enabled
