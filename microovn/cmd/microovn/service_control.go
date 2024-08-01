@@ -11,8 +11,7 @@ import (
 )
 
 type cmdDisable struct {
-	common  *CmdControl
-	cluster *cmdCluster
+	common *CmdControl
 }
 
 func (c *cmdDisable) Command() *cobra.Command {
@@ -51,8 +50,7 @@ func (c *cmdDisable) Run(cmd *cobra.Command, args []string) error {
 }
 
 type cmdEnable struct {
-	common  *CmdControl
-	cluster *cmdCluster
+	common *CmdControl
 }
 
 func (c *cmdEnable) Command() *cobra.Command {

@@ -14,8 +14,6 @@ import (
 // CmdControl has functions that are common to the microctl commands.
 // command line tools.
 type CmdControl struct {
-	cmd *cobra.Command
-
 	FlagHelp       bool
 	FlagVersion    bool
 	FlagLogDebug   bool
