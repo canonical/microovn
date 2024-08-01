@@ -67,14 +67,17 @@ func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
+	shutdownCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	h := &state.Hooks{}
 	h.PostBootstrap = ovn.Bootstrap
 	h.PreJoin = ovn.Join
 	h.OnNewMember = func(ctx context.Context, s state.State, _ types.ClusterMemberLocal) error {
-		return ovn.Refresh(ctx, s)
+		return ovn.Refresh(shutdownCtx, ctx, s)
 	}
 	h.PreRemove = ovn.Leave
-	h.PostRemove = func(ctx context.Context, s state.State, _ bool) error { return ovn.Refresh(ctx, s) }
+	h.PostRemove = func(ctx context.Context, s state.State, _ bool) error { return ovn.Refresh(shutdownCtx, ctx, s) }
 	h.OnStart = ovn.Start
 
 	daemonArgs := microcluster.DaemonArgs{
@@ -87,7 +90,7 @@ func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
 		ExtensionServers: api.Server,
 	}
 
-	return m.Start(context.Background(), daemonArgs)
+	return m.Start(shutdownCtx, daemonArgs)
 }
 
 func main() {
