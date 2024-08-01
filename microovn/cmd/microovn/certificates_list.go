@@ -170,5 +170,5 @@ func printFileStatus(filePath string) {
 	} else {
 		certStatus = "OK: Present"
 	}
-	fmt.Println(fmt.Sprintf("%s (%s)", filePath, certStatus))
+	fmt.Printf("%s (%s)\n", filePath, certStatus)
 }
