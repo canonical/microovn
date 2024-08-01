@@ -149,9 +149,9 @@ func printOvsdbSchemaReport(cli *microClusterClient.Client, dbSpec *ovnCmd.Ovsdb
 			msg += fmt.Sprintf("%s\n", node.SchemaVersion)
 		}
 	}
-	msg += fmt.Sprintf("\n")
+	msg += "\n"
 
-	fmt.Printf(msg)
+	fmt.Print(msg)
 }
 
 // ovsdbSchemaRequiresAttention is a function that determines whether an attention of the user is needed for given OVN
