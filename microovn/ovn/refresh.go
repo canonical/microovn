@@ -38,18 +38,18 @@ func refresh(s *state.State) error {
 	}
 
 	// Query existing local services.
-	hasCentral, err := node.HasServiceActive(s, "central")
+	hasCentral, err := node.HasServiceActive(ctx, s, "central")
 	if err != nil {
 		return err
 	}
 
-	hasSwitch, err := node.HasServiceActive(s, "switch")
+	hasSwitch, err := node.HasServiceActive(ctx, s, "switch")
 	if err != nil {
 		return err
 	}
 
 	// Generate the configuration.
-	err = generateEnvironment(s)
+	err = generateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
 	}
@@ -65,12 +65,13 @@ func refresh(s *state.State) error {
 	// Enable OVN chassis.
 	if hasSwitch {
 		// Reconfigure OVS to use OVN.
-		sbConnect, _, err := environmentString(s, 6642)
+		sbConnect, _, err := environmentString(ctx, s, 6642)
 		if err != nil {
 			return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 		}
 
 		_, err = ovnCmd.VSCtl(
+			ctx,
 			s,
 			"set", "open_vswitch", ".",
 			fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
@@ -84,7 +85,7 @@ func refresh(s *state.State) error {
 	return nil
 }
 
-func updateOvnListenConfig(s *state.State) error {
+func updateOvnListenConfig(ctx context.Context, s state.State) error {
 	nbDB, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
 	if err != nil {
 		return fmt.Errorf("Failed to get path to OVN NB database socket: %w", err)
@@ -94,8 +95,9 @@ func updateOvnListenConfig(s *state.State) error {
 		return fmt.Errorf("Failed to get path to OVN SB database socket: %w", err)
 	}
 
-	protocol := networkProtocol(s)
+	protocol := networkProtocol(ctx, s)
 	_, err = ovnCmd.NBCtl(
+		ctx,
 		s,
 		"--no-leader-only",
 		fmt.Sprintf("--db=%s", nbDB.SocketURL),
@@ -107,6 +109,7 @@ func updateOvnListenConfig(s *state.State) error {
 	}
 
 	_, err = ovnCmd.SBCtl(
+		ctx,
 		s,
 		"--no-leader-only",
 		fmt.Sprintf("--db=%s", sbDB.SocketURL),

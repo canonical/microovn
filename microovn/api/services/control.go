@@ -20,7 +20,7 @@ var ServiceControlCmd = rest.Endpoint{
 	Put:    rest.EndpointAction{Handler: enableService, AllowUntrusted: false, ProxyTarget: true},
 }
 
-func enableService(s *state.State, r *http.Request) response.Response {
+func enableService(s state.State, r *http.Request) response.Response {
 	requestedService, err := url.PathUnescape(mux.Vars(r)["service"])
 	if err != nil {
 		return response.InternalError(err)
@@ -28,14 +28,14 @@ func enableService(s *state.State, r *http.Request) response.Response {
 	if !node.CheckValidService(requestedService) {
 		return response.InternalError(errors.New("Service does not exist"))
 	}
-	err = node.EnableService(s, requestedService)
+	err = node.EnableService(r.Context(), s, requestedService)
 	if err != nil {
 		return response.InternalError(err)
 	}
 	return response.SyncResponse(true, requestedService+" enabled")
 }
 
-func disableService(s *state.State, r *http.Request) response.Response {
+func disableService(s state.State, r *http.Request) response.Response {
 	requestedService, err := url.PathUnescape(mux.Vars(r)["service"])
 	if err != nil {
 		return response.InternalError(err)
@@ -43,7 +43,7 @@ func disableService(s *state.State, r *http.Request) response.Response {
 	if !node.CheckValidService(requestedService) {
 		return response.InternalError(errors.New("Service does not exist"))
 	}
-	err = node.DisableService(s, requestedService)
+	err = node.DisableService(r.Context(), s, requestedService)
 	if err != nil {
 		return response.InternalError(err)
 	}
