@@ -1,11 +1,12 @@
 package ovn
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/canonical/lxd/shared/logger"
 	"github.com/pkg/errors"
 
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microovn/microovn/node"
@@ -14,19 +15,19 @@ import (
 )
 
 // Refresh will update the existing OVN central and OVS switch configs.
-func Refresh(s *state.State) error {
+func Refresh(shutdownCtx context.Context, _ context.Context, s state.State) error {
 	// Don't block the caller on a refresh as we may build a backlog.
-	go func(s *state.State) {
-		err := refresh(s)
+	go func(ctx context.Context, s state.State) {
+		err := refresh(ctx, s)
 		if err != nil {
 			logger.Errorf("Failed to refresh configuration: %v", err)
 		}
-	}(s)
+	}(shutdownCtx, s)
 
 	return nil
 }
 
-func refresh(s *state.State) error {
+func refresh(ctx context.Context, s state.State) error {
 	// Make sure we don't have any other hooks firing.
 	muHook.Lock()
 	defer muHook.Unlock()
