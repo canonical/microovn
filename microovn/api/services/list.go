@@ -17,8 +17,8 @@ var ListCmd = rest.Endpoint{
 	Get: rest.EndpointAction{Handler: cmdServicesGet, ProxyTarget: true},
 }
 
-func cmdServicesGet(s *state.State, _ *http.Request) response.Response {
-	services, err := node.ListServices(s)
+func cmdServicesGet(s state.State, r *http.Request) response.Response {
+	services, err := node.ListServices(r.Context(), s)
 	if err != nil {
 		return response.InternalError(err)
 	}

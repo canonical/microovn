@@ -38,9 +38,9 @@ type schemaStatus struct {
 // ExpectedOvsdbSchemaVersion returns version of the database schema that was shipped with current OVN/OVS
 // packages. This value can be used to check whether current OVN/OVS processes are using up-to-date database
 // schemas.
-func ExpectedOvsdbSchemaVersion(s *state.State, dbSpec *ovnCmd.OvsdbSpec) (string, error) {
+func ExpectedOvsdbSchemaVersion(ctx context.Context, _ state.State, dbSpec *ovnCmd.OvsdbSpec) (string, error) {
 	targetDbVersion, err := shared.RunCommandContext(
-		s.Context,
+		ctx,
 		"ovsdb-tool",
 		"schema-version",
 		dbSpec.Schema,
@@ -54,10 +54,11 @@ func ExpectedOvsdbSchemaVersion(s *state.State, dbSpec *ovnCmd.OvsdbSpec) (strin
 
 // getLiveSchemaStatus returns information about schema status of the database specified by the "dbSpec" argument.
 // For more information about the returned value, see: schemaStatus.
-func getLiveSchemaStatus(s *state.State, dbSpec *ovnCmd.OvsdbSpec) (schemaStatus, error) {
+func getLiveSchemaStatus(ctx context.Context, s state.State, dbSpec *ovnCmd.OvsdbSpec) (schemaStatus, error) {
 	var status schemaStatus
 
 	localDbVersion, err := ovnCmd.OvsdbClient(
+		ctx,
 		s,
 		dbSpec,
 		10,
@@ -72,13 +73,13 @@ func getLiveSchemaStatus(s *state.State, dbSpec *ovnCmd.OvsdbSpec) (schemaStatus
 	}
 	localDbVersion = strings.TrimSpace(localDbVersion)
 
-	targetDbVersion, err := ExpectedOvsdbSchemaVersion(s, dbSpec)
+	targetDbVersion, err := ExpectedOvsdbSchemaVersion(ctx, s, dbSpec)
 	if err != nil {
 		return schemaStatus{}, fmt.Errorf("failed to get expected DB schema version: '%s'", err.Error())
 	}
 
 	_, err = shared.RunCommandContext(
-		s.Context,
+		ctx,
 		"ovsdb-tool",
 		"compare-versions",
 		localDbVersion,
@@ -112,8 +113,8 @@ func getLiveSchemaStatus(s *state.State, dbSpec *ovnCmd.OvsdbSpec) (schemaStatus
 // It does not matter which node triggers the schema upgrade as long as it's running a OVN central service. Therefore,
 // a node with "central" service active and the lowest ID is chosen. A node ID is an internal value of a MicroOVN, and
 // it's kept consistent across the cluster via the underlying MicroCluster library.
-func isNodeUpgradeLeader(s *state.State) (bool, error) {
-	membersWithCentral, err := node.FindService(s, "central")
+func isNodeUpgradeLeader(ctx context.Context, s state.State) (bool, error) {
+	membersWithCentral, err := node.FindService(ctx, s, "central")
 	if err != nil {
 		return false, fmt.Errorf("failed to determine which member is OVSDB cluster upgrade leader: '%s'", err)
 	}
@@ -130,7 +131,7 @@ func isNodeUpgradeLeader(s *state.State) (bool, error) {
 // expected schema version on current member.
 // This function scans every cluster member, regardless of whether they are running "central" services or not. This
 // ensures that even cluster members that are running on "chassis" service are prepared for the schema upgrade.
-func isClusterUpgradeReady(s *state.State, dbSpec *ovnCmd.OvsdbSpec, targetVersion string) (bool, error) {
+func isClusterUpgradeReady(ctx context.Context, s state.State, dbSpec *ovnCmd.OvsdbSpec, targetVersion string) (bool, error) {
 	clusterClient, err := s.Cluster(false)
 	if err != nil {
 		return false, fmt.Errorf("failed to get a client for every cluster member: %w", err)
@@ -139,7 +140,7 @@ func isClusterUpgradeReady(s *state.State, dbSpec *ovnCmd.OvsdbSpec, targetVersi
 	results := map[string]string{}
 
 	// Gather expected schema version from every member in the cluster via their API.
-	err = clusterClient.Query(s.Context, true, func(ctx context.Context, c *client.Client) error {
+	err = clusterClient.Query(ctx, true, func(ctx context.Context, c *client.Client) error {
 		clientURL := c.URL()
 		clientURLString := clientURL.String()
 		logger.Debugf("Requesting OVSDB %s schema status from '%s'", dbSpec.FriendlyName, clientURLString)
@@ -193,7 +194,7 @@ func isClusterUpgradeReady(s *state.State, dbSpec *ovnCmd.OvsdbSpec, targetVersi
 //	will return error if other database is specified in the 'dbType' argument.
 //
 // Note2: This function has no effect on a node that does not run OVN "central" services, and it will return silently.
-func UpgradeCentralDB(s *state.State, dbType ovnCmd.OvsdbType) error {
+func UpgradeCentralDB(ctx context.Context, s state.State, dbType ovnCmd.OvsdbType) error {
 	dbSpec, err := ovnCmd.NewOvsdbSpec(dbType)
 	if err != nil {
 		return fmt.Errorf("failed create DB specification: '%s'", err.Error())
@@ -203,7 +204,7 @@ func UpgradeCentralDB(s *state.State, dbType ovnCmd.OvsdbType) error {
 		return fmt.Errorf("MicroOVN handles upgrades only for Northbound and Southbound clustered DBs")
 	}
 
-	centralActive, err := node.HasServiceActive(s, "central")
+	centralActive, err := node.HasServiceActive(ctx, s, "central")
 	if err != nil {
 		return fmt.Errorf("failed to query local services: %s", err)
 	}
@@ -222,7 +223,7 @@ func UpgradeCentralDB(s *state.State, dbType ovnCmd.OvsdbType) error {
 	// Start of the loop that coordinates with other cluster members the OVSDB cluster schema upgrade.
 	for {
 		// Get current schema status
-		dbStatus, err = getLiveSchemaStatus(s, dbSpec)
+		dbStatus, err = getLiveSchemaStatus(ctx, s, dbSpec)
 		if err != nil {
 			logger.Warnf(
 				"Error checking if OVN %s cluster needs upgrade: '%s' (retrying in %d ms)",
@@ -239,7 +240,7 @@ func UpgradeCentralDB(s *state.State, dbType ovnCmd.OvsdbType) error {
 			logger.Infof("OVN %s DB schema needs upgrade.", dbSpec.FriendlyName)
 
 			// Check whether we are the designated node for triggering the schema upgrade
-			upgradeLeader, err := isNodeUpgradeLeader(s)
+			upgradeLeader, err := isNodeUpgradeLeader(ctx, s)
 			if err != nil {
 				logger.Warnf(
 					"Failed to determine if this host is OVN %s upgrade leader: '%s' (retrying in %d ms)",
@@ -250,7 +251,7 @@ func UpgradeCentralDB(s *state.State, dbType ovnCmd.OvsdbType) error {
 			} else if upgradeLeader {
 
 				// Leader verifies whether the cluster is ready for schema upgrade
-				upgradeReady, err := isClusterUpgradeReady(s, dbSpec, dbStatus.TargetVersion)
+				upgradeReady, err := isClusterUpgradeReady(ctx, s, dbSpec, dbStatus.TargetVersion)
 				if err != nil {
 					logger.Warnf(
 						"OVN %s DB upgrade readycheck failed: '%s' (retrying in %d ms)",
@@ -263,6 +264,7 @@ func UpgradeCentralDB(s *state.State, dbType ovnCmd.OvsdbType) error {
 					// If the cluster is ready, an upgrade is triggered. Otherwise, the loop continues.
 					logger.Infof("Triggering OVN %s schema upgrade.", dbSpec.FriendlyName)
 					_, err = ovnCmd.OvsdbClient(
+						ctx,
 						s,
 						dbSpec,
 						10,

@@ -1,6 +1,7 @@
 package ovn
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/canonical/lxd/shared/logger"
@@ -13,9 +14,9 @@ import (
 )
 
 // Start will update the existing OVN central and OVS switch configs.
-func Start(s *state.State) error {
+func Start(ctx context.Context, s state.State) error {
 	// Skip if the database isn't ready.
-	err := s.Database.IsOpen(s.Context)
+	err := s.Database().IsOpen(ctx)
 	if err != nil {
 		logger.Warn("Skipping OVN configuration, cluster database is offline", logger.Ctx{"error": err})
 		return nil
@@ -28,29 +29,30 @@ func Start(s *state.State) error {
 	}
 
 	// Re-generate the configuration.
-	err = generateEnvironment(s)
+	err = generateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
 	}
 
-	centralActive, err := node.HasServiceActive(s, "central")
+	centralActive, err := node.HasServiceActive(ctx, s, "central")
 	if err != nil {
 		return fmt.Errorf("failed to query local services: %w", err)
 	}
 
 	if centralActive {
-		err = updateOvnListenConfig(s)
+		err = updateOvnListenConfig(ctx, s)
 		if err != nil {
 			logger.Warnf("Failed to update OVN listening configs. There might be connectivity issues.")
 		}
 	}
 	// Reconfigure OVS to use OVN.
-	sbConnect, _, err := environmentString(s, 6642)
+	sbConnect, _, err := environmentString(ctx, s, 6642)
 	if err != nil {
 		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
 	}
 
 	_, err = ovnCmd.VSCtl(
+		ctx,
 		s,
 		"set", "open_vswitch", ".",
 		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
@@ -68,14 +70,14 @@ func Start(s *state.State) error {
 	// microovnd service from fully starting.
 	if centralActive {
 		go func() {
-			err := ovsdb.UpgradeCentralDB(s, ovnCmd.OvsdbTypeSBLocal)
+			err := ovsdb.UpgradeCentralDB(ctx, s, ovnCmd.OvsdbTypeSBLocal)
 			if err != nil {
 				logger.Errorf("failed to perform OVN SB schema upgrade. '%s'", err)
 			}
 		}()
 
 		go func() {
-			err := ovsdb.UpgradeCentralDB(s, ovnCmd.OvsdbTypeNBLocal)
+			err := ovsdb.UpgradeCentralDB(ctx, s, ovnCmd.OvsdbTypeNBLocal)
 			if err != nil {
 				logger.Errorf("failed to perform OVN NB schema upgrade. '%s'", err)
 			}
