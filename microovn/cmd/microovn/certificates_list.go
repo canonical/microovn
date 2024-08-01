@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/canonical/microovn/microovn/client"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 	"github.com/spf13/cobra"

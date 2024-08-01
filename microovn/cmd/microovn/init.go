@@ -10,7 +10,7 @@ import (
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/validate"
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	microovnAPI "github.com/canonical/microovn/microovn/api"
 	"github.com/spf13/cobra"
 )

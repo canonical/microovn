@@ -2,7 +2,7 @@ package ovn
 
 import (
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/state"
 
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/paths"

@@ -7,12 +7,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/canonical/microovn/microovn/api/types"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/spf13/cobra"
 
-	microClusterClient "github.com/canonical/microcluster/client"
+	microClusterClient "github.com/canonical/microcluster/v2/client"
 	"github.com/canonical/microovn/microovn/client"
 )
 

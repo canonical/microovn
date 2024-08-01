@@ -15,7 +15,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/state"
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )
