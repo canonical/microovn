@@ -4,3 +4,4 @@ linters:
     - errcheck
     - gosimple
     - govet
+    - ineffassign

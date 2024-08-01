@@ -292,6 +292,9 @@ func GenerateNewServiceCertificate(s *state.State, serviceName string, certType 
 	}
 
 	cert, key, err := issueCertificate(s.Name(), serviceName, certType, caCert, caKey)
+	if err != nil {
+		return fmt.Errorf("failed to issue certificate for %s: %w", serviceName, err)
+	}
 
 	_, err = certFile.Write(cert)
 	if err != nil {
