@@ -50,10 +50,10 @@ func regenerateCaPut(s *state.State, r *http.Request) response.Response {
 
 		// Bump rest of the cluster members to reissue their certificates with new CA
 		err = cluster.Query(s.Context, true, func(ctx context.Context, c *client.Client) error {
-			logger.Infof("Requesting cluster member at '%s' to re-issue its OVN certificates", c.URL())
+			clientURL := c.URL()
+			logger.Infof("Requesting cluster member at '%s' to re-issue its OVN certificates", clientURL.String())
 			result, err := microovnClient.RegenerateCA(ctx, c)
 			if err != nil {
-				clientURL := c.URL()
 				errMsg := fmt.Sprintf("failed to contact cluster member with address %q: %s", clientURL.String(), err)
 				responseData.Errors = append(responseData.Errors, errMsg)
 			} else {
