@@ -72,6 +72,9 @@ func getLiveSchemaStatus(s *state.State, dbSpec *ovnCmd.OvsdbSpec) (schemaStatus
 	localDbVersion = strings.TrimSpace(localDbVersion)
 
 	targetDbVersion, err := ExpectedOvsdbSchemaVersion(s, dbSpec)
+	if err != nil {
+		return schemaStatus{}, fmt.Errorf("failed to get expected DB schema version: '%s'", err.Error())
+	}
 
 	_, err = shared.RunCommandContext(
 		s.Context,
