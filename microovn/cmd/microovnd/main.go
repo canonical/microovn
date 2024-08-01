@@ -62,21 +62,32 @@ func (c *cmdDaemon) Command() *cobra.Command {
 
 func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
 
-	m, err := microcluster.App(microcluster.Args{StateDir: c.flagStateDir, Verbose: c.global.flagLogVerbose, Debug: c.global.flagLogDebug})
+	m, err := microcluster.App(microcluster.Args{StateDir: c.flagStateDir})
 	if err != nil {
 		return err
 	}
 
-	h := &config.Hooks{}
+	h := &state.Hooks{}
 	h.PostBootstrap = ovn.Bootstrap
 	h.PreJoin = ovn.Join
-	h.OnNewMember = ovn.Refresh
+	h.OnNewMember = func(ctx context.Context, s state.State, _ types.ClusterMemberLocal) error {
+		return ovn.Refresh(ctx, s)
+	}
 	h.PreRemove = ovn.Leave
-	h.PostRemove = func(s *state.State, _ bool) error { return ovn.Refresh(s) }
+	h.PostRemove = func(ctx context.Context, s state.State, _ bool) error { return ovn.Refresh(ctx, s) }
 	h.OnStart = ovn.Start
 
-	m.AddServers([]rest.Server{api.Server})
-	return m.Start(context.Background(), database.SchemaExtensions, api.Extensions(), h)
+	daemonArgs := microcluster.DaemonArgs{
+		Verbose:          c.global.flagLogVerbose,
+		Debug:            c.global.flagLogDebug,
+		Version:          MicroOvnVersion,
+		ExtensionsSchema: database.SchemaExtensions,
+		APIExtensions:    api.Extensions(),
+		Hooks:            h,
+		ExtensionServers: api.Server,
+	}
+
+	return m.Start(context.Background(), daemonArgs)
 }
 
 func main() {
