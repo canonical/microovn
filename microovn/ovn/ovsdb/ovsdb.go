@@ -10,8 +10,8 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/client"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/client"
+	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	microovnClient "github.com/canonical/microovn/microovn/client"

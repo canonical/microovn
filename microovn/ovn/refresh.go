@@ -6,7 +6,7 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/pkg/errors"
 
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microovn/microovn/node"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
