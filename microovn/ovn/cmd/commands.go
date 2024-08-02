@@ -14,7 +14,11 @@ import (
 
 // DefaultDBConnectWait - Default time to wait for connection to ovsdb.
 const DefaultDBConnectWait = 30
+
+// OvsdbConnected       - String representing the connected state.
 const OvsdbConnected = "connected"
+
+// OvsdbRemoved         - String representing the removed state.
 const OvsdbRemoved = "removed"
 
 // OvsdbSpec is a helper structure that encapsulates properties of an OVN/OVS database.
@@ -32,8 +36,11 @@ type OvsdbSpec struct {
 type OvsdbType int
 
 const (
+	// OvsdbTypeNBLocal     - OVSDB Database with schema OVN_Northbound.
 	OvsdbTypeNBLocal OvsdbType = iota
+	// OvsdbTypeSBLocal     - OVSDB Database with schema OVN_Southbound.
 	OvsdbTypeSBLocal
+	// OvsdbTypeSwitchLocal - OVSDB Database with schema Open_vSwitch.
 	OvsdbTypeSwitchLocal
 )
 
