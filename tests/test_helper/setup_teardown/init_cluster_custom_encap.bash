@@ -8,7 +8,7 @@ setup_file() {
 
     TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 3)
     export TEST_CONTAINERS
-    launch_containers jammy $TEST_CONTAINERS
+    launch_containers $TEST_CONTAINERS
     wait_containers_ready $TEST_CONTAINERS
 
     # Create a dedicated bridge for the east-west traffic
