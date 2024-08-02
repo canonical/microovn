@@ -139,9 +139,9 @@ func isClusterUpgradeReady(s *state.State, dbSpec *ovnCmd.OvsdbSpec, targetVersi
 
 	// Gather expected schema version from every member in the cluster via their API.
 	err = clusterClient.Query(s.Context, true, func(ctx context.Context, c *client.Client) error {
-		clientUrl := c.URL()
-		clientUrlString := clientUrl.String()
-		logger.Debugf("Requesting OVSDB %s schema status from '%s'", dbSpec.FriendlyName, clientUrlString)
+		clientURL := c.URL()
+		clientURLString := clientURL.String()
+		logger.Debugf("Requesting OVSDB %s schema status from '%s'", dbSpec.FriendlyName, clientURLString)
 		result, errType := microovnClient.GetExpectedOvsdbSchemaVersion(ctx, c, dbSpec)
 		if errType != types.OvsdbSchemaFetchErrorNone {
 			var errMsg string
@@ -153,12 +153,12 @@ func isClusterUpgradeReady(s *state.State, dbSpec *ovnCmd.OvsdbSpec, targetVersi
 			logger.Errorf(
 				"Failed to get OVN %s DB schema status from '%s': %s",
 				dbSpec.FriendlyName,
-				clientUrlString,
+				clientURLString,
 				errMsg,
 			)
-			return fmt.Errorf("failed to contact %s", clientUrlString)
+			return fmt.Errorf("failed to contact %s", clientURLString)
 		}
-		results[clientUrlString] = result
+		results[clientURLString] = result
 		return nil
 	})
 

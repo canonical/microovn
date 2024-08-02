@@ -6,3 +6,4 @@ linters:
     - govet
     - ineffassign
     - staticcheck
+    - revive
