@@ -132,6 +132,8 @@ func getOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd
 	return response, types.OvsdbSchemaFetchErrorNone
 }
 
+// DisableService sends request to disable service with name as specified in
+// "serviceName" argument.
 func DisableService(ctx context.Context, c *client.Client, serviceName string) error {
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
@@ -144,6 +146,8 @@ func DisableService(ctx context.Context, c *client.Client, serviceName string) e
 	return nil
 }
 
+// EnableService sends request to disable service with name as as specified in
+// "serviceName" argument.
 func EnableService(ctx context.Context, c *client.Client, serviceName string) error {
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()

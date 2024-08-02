@@ -1,3 +1,4 @@
+// Package paths provides path constants and helper functions.
 package paths
 
 import (
@@ -111,6 +112,7 @@ func PkiOvnControllerCertFiles() (string, string) {
 	return getServiceCertFiles("ovn-controller")
 }
 
+// PkiClientCertFiles returns paths to certificate and private key used by client
 func PkiClientCertFiles() (string, string) {
 	return getServiceCertFiles("client")
 }

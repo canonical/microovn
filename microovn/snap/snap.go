@@ -1,3 +1,4 @@
+// Package snap implements snap / snapctl specific functions.
 package snap
 
 import (
@@ -6,6 +7,8 @@ import (
 	"github.com/canonical/lxd/shared"
 )
 
+// Start - start snap service as represented by "service" string, optionally
+// leaving it enabled for future reboots when "enable" is true.
 func Start(service string, enable bool) error {
 	args := []string{
 		"start",
@@ -44,6 +47,7 @@ func Stop(service string, disable bool) error {
 	return nil
 }
 
+// Restart - restart snap service as represented by "service" string.
 func Restart(service string) error {
 	args := []string{
 		"restart",
@@ -58,6 +62,7 @@ func Restart(service string) error {
 	return nil
 }
 
+// Reload - reload snap service as represented by "service" string.
 func Reload(service string) error {
 	args := []string{
 		"restart",

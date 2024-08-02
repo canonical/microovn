@@ -1,3 +1,4 @@
+// Package ovsdb provides functions for handling OVSDB schema.
 package ovsdb
 
 import (

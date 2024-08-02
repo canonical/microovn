@@ -17,6 +17,7 @@ import (
 	"github.com/canonical/microovn/microovn/ovn"
 )
 
+// MicroOvnVersion - the version string for the MicroOVN MicroCluster daemon.
 var MicroOvnVersion string
 
 // Debug indicates whether to log debug messages or not.

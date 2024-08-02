@@ -34,13 +34,18 @@ const ServiceCertValidity = 2 * 365 * 24 * time.Hour
 
 const certFileMode = 0600
 
+// MaxSerialNumber - Maximum serial number for generated certificates.
 var MaxSerialNumber = new(big.Int).Lsh(big.NewInt(1), 128)
 
+// CertificateType - Types of certificates.
 type CertificateType int
 
 const (
+	// CertificateTypeCA     - A Certificate Authority certificate.
 	CertificateTypeCA CertificateType = iota
+	// CertificateTypeServer - A certificate suitable for a server.
 	CertificateTypeServer
+	// CertificateTypeClient - A certificate suitable for clients.
 	CertificateTypeClient
 )
 
