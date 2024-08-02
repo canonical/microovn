@@ -48,7 +48,7 @@ func (c *cmdInit) wantsCustomEncapsulationIP() (string, string, error) {
 	return "", "", nil
 }
 
-func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
+func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 	// Connect to the daemon.
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
 	if err != nil {
@@ -157,7 +157,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 		if wantsMachines {
 			for {
-				tokenName, err := c.common.asker.AskString("What's the name of the new MicroOVN server? (empty to exit): ", "", func(input string) error { return nil })
+				tokenName, err := c.common.asker.AskString("What's the name of the new MicroOVN server? (empty to exit): ", "", func(_ string) error { return nil })
 				if err != nil {
 					return err
 				}

@@ -15,7 +15,7 @@ var SchemaExtensions = []schema.Update{
 	schemaUpdateCascadeDeleteServices,
 }
 
-func schemaUpdate1(ctx context.Context, tx *sql.Tx) error {
+func schemaUpdate1(_ context.Context, tx *sql.Tx) error {
 	stmt := `
 CREATE TABLE config (
   id                            INTEGER  PRIMARY KEY AUTOINCREMENT NOT NULL,
