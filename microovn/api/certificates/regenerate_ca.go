@@ -37,9 +37,8 @@ func regenerateCaPut(s *state.State, r *http.Request) response.Response {
 			logger.Errorf("Failed to generate new CA certificate: %v", err)
 			responseData.NewCa = false
 			return response.SyncResponse(false, &responseData)
-		} else {
-			responseData.NewCa = true
 		}
+		responseData.NewCa = true
 
 		// Get clients for rest of the cluster members
 		cluster, err := s.Cluster(false)
