@@ -125,9 +125,8 @@ func getOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd
 		errIdentified := errors.As(err, &errorStatus)
 		if errIdentified && errorStatus.Status() == http.StatusNotFound {
 			return "", types.OvsdbSchemaFetchErrorNotSupported
-		} else {
-			return "", types.OvsdbSchemaFetchErrorGeneric
 		}
+		return "", types.OvsdbSchemaFetchErrorGeneric
 	}
 
 	return response, types.OvsdbSchemaFetchErrorNone
