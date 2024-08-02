@@ -1,3 +1,4 @@
+// Package node provides functions operating on nodes in the cluster.
 package node
 
 import (
