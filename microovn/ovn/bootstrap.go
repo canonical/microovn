@@ -135,16 +135,16 @@ func Bootstrap(s *state.State, initConfig map[string]string) error {
 
 	// Configure OVS to either use a custom encapsulation IP for the geneve tunel
 	// or the hostname of the node.
-	var ovnEncapIp string
+	var ovnEncapIP string
 	for k, v := range initConfig {
 		if k == "ovn-encap-ip" {
-			ovnEncapIp = v
+			ovnEncapIP = v
 			break
 		}
 	}
 
-	if ovnEncapIp == "" {
-		ovnEncapIp = s.Address().Hostname()
+	if ovnEncapIP == "" {
+		ovnEncapIP = s.Address().Hostname()
 	}
 
 	_, err = ovnCmd.VSCtl(
@@ -153,7 +153,7 @@ func Bootstrap(s *state.State, initConfig map[string]string) error {
 		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
 		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
 		"external_ids:ovn-encap-type=geneve",
-		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIp),
+		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIP),
 	)
 
 	if err != nil {
