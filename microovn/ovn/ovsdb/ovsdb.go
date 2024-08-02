@@ -234,9 +234,8 @@ func UpgradeCentralDB(s *state.State, dbType ovnCmd.OvsdbType) error {
 				// If upgrade is not required, break out of the loop
 				logger.Infof("OVN %s DB is at expected version. No upgrade needed", dbSpec.FriendlyName)
 				break
-			} else {
-				logger.Infof("OVN %s DB schema needs upgrade.", dbSpec.FriendlyName)
 			}
+			logger.Infof("OVN %s DB schema needs upgrade.", dbSpec.FriendlyName)
 
 			// Check whether we are the designated node for triggering the schema upgrade
 			upgradeLeader, err := isNodeUpgradeLeader(s)
