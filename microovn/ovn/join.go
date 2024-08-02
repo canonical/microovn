@@ -146,16 +146,16 @@ func Join(s *state.State, initConfig map[string]string) error {
 	// A custom encapsulation IP address can also be directly passed as an initConfig parameter.
 	// This block is typically executed by a `microovn cluster init` or by an external project
 	// triggering this join hook.
-	var ovnEncapIp string
+	var ovnEncapIP string
 	for k, v := range initConfig {
 		if k == "ovn-encap-ip" {
-			ovnEncapIp = v
+			ovnEncapIP = v
 			break
 		}
 	}
 
-	if ovnEncapIp == "" {
-		ovnEncapIp = s.Address().Hostname()
+	if ovnEncapIP == "" {
+		ovnEncapIP = s.Address().Hostname()
 	}
 
 	_, err = ovnCmd.VSCtl(
@@ -164,7 +164,7 @@ func Join(s *state.State, initConfig map[string]string) error {
 		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
 		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
 		"external_ids:ovn-encap-type=geneve",
-		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIp),
+		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIP),
 	)
 
 	if err != nil {

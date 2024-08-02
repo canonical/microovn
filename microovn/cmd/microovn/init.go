@@ -69,7 +69,7 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 
 	// User interaction.
 	mode := "existing"
-	customEncapsulationIpSupported := shared.ValueInSlice("custom_encapsulation_ip", microovnAPI.Extensions())
+	customEncapsulationIPSupported := shared.ValueInSlice("custom_encapsulation_ip", microovnAPI.Extensions())
 
 	if isUninitialized {
 		// Get system name.
@@ -101,7 +101,7 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 				return err
 			}
 
-			if customEncapsulationIpSupported {
+			if customEncapsulationIPSupported {
 				key, encapIP, err := c.wantsCustomEncapsulationIP()
 				if err != nil {
 					return err
@@ -125,7 +125,7 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 				return err
 			}
 
-			if customEncapsulationIpSupported {
+			if customEncapsulationIPSupported {
 				// Register a potential custom encapsulation IP for other systems,
 				// so that when they will join the cluster, their encapsulation IP
 				// for the Geneve tunnel will be automatically configured.
