@@ -20,10 +20,18 @@ import (
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )
 
-const CACertRecordName = "ca_cert"                   // Key used to store CA certificate in config DB table
-const CAKeyRecordName = "ca_key"                     // Key used to store CA private key in config DB table
-const CACertValidity = 10 * 365 * 24 * time.Hour     // 10 years
-const ServiceCertValidity = 2 * 365 * 24 * time.Hour // 2 years
+// CACertRecordName    - Key used to store CA certificate in config DB table.
+const CACertRecordName = "ca_cert"
+
+// CAKeyRecordName     - Key used to store CA private key in config DB table.
+const CAKeyRecordName = "ca_key"
+
+// CACertValidity      - 10 years.
+const CACertValidity = 10 * 365 * 24 * time.Hour
+
+// ServiceCertValidity -  2 years.
+const ServiceCertValidity = 2 * 365 * 24 * time.Hour
+
 const certFileMode = 0600
 
 var MaxSerialNumber = new(big.Int).Lsh(big.NewInt(1), 128)

@@ -13,7 +13,7 @@ import (
 	"github.com/canonical/microovn/microovn/node"
 )
 
-// /1.0/services/service endpoint.
+// ServiceControlCmd - /1.0/services/service endpoint.
 var ServiceControlCmd = rest.Endpoint{
 	Path:   "service/{service}",
 	Delete: rest.EndpointAction{Handler: disableService, AllowUntrusted: false, ProxyTarget: true},

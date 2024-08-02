@@ -10,7 +10,7 @@ import (
 	"github.com/canonical/microovn/microovn/node"
 )
 
-// /1.0/services endpoint.
+// ListCmd - /1.0/services endpoint.
 var ListCmd = rest.Endpoint{
 	Path: "services",
 

@@ -12,7 +12,8 @@ import (
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )
 
-const DefaultDBConnectWait = 30 //Default time to wait for connection to ovsdb
+// DefaultDBConnectWait - Default time to wait for connection to ovsdb.
+const DefaultDBConnectWait = 30
 const OvsdbConnected = "connected"
 const OvsdbRemoved = "removed"
 
