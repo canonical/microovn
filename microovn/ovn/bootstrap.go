@@ -8,6 +8,7 @@ import (
 	"github.com/canonical/microcluster/state"
 
 	"github.com/canonical/microovn/microovn/database"
+	"github.com/canonical/microovn/microovn/snap"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 )
 
@@ -74,7 +75,7 @@ func Bootstrap(s *state.State, initConfig map[string]string) error {
 	}
 
 	// Enable OVS switch.
-	err = snapStart("switch", true)
+	err = snap.Start("switch", true)
 	if err != nil {
 		return fmt.Errorf("Failed to start OVS switch: %w", err)
 	}
@@ -94,17 +95,17 @@ func Bootstrap(s *state.State, initConfig map[string]string) error {
 	}
 
 	// Enable OVN central.
-	err = snapStart("ovn-ovsdb-server-nb", true)
+	err = snap.Start("ovn-ovsdb-server-nb", true)
 	if err != nil {
 		return fmt.Errorf("Failed to start OVN NB: %w", err)
 	}
 
-	err = snapStart("ovn-ovsdb-server-sb", true)
+	err = snap.Start("ovn-ovsdb-server-sb", true)
 	if err != nil {
 		return fmt.Errorf("Failed to start OVN SB: %w", err)
 	}
 
-	err = snapStart("ovn-northd", true)
+	err = snap.Start("ovn-northd", true)
 	if err != nil {
 		return fmt.Errorf("Failed to start OVN northd: %w", err)
 	}
@@ -116,7 +117,7 @@ func Bootstrap(s *state.State, initConfig map[string]string) error {
 	}
 
 	// Enable OVN chassis.
-	err = snapStart("chassis", true)
+	err = snap.Start("chassis", true)
 	if err != nil {
 		return fmt.Errorf("Failed to start OVN chassis: %w", err)
 	}
