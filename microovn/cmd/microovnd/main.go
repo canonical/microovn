@@ -3,9 +3,7 @@ package main
 
 import (
 	"context"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/config"
@@ -19,6 +17,7 @@ import (
 	"github.com/canonical/microovn/microovn/ovn"
 )
 
+// MicroOvnVersion - the version string for the MicroOVN MicroCluster daemon.
 var MicroOvnVersion string
 
 // Debug indicates whether to log debug messages or not.
@@ -37,7 +36,7 @@ type cmdGlobal struct {
 	flagLogVerbose bool
 }
 
-func (c *cmdGlobal) Run(cmd *cobra.Command, args []string) error {
+func (c *cmdGlobal) Run(_ *cobra.Command, _ []string) error {
 	Debug = c.flagLogDebug
 	Verbose = c.flagLogVerbose
 
@@ -54,7 +53,7 @@ func (c *cmdDaemon) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "microd",
 		Short:   "Example daemon for MicroCluster - This will start a daemon with a running control socket and no database",
-		Version:  MicroOvnVersion,
+		Version: MicroOvnVersion,
 	}
 
 	cmd.RunE = c.Run
@@ -62,7 +61,7 @@ func (c *cmdDaemon) Command() *cobra.Command {
 	return cmd
 }
 
-func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
+func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
 
 	m, err := microcluster.App(microcluster.Args{StateDir: c.flagStateDir, Verbose: c.global.flagLogVerbose, Debug: c.global.flagLogDebug})
 	if err != nil {
@@ -74,15 +73,11 @@ func (c *cmdDaemon) Run(cmd *cobra.Command, args []string) error {
 	h.PreJoin = ovn.Join
 	h.OnNewMember = ovn.Refresh
 	h.PreRemove = ovn.Leave
-	h.PostRemove = func(s *state.State, force bool) error { return ovn.Refresh(s) }
+	h.PostRemove = func(s *state.State, _ bool) error { return ovn.Refresh(s) }
 	h.OnStart = ovn.Start
 
 	m.AddServers([]rest.Server{api.Server})
 	return m.Start(context.Background(), database.SchemaExtensions, api.Extensions(), h)
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
 }
 
 func main() {

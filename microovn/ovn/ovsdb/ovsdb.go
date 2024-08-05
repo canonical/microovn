@@ -1,3 +1,4 @@
+// Package ovsdb provides functions for handling OVSDB schema.
 package ovsdb
 
 import (
@@ -72,6 +73,9 @@ func getLiveSchemaStatus(s *state.State, dbSpec *ovnCmd.OvsdbSpec) (schemaStatus
 	localDbVersion = strings.TrimSpace(localDbVersion)
 
 	targetDbVersion, err := ExpectedOvsdbSchemaVersion(s, dbSpec)
+	if err != nil {
+		return schemaStatus{}, fmt.Errorf("failed to get expected DB schema version: '%s'", err.Error())
+	}
 
 	_, err = shared.RunCommandContext(
 		s.Context,
@@ -136,9 +140,9 @@ func isClusterUpgradeReady(s *state.State, dbSpec *ovnCmd.OvsdbSpec, targetVersi
 
 	// Gather expected schema version from every member in the cluster via their API.
 	err = clusterClient.Query(s.Context, true, func(ctx context.Context, c *client.Client) error {
-		clientUrl := c.URL()
-		clientUrlString := clientUrl.String()
-		logger.Debugf("Requesting OVSDB %s schema status from '%s'", dbSpec.FriendlyName, clientUrlString)
+		clientURL := c.URL()
+		clientURLString := clientURL.String()
+		logger.Debugf("Requesting OVSDB %s schema status from '%s'", dbSpec.FriendlyName, clientURLString)
 		result, errType := microovnClient.GetExpectedOvsdbSchemaVersion(ctx, c, dbSpec)
 		if errType != types.OvsdbSchemaFetchErrorNone {
 			var errMsg string
@@ -150,12 +154,12 @@ func isClusterUpgradeReady(s *state.State, dbSpec *ovnCmd.OvsdbSpec, targetVersi
 			logger.Errorf(
 				"Failed to get OVN %s DB schema status from '%s': %s",
 				dbSpec.FriendlyName,
-				clientUrlString,
+				clientURLString,
 				errMsg,
 			)
-			return fmt.Errorf("failed to contact %s", clientUrlString)
+			return fmt.Errorf("failed to contact %s", clientURLString)
 		}
-		results[clientUrlString] = result
+		results[clientURLString] = result
 		return nil
 	})
 
@@ -231,9 +235,8 @@ func UpgradeCentralDB(s *state.State, dbType ovnCmd.OvsdbType) error {
 				// If upgrade is not required, break out of the loop
 				logger.Infof("OVN %s DB is at expected version. No upgrade needed", dbSpec.FriendlyName)
 				break
-			} else {
-				logger.Infof("OVN %s DB schema needs upgrade.", dbSpec.FriendlyName)
 			}
+			logger.Infof("OVN %s DB schema needs upgrade.", dbSpec.FriendlyName)
 
 			// Check whether we are the designated node for triggering the schema upgrade
 			upgradeLeader, err := isNodeUpgradeLeader(s)

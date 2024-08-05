@@ -17,9 +17,6 @@ import (
 
 type cmdInit struct {
 	common *CmdControl
-
-	flagBootstrap bool
-	flagToken     string
 }
 
 func (c *cmdInit) Command() *cobra.Command {
@@ -51,7 +48,7 @@ func (c *cmdInit) wantsCustomEncapsulationIP() (string, string, error) {
 	return "", "", nil
 }
 
-func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
+func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 	// Connect to the daemon.
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
 	if err != nil {
@@ -72,7 +69,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 	// User interaction.
 	mode := "existing"
-	customEncapsulationIpSupported := shared.ValueInSlice("custom_encapsulation_ip", microovnAPI.Extensions())
+	customEncapsulationIPSupported := shared.ValueInSlice("custom_encapsulation_ip", microovnAPI.Extensions())
 
 	if isUninitialized {
 		// Get system name.
@@ -104,7 +101,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 				return err
 			}
 
-			if customEncapsulationIpSupported {
+			if customEncapsulationIPSupported {
 				key, encapIP, err := c.wantsCustomEncapsulationIP()
 				if err != nil {
 					return err
@@ -128,7 +125,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 				return err
 			}
 
-			if customEncapsulationIpSupported {
+			if customEncapsulationIPSupported {
 				// Register a potential custom encapsulation IP for other systems,
 				// so that when they will join the cluster, their encapsulation IP
 				// for the Geneve tunnel will be automatically configured.
@@ -160,7 +157,7 @@ func (c *cmdInit) Run(cmd *cobra.Command, args []string) error {
 
 		if wantsMachines {
 			for {
-				tokenName, err := c.common.asker.AskString("What's the name of the new MicroOVN server? (empty to exit): ", "", func(input string) error { return nil })
+				tokenName, err := c.common.asker.AskString("What's the name of the new MicroOVN server? (empty to exit): ", "", func(_ string) error { return nil })
 				if err != nil {
 					return err
 				}

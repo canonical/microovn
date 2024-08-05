@@ -251,6 +251,7 @@ parts:
       - ovs
     build-snaps:
       - go
+      - golangci-lint
     plugin: nil
     override-pull: |
       craftctl default
@@ -265,6 +266,19 @@ parts:
       export CGO_CFLAGS="-I${CRAFT_STAGE}/include/ -I${CRAFT_STAGE}/usr/local/include/"
       export CGO_LDFLAGS="-L${CRAFT_STAGE}/lib/ -L${CRAFT_STAGE}/usr/local/lib/"
       export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+
+      # Check that `gofmt` is happy with the code.
+      fmt_tmp=$(mktemp /tmp/gofmt_output_XXX.patch)
+      gofmt -d ./.. | tee $fmt_tmp
+      if [ $(cat $fmt_tmp | wc -l) -ne 0 ]; then
+          echo "Please address the above opinions gofmt has on your code."
+          rm -f $fmt_tmp
+          exit 1
+      fi
+      rm -f $fmt_tmp
+
+      # Check that `golangci-lint` is happy with the code.
+      golangci-lint run --verbose
 
       # Determine versions of packages used to build MicroOVN
       # Note (mkalcok): This code reaches into other snapcraft parts via hardcoded paths

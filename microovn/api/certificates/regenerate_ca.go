@@ -34,26 +34,25 @@ func regenerateCaPut(s *state.State, r *http.Request) response.Response {
 		logger.Info("Re-issuing CA certificate and private key")
 		err = ovn.GenerateNewCACertificate(s)
 		if err != nil {
-			logger.Errorf("Failed to generate new CA certificate: %w", err)
+			logger.Errorf("Failed to generate new CA certificate: %v", err)
 			responseData.NewCa = false
 			return response.SyncResponse(false, &responseData)
-		} else {
-			responseData.NewCa = true
 		}
+		responseData.NewCa = true
 
 		// Get clients for rest of the cluster members
 		cluster, err := s.Cluster(false)
 		if err != nil {
-			logger.Errorf("Failed to get a client for every cluster member: %w", err)
+			logger.Errorf("Failed to get a client for every cluster member: %v", err)
 			return response.SyncResponse(false, &responseData)
 		}
 
 		// Bump rest of the cluster members to reissue their certificates with new CA
 		err = cluster.Query(s.Context, true, func(ctx context.Context, c *client.Client) error {
-			logger.Infof("Requesting cluster member at '%s' to re-issue its OVN certificates", c.URL())
+			clientURL := c.URL()
+			logger.Infof("Requesting cluster member at '%s' to re-issue its OVN certificates", clientURL.String())
 			result, err := microovnClient.RegenerateCA(ctx, c)
 			if err != nil {
-				clientURL := c.URL()
 				errMsg := fmt.Sprintf("failed to contact cluster member with address %q: %s", clientURL.String(), err)
 				responseData.Errors = append(responseData.Errors, errMsg)
 			} else {
@@ -72,13 +71,13 @@ func regenerateCaPut(s *state.State, r *http.Request) response.Response {
 	logger.Info("Re-issuing all local OVN certificates")
 	err = ovn.DumpCA(s)
 	if err != nil {
-		logger.Errorf("%w", err)
+		logger.Errorf("%v", err)
 		return response.SyncResponse(false, &responseData)
 	}
 
 	reissuedCertificates, err := reissueAllCertificates(s)
 	if err != nil {
-		logger.Errorf("Failed to reissue certificates with new CA: %w", err)
+		logger.Errorf("Failed to reissue certificates with new CA: %v", err)
 	}
 	responseData.ReissuedCertificates[s.Name()] = *reissuedCertificates
 

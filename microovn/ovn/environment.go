@@ -36,10 +36,8 @@ func networkProtocol(s *state.State) string {
 	_, _, err := getCA(s)
 	if err != nil {
 		return "tcp"
-	} else {
-		return "ssl"
 	}
-
+	return "ssl"
 }
 
 // Builds environment variable strings for OVN.

@@ -1,3 +1,4 @@
+// Package node provides functions operating on nodes in the cluster.
 package node
 
 import (
@@ -7,27 +8,36 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/canonical/microcluster/state"
 	"github.com/canonical/microcluster/cluster"
-	"github.com/canonical/microovn/microovn/database"
+	"github.com/canonical/microcluster/state"
 	"github.com/canonical/microovn/microovn/api/types"
+	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/snap"
 )
 
+// SrvName - string representation of a service.
 type SrvName string
 
 const (
+	// SrvChassis - string representation of chassis service.
 	SrvChassis SrvName = "chassis"
+	// SrvCentral - string representation of central service.
 	SrvCentral SrvName = "central"
-	SrvSwitch  SrvName = "switch"
+	// SrvSwitch - string representation of switch service.
+	SrvSwitch SrvName = "switch"
 )
 
+// ServiceNames - slice containing all known SrvName strings.
 var ServiceNames = []SrvName{SrvChassis, SrvCentral, SrvSwitch}
 
+// CheckValidService - checks whether the string in "service" is in fact a
+// known and valid service name.
 func CheckValidService(service string) bool {
 	return slices.Contains(ServiceNames, SrvName(service))
 }
 
+// DisableService - stop snap service(s) (runtime state) and remove it from the
+// database (desired state).
 func DisableService(s *state.State, service string) error {
 	exists, err := HasServiceActive(s, service)
 
@@ -65,6 +75,8 @@ func DisableService(s *state.State, service string) error {
 
 }
 
+// EnableService - start snap service(s) (runtime state) and add it to the
+// database (desired state).
 func EnableService(s *state.State, service string) error {
 	exists, err := HasServiceActive(s, service)
 	if err != nil {
@@ -91,6 +103,7 @@ func EnableService(s *state.State, service string) error {
 
 }
 
+// ListServices - List services in database (desired state).
 func ListServices(s *state.State) (types.Services, error) {
 	services := types.Services{}
 
