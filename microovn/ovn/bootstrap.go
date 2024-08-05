@@ -8,8 +8,8 @@ import (
 	"github.com/canonical/microcluster/state"
 
 	"github.com/canonical/microovn/microovn/database"
-	"github.com/canonical/microovn/microovn/snap"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/snap"
 )
 
 // Bootstrap will initialize a new OVN deployment.
