@@ -54,7 +54,7 @@ func (c *cmdDaemon) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "microd",
 		Short:   "Example daemon for MicroCluster - This will start a daemon with a running control socket and no database",
-		Version:  MicroOvnVersion,
+		Version: MicroOvnVersion,
 	}
 
 	cmd.RunE = c.Run

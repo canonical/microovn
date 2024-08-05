@@ -9,8 +9,8 @@ import (
 	"github.com/canonical/microcluster/state"
 
 	"github.com/canonical/microovn/microovn/node"
-	"github.com/canonical/microovn/microovn/snap"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/snap"
 )
 
 // Refresh will update the existing OVN central and OVS switch configs.

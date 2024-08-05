@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/canonical/microcluster/state"
 	"github.com/canonical/microcluster/cluster"
-	"github.com/canonical/microovn/microovn/database"
+	"github.com/canonical/microcluster/state"
 	"github.com/canonical/microovn/microovn/api/types"
+	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/snap"
 )
 
