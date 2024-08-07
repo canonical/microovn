@@ -1,0 +1,19 @@
+issues:
+  # The default exclude rules disable the requirement for GoDoc comments in the
+  # revive linter, so we can't use them.
+  exclude-use-default: false
+  # Not using the default exclude rules re-introduces the below check,
+  # disabling for now as the fact that it is excluded by default and other
+  # people are re-adding it makes it probable that we don't need it either.
+  exclude-rules:
+    - linters: [errcheck]
+      text: "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - revive

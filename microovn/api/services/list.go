@@ -10,14 +10,14 @@ import (
 	"github.com/canonical/microovn/microovn/node"
 )
 
-// /1.0/services endpoint.
+// ListCmd - /1.0/services endpoint.
 var ListCmd = rest.Endpoint{
 	Path: "services",
 
 	Get: rest.EndpointAction{Handler: cmdServicesGet, ProxyTarget: true},
 }
 
-func cmdServicesGet(s *state.State, r *http.Request) response.Response {
+func cmdServicesGet(s *state.State, _ *http.Request) response.Response {
 	services, err := node.ListServices(s)
 	if err != nil {
 		return response.InternalError(err)

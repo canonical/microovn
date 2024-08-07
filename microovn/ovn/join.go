@@ -9,6 +9,7 @@ import (
 
 	"github.com/canonical/microovn/microovn/database"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/snap"
 )
 
 // Join will join an existing OVN deployment.
@@ -89,7 +90,7 @@ func Join(s *state.State, initConfig map[string]string) error {
 	}
 
 	// Enable OVS switch.
-	err = snapStart("switch", true)
+	err = snap.Start("switch", true)
 	if err != nil {
 		return fmt.Errorf("Failed to start OVS switch: %w", err)
 	}
@@ -110,17 +111,17 @@ func Join(s *state.State, initConfig map[string]string) error {
 			return fmt.Errorf("failed to generate TLS certificate for ovn-northd service")
 		}
 
-		err = snapStart("ovn-ovsdb-server-nb", true)
+		err = snap.Start("ovn-ovsdb-server-nb", true)
 		if err != nil {
 			return fmt.Errorf("Failed to start OVN NB: %w", err)
 		}
 
-		err = snapStart("ovn-ovsdb-server-sb", true)
+		err = snap.Start("ovn-ovsdb-server-sb", true)
 		if err != nil {
 			return fmt.Errorf("Failed to start OVN SB: %w", err)
 		}
 
-		err = snapStart("ovn-northd", true)
+		err = snap.Start("ovn-northd", true)
 		if err != nil {
 			return fmt.Errorf("Failed to start OVN northd: %w", err)
 		}
@@ -131,7 +132,7 @@ func Join(s *state.State, initConfig map[string]string) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate TLS certificate for ovn-controller service")
 	}
-	err = snapStart("chassis", true)
+	err = snap.Start("chassis", true)
 	if err != nil {
 		return fmt.Errorf("Failed to start OVN chassis: %w", err)
 	}
@@ -145,16 +146,16 @@ func Join(s *state.State, initConfig map[string]string) error {
 	// A custom encapsulation IP address can also be directly passed as an initConfig parameter.
 	// This block is typically executed by a `microovn cluster init` or by an external project
 	// triggering this join hook.
-	var ovnEncapIp string
+	var ovnEncapIP string
 	for k, v := range initConfig {
 		if k == "ovn-encap-ip" {
-			ovnEncapIp = v
+			ovnEncapIP = v
 			break
 		}
 	}
 
-	if ovnEncapIp == "" {
-		ovnEncapIp = s.Address().Hostname()
+	if ovnEncapIP == "" {
+		ovnEncapIP = s.Address().Hostname()
 	}
 
 	_, err = ovnCmd.VSCtl(
@@ -163,7 +164,7 @@ func Join(s *state.State, initConfig map[string]string) error {
 		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
 		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
 		"external_ids:ovn-encap-type=geneve",
-		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIp),
+		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIP),
 	)
 
 	if err != nil {

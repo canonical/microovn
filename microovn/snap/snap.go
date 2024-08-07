@@ -1,4 +1,5 @@
-package ovn
+// Package snap implements snap / snapctl specific functions.
+package snap
 
 import (
 	"fmt"
@@ -6,7 +7,9 @@ import (
 	"github.com/canonical/lxd/shared"
 )
 
-func snapStart(service string, enable bool) error {
+// Start - start snap service as represented by "service" string, optionally
+// leaving it enabled for future reboots when "enable" is true.
+func Start(service string, enable bool) error {
 	args := []string{
 		"start",
 		fmt.Sprintf("microovn.%s", service),
@@ -24,9 +27,9 @@ func snapStart(service string, enable bool) error {
 	return nil
 }
 
-// snapStop stops specified snap service. Service can be optionally also disabled, ensuring
+// Stop stops specified snap service. Service can be optionally also disabled, ensuring
 // that it won't be automatically started on system reboot.
-func snapStop(service string, disable bool) error {
+func Stop(service string, disable bool) error {
 	args := []string{
 		"stop",
 		fmt.Sprintf("microovn.%s", service),
@@ -44,7 +47,8 @@ func snapStop(service string, disable bool) error {
 	return nil
 }
 
-func snapRestart(service string) error {
+// Restart - restart snap service as represented by "service" string.
+func Restart(service string) error {
 	args := []string{
 		"restart",
 		fmt.Sprintf("microovn.%s", service),
@@ -58,7 +62,8 @@ func snapRestart(service string) error {
 	return nil
 }
 
-func snapReload(service string) error {
+// Reload - reload snap service as represented by "service" string.
+func Reload(service string) error {
 	args := []string{
 		"restart",
 		"--reload",

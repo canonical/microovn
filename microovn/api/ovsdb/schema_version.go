@@ -99,9 +99,9 @@ func getAllExpectedSchemaVersions(s *state.State, r *http.Request) response.Resp
 
 	// Fetch expected schema versions from each cluster member.
 	_ = clusterClient.Query(s.Context, true, func(ctx context.Context, c *client.Client) error {
-		clientUrl := c.URL()
-		logger.Debugf("Fetching expected OVN %s schema version from '%s'", dbSpec.FriendlyName, clientUrl.String())
-		nodeStatus := types.OvsdbSchemaVersionResult{Host: clientUrl.Hostname()}
+		clientURL := c.URL()
+		logger.Debugf("Fetching expected OVN %s schema version from '%s'", dbSpec.FriendlyName, clientURL.String())
+		nodeStatus := types.OvsdbSchemaVersionResult{Host: clientURL.Hostname()}
 
 		result, responseSuccess := microovnClient.GetExpectedOvsdbSchemaVersion(ctx, c, dbSpec)
 		nodeStatus.Error = responseSuccess
@@ -161,24 +161,28 @@ func forwardActiveSchemaVersion(s *state.State, r *http.Request, dbSpec *ovnCmd.
 	}
 
 	clusterClients, err := s.Cluster(false)
+	if err != nil {
+		logger.Errorf("failed to get cluster clients: %v", err)
+		return response.ErrorResponse(500, "Internal Server Error")
+	}
 
-	for _, client_ := range clusterClients {
-		for _, node_ := range centralNodes {
-			clientUrl := client_.URL()
-			clientAddr := fmt.Sprintf("%s:%s", clientUrl.Hostname(), clientUrl.Port())
-			if clientAddr == node_.Address {
+	for _, _client := range clusterClients {
+		for _, _node := range centralNodes {
+			clientURL := _client.URL()
+			clientAddr := fmt.Sprintf("%s:%s", clientURL.Hostname(), clientURL.Port())
+			if clientAddr == _node.Address {
 				logger.Infof(
 					"Forwarding request '%s' for active %s schema to %s",
 					r.URL,
 					dbSpec.FriendlyName,
-					node_.Name,
+					_node.Name,
 				)
-				result, err := microovnClient.GetActiveOvsdbSchemaVersion(s.Context, &client_, dbSpec)
+				result, err := microovnClient.GetActiveOvsdbSchemaVersion(s.Context, &_client, dbSpec)
 				if err != types.OvsdbSchemaFetchErrorNone {
 					logger.Errorf(
 						"Failed to forward request for active %s schema version to node %s",
 						dbSpec.FriendlyName,
-						node_.Name,
+						_node.Name,
 					)
 				} else {
 					return response.SyncResponse(true, &result)

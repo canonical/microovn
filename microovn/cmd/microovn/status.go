@@ -30,7 +30,7 @@ func (c *cmdStatus) Command() *cobra.Command {
 	return cmd
 }
 
-func (c *cmdStatus) Run(cmd *cobra.Command, args []string) error {
+func (c *cmdStatus) Run(_ *cobra.Command, _ []string) error {
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
 	if err != nil {
 		return err
@@ -149,9 +149,9 @@ func printOvsdbSchemaReport(cli *microClusterClient.Client, dbSpec *ovnCmd.Ovsdb
 			msg += fmt.Sprintf("%s\n", node.SchemaVersion)
 		}
 	}
-	msg += fmt.Sprintf("\n")
+	msg += "\n"
 
-	fmt.Printf(msg)
+	fmt.Print(msg)
 }
 
 // ovsdbSchemaRequiresAttention is a function that determines whether an attention of the user is needed for given OVN

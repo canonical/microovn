@@ -20,19 +20,32 @@ import (
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )
 
-const CACertRecordName = "ca_cert"                   // Key used to store CA certificate in config DB table
-const CAKeyRecordName = "ca_key"                     // Key used to store CA private key in config DB table
-const CACertValidity = 10 * 365 * 24 * time.Hour     // 10 years
-const ServiceCertValidity = 2 * 365 * 24 * time.Hour // 2 years
+// CACertRecordName    - Key used to store CA certificate in config DB table.
+const CACertRecordName = "ca_cert"
+
+// CAKeyRecordName     - Key used to store CA private key in config DB table.
+const CAKeyRecordName = "ca_key"
+
+// CACertValidity      - 10 years.
+const CACertValidity = 10 * 365 * 24 * time.Hour
+
+// ServiceCertValidity -  2 years.
+const ServiceCertValidity = 2 * 365 * 24 * time.Hour
+
 const certFileMode = 0600
 
+// MaxSerialNumber - Maximum serial number for generated certificates.
 var MaxSerialNumber = new(big.Int).Lsh(big.NewInt(1), 128)
 
+// CertificateType - Types of certificates.
 type CertificateType int
 
 const (
+	// CertificateTypeCA     - A Certificate Authority certificate.
 	CertificateTypeCA CertificateType = iota
+	// CertificateTypeServer - A certificate suitable for a server.
 	CertificateTypeServer
+	// CertificateTypeClient - A certificate suitable for clients.
 	CertificateTypeClient
 )
 
@@ -292,6 +305,9 @@ func GenerateNewServiceCertificate(s *state.State, serviceName string, certType 
 	}
 
 	cert, key, err := issueCertificate(s.Name(), serviceName, certType, caCert, caKey)
+	if err != nil {
+		return fmt.Errorf("failed to issue certificate for %s: %w", serviceName, err)
+	}
 
 	_, err = certFile.Write(cert)
 	if err != nil {
