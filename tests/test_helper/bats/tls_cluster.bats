@@ -44,6 +44,9 @@ tls_cluster_register_test_functions() {
     bats_test_function \
         --description "Regenerate CA" \
         -- tls_cluster_regenerate_ca
+    bats_test_function \
+        --description "Reissue certificate without argument" \
+        -- tls_cluster_reissue_certificate_help    
 }
 
 tls_cluster_central_have_tls() {
@@ -314,6 +317,17 @@ tls_cluster_regenerate_ca() {
     for container in $CHASSIS_CONTAINERS; do
         verify_chassis_cert_files "$container"
     done
+}
+
+
+tls_cluster_reissue_certificate_help() {
+    # Ensure that MicroOVN return help function instead of an error when you run the command without any argument
+    local container=""
+    container=$(echo "$CHASSIS_CONTAINERS" | awk '{print $1;}')
+
+    run lxc_exec "$container" "microovn certificates reissue"
+    assert_success
+
 }
 
 tls_cluster_register_test_functions
