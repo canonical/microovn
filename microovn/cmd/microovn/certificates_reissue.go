@@ -44,7 +44,10 @@ func (c *cmdCertificatesReissue) Command() *cobra.Command {
 
 // Run method is an implementation of "microovn certificates reissue" subcommand. It requests local MicroOVN
 // service to issue new certificate for selected OVN service.
-func (c *cmdCertificatesReissue) Run(_ *cobra.Command, args []string) error {
+func (c *cmdCertificatesReissue) Run(cmd *cobra.Command, args []string) error {
+	if len(args) != 1 {
+		return cmd.Help()
+	}
 	var response types.IssueCertificateResponse
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
 	if err != nil {
