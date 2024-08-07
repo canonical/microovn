@@ -15,7 +15,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/state"
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )
@@ -138,7 +138,7 @@ func issueCertificate(cn string, serviceName string, certType CertificateType, p
 
 // GenerateNewCACertificate generates new CA certificate and private key and stores them in the shared MicroOVN
 // database.
-func GenerateNewCACertificate(s *state.State) error {
+func GenerateNewCACertificate(ctx context.Context, s state.State) error {
 	cert, key, err := issueCertificate("MicroOVN CA", "MicroOVN CA", CertificateTypeCA, nil, nil)
 	if err != nil {
 		return err
@@ -153,7 +153,7 @@ func GenerateNewCACertificate(s *state.State) error {
 		Value: string(key),
 	}
 
-	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		// Upsert CA certificate
 		certExists, _ := database.GetConfigItem(ctx, tx, CACertRecordName)
 		if certExists == nil {
@@ -186,11 +186,11 @@ func GenerateNewCACertificate(s *state.State) error {
 
 // DumpCA copies CA certificate from shared database and stores it in pre-defined file on disk. File path
 // to store CA certificate is defined in paths.PkiCaCertFile.
-func DumpCA(s *state.State) error {
+func DumpCA(ctx context.Context, s state.State) error {
 	var err error
 	var CACertRecord *database.ConfigItem
 
-	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		CACertRecord, err = database.GetConfigItem(ctx, tx, CACertRecordName)
 		if err != nil {
 			return fmt.Errorf("failed to get CA certificate from the database: %s", err)
@@ -222,12 +222,12 @@ func DumpCA(s *state.State) error {
 
 // getCA pulls PEM encoded CA certificate and private key from shared database and returns
 // them as parsed objects x509.Certificate and ecdsa.PrivateKey (+ error if any occurred).
-func getCA(s *state.State) (*x509.Certificate, *ecdsa.PrivateKey, error) {
+func getCA(ctx context.Context, s state.State) (*x509.Certificate, *ecdsa.PrivateKey, error) {
 	var err error
 	var CACertRecord *database.ConfigItem
 	var CAKeyRecord *database.ConfigItem
 
-	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		CACertRecord, err = database.GetConfigItem(ctx, tx, CACertRecordName)
 		if err != nil {
 			return fmt.Errorf("failed to fetch CA certificate from database: %s", err)
@@ -271,7 +271,7 @@ func getCA(s *state.State) (*x509.Certificate, *ecdsa.PrivateKey, error) {
 // and writes resulting certificate and private key to files specified by certPath and keyPath arguments.
 // String from serviceName argument will be inserted in certificate's OU and is meant to more easily distinguish
 // between multiple certificates with same CN.
-func GenerateNewServiceCertificate(s *state.State, serviceName string, certType CertificateType) error {
+func GenerateNewServiceCertificate(ctx context.Context, s state.State, serviceName string, certType CertificateType) error {
 	certPath, keyPath, err := getServiceCertificatePaths(serviceName)
 	if err != nil {
 		return fmt.Errorf("failed to generate certificate: %s", err)
@@ -299,7 +299,7 @@ func GenerateNewServiceCertificate(s *state.State, serviceName string, certType 
 		return fmt.Errorf("unable to set permissions for %s private key: %w", serviceName, err)
 	}
 
-	caCert, caKey, err := getCA(s)
+	caCert, caKey, err := getCA(ctx, s)
 	if err != nil {
 		return err
 	}

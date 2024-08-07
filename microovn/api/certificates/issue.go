@@ -8,8 +8,8 @@ import (
 
 	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/rest"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/rest"
+	"github.com/canonical/microcluster/v2/state"
 	"github.com/gorilla/mux"
 
 	"github.com/canonical/microovn/microovn/api/types"
@@ -25,7 +25,7 @@ var IssueCertificatesEndpoint = rest.Endpoint{
 // issueCertificatesPut implements PUT method for /1.0/certificates/<service-name> endpoint. The function parses
 // service name from the request URL and if the service is currently enabled on this cluster member, it
 // issues new certificate for it.
-func issueCertificatesPut(s *state.State, r *http.Request) response.Response {
+func issueCertificatesPut(s state.State, r *http.Request) response.Response {
 	// Get requested service name
 	requestedService, err := url.PathUnescape(mux.Vars(r)["service"])
 	if err != nil {
@@ -35,7 +35,7 @@ func issueCertificatesPut(s *state.State, r *http.Request) response.Response {
 	logger.Infof("Issuing new certificate for '%s' service.", requestedService)
 
 	// Get all enabled services and make sure that the requested service is among them.
-	eligibleServices, err := enabledOvnServices(s)
+	eligibleServices, err := enabledOvnServices(r.Context(), s)
 	if err != nil {
 		logger.Errorf("failed to lookup local services eligible for certificate refresh: %s", err)
 		return response.ErrorResponse(500, "Internal server error.")
@@ -61,7 +61,7 @@ func issueCertificatesPut(s *state.State, r *http.Request) response.Response {
 	}
 
 	// Attempt to issue new certificate and return response object
-	err = ovn.GenerateNewServiceCertificate(s, requestedService, ovn.CertificateTypeServer)
+	err = ovn.GenerateNewServiceCertificate(r.Context(), s, requestedService, ovn.CertificateTypeServer)
 	result := types.IssueCertificateResponse{}
 
 	if err != nil {

@@ -6,10 +6,9 @@ import (
 	"os"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/config"
-	"github.com/canonical/microcluster/microcluster"
-	"github.com/canonical/microcluster/rest"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/microcluster"
+	"github.com/canonical/microcluster/v2/rest/types"
+	"github.com/canonical/microcluster/v2/state"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microovn/microovn/api"
@@ -63,21 +62,35 @@ func (c *cmdDaemon) Command() *cobra.Command {
 
 func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
 
-	m, err := microcluster.App(microcluster.Args{StateDir: c.flagStateDir, Verbose: c.global.flagLogVerbose, Debug: c.global.flagLogDebug})
+	m, err := microcluster.App(microcluster.Args{StateDir: c.flagStateDir})
 	if err != nil {
 		return err
 	}
 
-	h := &config.Hooks{}
+	shutdownCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	h := &state.Hooks{}
 	h.PostBootstrap = ovn.Bootstrap
 	h.PreJoin = ovn.Join
-	h.OnNewMember = ovn.Refresh
+	h.OnNewMember = func(ctx context.Context, s state.State, _ types.ClusterMemberLocal) error {
+		return ovn.Refresh(shutdownCtx, ctx, s)
+	}
 	h.PreRemove = ovn.Leave
-	h.PostRemove = func(s *state.State, _ bool) error { return ovn.Refresh(s) }
+	h.PostRemove = func(ctx context.Context, s state.State, _ bool) error { return ovn.Refresh(shutdownCtx, ctx, s) }
 	h.OnStart = ovn.Start
 
-	m.AddServers([]rest.Server{api.Server})
-	return m.Start(context.Background(), database.SchemaExtensions, api.Extensions(), h)
+	daemonArgs := microcluster.DaemonArgs{
+		Verbose:          c.global.flagLogVerbose,
+		Debug:            c.global.flagLogDebug,
+		Version:          MicroOvnVersion,
+		ExtensionsSchema: database.SchemaExtensions,
+		APIExtensions:    api.Extensions(),
+		Hooks:            h,
+		ExtensionServers: api.Server,
+	}
+
+	return m.Start(shutdownCtx, daemonArgs)
 }
 
 func main() {

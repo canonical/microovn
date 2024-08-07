@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/canonical/lxd/lxd/response"
-	"github.com/canonical/microcluster/rest"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/rest"
+	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microovn/microovn/node"
 )
@@ -17,8 +17,8 @@ var ListCmd = rest.Endpoint{
 	Get: rest.EndpointAction{Handler: cmdServicesGet, ProxyTarget: true},
 }
 
-func cmdServicesGet(s *state.State, _ *http.Request) response.Response {
-	services, err := node.ListServices(s)
+func cmdServicesGet(s state.State, r *http.Request) response.Response {
+	services, err := node.ListServices(r.Context(), s)
 	if err != nil {
 		return response.InternalError(err)
 	}

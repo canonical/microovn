@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/canonical/microovn/microovn/client"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 	"github.com/spf13/cobra"
@@ -67,7 +67,7 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
+	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
 		return err
 	}

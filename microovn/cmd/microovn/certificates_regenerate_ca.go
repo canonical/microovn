@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microovn/microovn/api/types"
@@ -31,7 +31,7 @@ func (c *cmdCertificatesRegenerateCa) Command() *cobra.Command {
 // to issue new CA certificate and re-issue all OVN service certificates across the whole cluster.
 func (c *cmdCertificatesRegenerateCa) Run(_ *cobra.Command, _ []string) error {
 	var response types.RegenerateCaResponse
-	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
+	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
 		return err
 	}

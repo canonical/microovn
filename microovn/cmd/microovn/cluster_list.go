@@ -7,7 +7,7 @@ import (
 	"github.com/canonical/lxd/shared"
 	lxdCmd "github.com/canonical/lxd/shared/cmd"
 	"github.com/canonical/lxd/shared/i18n"
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +30,7 @@ func (c *cmdClusterList) Command() *cobra.Command {
 }
 
 func (c *cmdClusterList) Run(_ *cobra.Command, _ []string) error {
-	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
+	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
 		return err
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/canonical/microcluster/microcluster"
+	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microovn/microovn/api/types"
@@ -46,7 +46,7 @@ func (c *cmdCertificatesReissue) Command() *cobra.Command {
 // service to issue new certificate for selected OVN service.
 func (c *cmdCertificatesReissue) Run(_ *cobra.Command, args []string) error {
 	var response types.IssueCertificateResponse
-	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir, Verbose: c.common.FlagLogVerbose, Debug: c.common.FlagLogDebug})
+	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
 		return err
 	}

@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/cluster"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/cluster"
+	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/ovn/paths"
@@ -32,8 +32,8 @@ OVN_LOCAL_IP="{{ .localAddr }}"
 
 // networkProtocol returns appropriate network protocol that should be used
 // by OVN services.
-func networkProtocol(s *state.State) string {
-	_, _, err := getCA(s)
+func networkProtocol(ctx context.Context, s state.State) string {
+	_, _, err := getCA(ctx, s)
 	if err != nil {
 		return "tcp"
 	}
@@ -41,23 +41,23 @@ func networkProtocol(s *state.State) string {
 }
 
 // Builds environment variable strings for OVN.
-func environmentString(s *state.State, port int) (string, string, error) {
+func environmentString(ctx context.Context, s state.State, port int) (string, string, error) {
 	var err error
 	var servers []database.Service
-	var clusterMap map[string]cluster.InternalClusterMember
-	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+	var clusterMap map[string]cluster.CoreClusterMember
+	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		serviceName := "central"
 		servers, err = database.GetServices(ctx, tx, database.ServiceFilter{Service: &serviceName})
 		if err != nil {
 			return err
 		}
 
-		clusterMembers, err := cluster.GetInternalClusterMembers(ctx, tx)
+		clusterMembers, err := cluster.GetCoreClusterMembers(ctx, tx)
 		if err != nil {
 			return err
 		}
 
-		clusterMap = make(map[string]cluster.InternalClusterMember, len(clusterMembers))
+		clusterMap = make(map[string]cluster.CoreClusterMember, len(clusterMembers))
 		for _, clusterMember := range clusterMembers {
 			clusterMap[clusterMember.Name] = clusterMember
 		}
@@ -70,7 +70,7 @@ func environmentString(s *state.State, port int) (string, string, error) {
 
 	addresses := make([]string, 0, len(servers))
 	var initialString string
-	protocol := networkProtocol(s)
+	protocol := networkProtocol(ctx, s)
 	for i, server := range servers {
 		member := clusterMap[server.Member]
 		memberAddr, err := netip.ParseAddrPort(member.Address)
@@ -97,14 +97,14 @@ func environmentString(s *state.State, port int) (string, string, error) {
 	return strings.Join(addresses, ","), initialString, nil
 }
 
-func generateEnvironment(s *state.State) error {
+func generateEnvironment(ctx context.Context, s state.State) error {
 	// Get the servers.
-	nbConnect, nbInitial, err := environmentString(s, 6641)
+	nbConnect, nbInitial, err := environmentString(ctx, s, 6641)
 	if err != nil {
 		return err
 	}
 
-	sbConnect, sbInitial, err := environmentString(s, 6642)
+	sbConnect, sbInitial, err := environmentString(ctx, s, 6642)
 	if err != nil {
 		return err
 	}

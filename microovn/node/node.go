@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/canonical/microcluster/cluster"
-	"github.com/canonical/microcluster/state"
+	"github.com/canonical/microcluster/v2/cluster"
+	"github.com/canonical/microcluster/v2/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/snap"
@@ -38,8 +38,8 @@ func CheckValidService(service string) bool {
 
 // DisableService - stop snap service(s) (runtime state) and remove it from the
 // database (desired state).
-func DisableService(s *state.State, service string) error {
-	exists, err := HasServiceActive(s, service)
+func DisableService(ctx context.Context, s state.State, service string) error {
+	exists, err := HasServiceActive(ctx, s, service)
 
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func DisableService(s *state.State, service string) error {
 		return fmt.Errorf("Snapctl error, likely due to service not existing:\n %w", err)
 	}
 
-	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		err := database.DeleteService(ctx, tx, s.Name(), service)
 		return err
 	})
@@ -77,8 +77,8 @@ func DisableService(s *state.State, service string) error {
 
 // EnableService - start snap service(s) (runtime state) and add it to the
 // database (desired state).
-func EnableService(s *state.State, service string) error {
-	exists, err := HasServiceActive(s, service)
+func EnableService(ctx context.Context, s state.State, service string) error {
+	exists, err := HasServiceActive(ctx, s, service)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func EnableService(s *state.State, service string) error {
 		return fmt.Errorf("Snapctl error, likely due to service not existing:\n%w", err)
 	}
 
-	err = s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := database.CreateService(ctx, tx, database.Service{Member: s.Name(), Service: service})
 		return err
 	})
@@ -104,11 +104,11 @@ func EnableService(s *state.State, service string) error {
 }
 
 // ListServices - List services in database (desired state).
-func ListServices(s *state.State) (types.Services, error) {
+func ListServices(ctx context.Context, s state.State) (types.Services, error) {
 	services := types.Services{}
 
 	// Get the services from the database.
-	err := s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		records, err := database.GetServices(ctx, tx)
 		if err != nil {
 			return fmt.Errorf("Failed to fetch service: %w", err)
@@ -132,10 +132,10 @@ func ListServices(s *state.State) (types.Services, error) {
 
 // HasServiceActive function accepts service names (like "central" or "switch") and returns true/false based
 // on whether the selected service is running on this node.
-func HasServiceActive(s *state.State, serviceName string) (bool, error) {
+func HasServiceActive(ctx context.Context, s state.State, serviceName string) (bool, error) {
 	serviceActive := false
 
-	err := s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
+	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		// Get list of all active local services.
 		name := s.Name()
 		services, err := database.GetServices(ctx, tx, database.ServiceFilter{Member: &name})
@@ -157,11 +157,11 @@ func HasServiceActive(s *state.State, serviceName string) (bool, error) {
 }
 
 // FindService returns list of cluster members that have the specified service enabled.
-func FindService(s *state.State, service string) ([]cluster.InternalClusterMember, error) {
-	var membersWithService []cluster.InternalClusterMember
+func FindService(ctx context.Context, s state.State, service string) ([]cluster.CoreClusterMember, error) {
+	var membersWithService []cluster.CoreClusterMember
 
-	err := s.Database.Transaction(s.Context, func(ctx context.Context, tx *sql.Tx) error {
-		clusterMembers, err := cluster.GetInternalClusterMembers(ctx, tx)
+	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		clusterMembers, err := cluster.GetCoreClusterMembers(ctx, tx)
 		if err != nil {
 			return err
 		}
