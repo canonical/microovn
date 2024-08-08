@@ -49,6 +49,14 @@ func DisableService(ctx context.Context, s state.State, service string) error {
 	}
 
 	if SrvName(service) == SrvCentral {
+		centrals, err := FindService(ctx, s, service)
+		if err != nil {
+			return err
+		}
+		if len(centrals) == 1 {
+			return errors.New("You cannot delete the final enabled central service")
+		}
+
 		err = snap.Stop("ovn-ovsdb-server-nb", true)
 		if err != nil {
 			return err
@@ -58,6 +66,10 @@ func DisableService(ctx context.Context, s state.State, service string) error {
 			return err
 		}
 		err = snap.Stop("ovn-northd", true)
+		if err != nil {
+			return err
+		}
+
 	} else {
 		err = snap.Stop(service, true)
 	}
@@ -185,4 +197,22 @@ func FindService(ctx context.Context, s state.State, service string) ([]cluster.
 	}
 
 	return membersWithService, nil
+}
+
+// ServiceWarnings - checks the desired state and aims to find out if there are
+// any problems with it, such as an inefficent or error prone number of nodes.
+// This function returns a set of warnings to be handled
+func ServiceWarnings(ctx context.Context, s state.State) (types.WarningSet, error) {
+	output := types.WarningSet{}
+	centrals, err := FindService(ctx, s, string(SrvCentral))
+	if err != nil {
+		return output, err
+	}
+	if (len(centrals) % 2) == 0 {
+		output.EvenCentral = true
+	}
+	if len(centrals) < 3 {
+		output.FewCentral = true
+	}
+	return output, nil
 }

@@ -134,28 +134,28 @@ func getOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd
 
 // DisableService sends request to disable service with name as specified in
 // "serviceName" argument.
-func DisableService(ctx context.Context, c *client.Client, serviceName string) error {
+func DisableService(ctx context.Context, c *client.Client, serviceName string) (types.WarningSet, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
-
-	err := c.Query(queryCtx, "DELETE", types.APIVersion, api.NewURL().Path("service", serviceName), nil, nil)
+	scr := types.ServiceControlResponse{}
+	err := c.Query(queryCtx, "DELETE", types.APIVersion, api.NewURL().Path("service", serviceName), nil, &scr)
 
 	if err != nil {
-		return fmt.Errorf("Failed to disable service '%s': '%s'", serviceName, err)
+		return types.WarningSet{}, fmt.Errorf("Failed to disable service '%s': '%s'", serviceName, err)
 	}
-	return nil
+	return scr.Warnings, nil
 }
 
 // EnableService sends request to disable service with name as as specified in
 // "serviceName" argument.
-func EnableService(ctx context.Context, c *client.Client, serviceName string) error {
+func EnableService(ctx context.Context, c *client.Client, serviceName string) (types.WarningSet, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
-
-	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("service", serviceName), nil, nil)
+	scr := types.ServiceControlResponse{}
+	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("service", serviceName), nil, &scr)
 
 	if err != nil {
-		return fmt.Errorf("Failed to enable service '%s': '%s'", serviceName, err)
+		return types.WarningSet{}, fmt.Errorf("Failed to enable service '%s': '%s'", serviceName, err)
 	}
-	return nil
+	return scr.Warnings, nil
 }
