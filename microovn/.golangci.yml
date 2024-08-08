@@ -1,3 +1,8 @@
+run:
+  # The default of 1 minute is a pretty low number when taking into account the
+  # size of the project and its dependencies and the potential load of the
+  # various build environments this project is exposed to.
+  timeout: 5m
 issues:
   # The default exclude rules disable the requirement for GoDoc comments in the
   # revive linter, so we can't use them.
