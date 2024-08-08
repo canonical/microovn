@@ -16,6 +16,7 @@ issues:
 linters:
   disable-all: true
   enable:
+    - gofmt
     - errcheck
     - gosimple
     - govet
