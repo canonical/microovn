@@ -8,6 +8,7 @@ import (
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microovn/microovn/database"
+	"github.com/canonical/microovn/microovn/ovn/certificates"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/snap"
 )
@@ -78,13 +79,13 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	// Note that we intentially use a sever type certificate here due to
 	// all OVS-based programs ability to specify active or passive (listen)
 	// connection types.
-	err = GenerateNewServiceCertificate(ctx, s, "client", CertificateTypeServer)
+	err = certificates.GenerateNewServiceCertificate(ctx, s, "client", certificates.CertificateTypeServer)
 	if err != nil {
 		return fmt.Errorf("failed to generate TLS certificate for client: %s", err)
 	}
 
 	// Copy shared CA certificate from shared database to file on disk
-	err = DumpCA(ctx, s)
+	err = certificates.DumpCA(ctx, s)
 	if err != nil {
 		return err
 	}
@@ -98,15 +99,15 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	// Enable OVN central (if needed).
 	if srvCentral < 3 {
 		// Generate certificate for OVN Central services
-		err = GenerateNewServiceCertificate(ctx, s, "ovnnb", CertificateTypeServer)
+		err = certificates.GenerateNewServiceCertificate(ctx, s, "ovnnb", certificates.CertificateTypeServer)
 		if err != nil {
 			return fmt.Errorf("failed to generate TLS certificate for ovnnb service")
 		}
-		err = GenerateNewServiceCertificate(ctx, s, "ovnsb", CertificateTypeServer)
+		err = certificates.GenerateNewServiceCertificate(ctx, s, "ovnsb", certificates.CertificateTypeServer)
 		if err != nil {
 			return fmt.Errorf("failed to generate TLS certificate for ovnsb service")
 		}
-		err = GenerateNewServiceCertificate(ctx, s, "ovn-northd", CertificateTypeServer)
+		err = certificates.GenerateNewServiceCertificate(ctx, s, "ovn-northd", certificates.CertificateTypeServer)
 		if err != nil {
 			return fmt.Errorf("failed to generate TLS certificate for ovn-northd service")
 		}
@@ -128,7 +129,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	}
 
 	// Generate certificate for OVN chassis (controller)
-	err = GenerateNewServiceCertificate(ctx, s, "ovn-controller", CertificateTypeServer)
+	err = certificates.GenerateNewServiceCertificate(ctx, s, "ovn-controller", certificates.CertificateTypeServer)
 	if err != nil {
 		return fmt.Errorf("failed to generate TLS certificate for ovn-controller service")
 	}

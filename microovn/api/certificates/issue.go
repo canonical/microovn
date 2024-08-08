@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/canonical/microovn/microovn/api/types"
-	"github.com/canonical/microovn/microovn/ovn"
+	"github.com/canonical/microovn/microovn/ovn/certificates"
 )
 
 // IssueCertificatesEndpoint defines endpoint for /1.0/certificates/<service-name>.
@@ -61,7 +61,7 @@ func issueCertificatesPut(s state.State, r *http.Request) response.Response {
 	}
 
 	// Attempt to issue new certificate and return response object
-	err = ovn.GenerateNewServiceCertificate(r.Context(), s, requestedService, ovn.CertificateTypeServer)
+	err = certificates.GenerateNewServiceCertificate(r.Context(), s, requestedService, certificates.CertificateTypeServer)
 	result := types.IssueCertificateResponse{}
 
 	if err != nil {
