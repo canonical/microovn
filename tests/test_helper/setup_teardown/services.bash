@@ -4,7 +4,7 @@ setup_file() {
     load test_helper/microovn.bash
 
 
-    TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 1)
+    TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 3)
     export TEST_CONTAINERS
     launch_containers $TEST_CONTAINERS
     wait_containers_ready $TEST_CONTAINERS
