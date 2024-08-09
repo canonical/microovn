@@ -8,10 +8,15 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/cluster"
 	"github.com/canonical/microcluster/v2/state"
+
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/database"
+	"github.com/canonical/microovn/microovn/ovn/certificates"
+	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/ovn/paths"
 	"github.com/canonical/microovn/microovn/snap"
 )
 
@@ -215,4 +220,90 @@ func ServiceWarnings(ctx context.Context, s state.State) (types.WarningSet, erro
 		output.FewCentral = true
 	}
 	return output, nil
+}
+
+// StartCentral safely starts the central service and its child service while also generating certificates
+func StartCentral(ctx context.Context, s state.State) error {
+	// Generate certificate for OVN Central services
+	err := certificates.GenerateNewServiceCertificate(ctx, s, "ovnnb", certificates.CertificateTypeServer)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovnnb service")
+	}
+	err = certificates.GenerateNewServiceCertificate(ctx, s, "ovnsb", certificates.CertificateTypeServer)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovnsb service")
+	}
+	err = certificates.GenerateNewServiceCertificate(ctx, s, "ovn-northd", certificates.CertificateTypeServer)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovn-northd service")
+	}
+
+	err = snap.Start("ovn-ovsdb-server-nb", true)
+	if err != nil {
+		return fmt.Errorf("Failed to start OVN NB: %w", err)
+	}
+
+	err = snap.Start("ovn-ovsdb-server-sb", true)
+	if err != nil {
+		return fmt.Errorf("Failed to start OVN SB: %w", err)
+	}
+
+	err = snap.Start("ovn-northd", true)
+	if err != nil {
+		return fmt.Errorf("Failed to start OVN northd: %w", err)
+	}
+	return nil
+}
+
+// StopCentral safely stops the central service and its child service
+func StopCentral(ctx context.Context, s state.State) error {
+	// Leave SB and NB clusters
+	logger.Info("Leaving OVN Northbound cluster")
+	_, err := ovnCmd.AppCtl(ctx, s, paths.OvnNBControlSock(), "cluster/leave", "OVN_Northbound")
+	if err != nil {
+		logger.Warnf("Failed to leave OVN Northbound cluster: %s", err)
+	}
+
+	logger.Info("Leaving OVN Southbound cluster")
+	_, err = ovnCmd.AppCtl(ctx, s, paths.OvnSBControlSock(), "cluster/leave", "OVN_Southbound")
+	if err != nil {
+		logger.Warnf("Failed to leave OVN Southbound cluster: %s", err)
+	}
+
+	// Wait for NB and SB cluster members to complete departure process
+	nbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
+	if err == nil {
+		err = ovnCmd.WaitForDBState(ctx, s, nbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
+		if err != nil {
+			logger.Warnf("Failed to wait for NB cluster departure: %s", err)
+		}
+	} else {
+		logger.Warnf("Failed to get NB database specification: %s", err)
+	}
+
+	sbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeSBLocal)
+	if err == nil {
+		err = ovnCmd.WaitForDBState(ctx, s, sbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
+		if err != nil {
+			logger.Warnf("Failed to wait for SB cluster departure: %s", err)
+		}
+	} else {
+		logger.Warnf("Failed to get SB database specification: %s", err)
+	}
+
+	err = snap.Stop("ovn-northd", true)
+	if err != nil {
+		logger.Warnf("Failed to stop OVN northd service: %s", err)
+	}
+
+	err = snap.Stop("ovn-ovsdb-server-nb", true)
+	if err != nil {
+		logger.Warnf("Failed to stop OVN NB service: %s", err)
+	}
+
+	err = snap.Stop("ovn-ovsdb-server-sb", true)
+	if err != nil {
+		logger.Warnf("Failed to stop OVN SB service: %s", err)
+	}
+	return nil
 }
