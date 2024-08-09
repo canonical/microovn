@@ -61,20 +61,10 @@ func DisableService(ctx context.Context, s state.State, service string) error {
 		if len(centrals) == 1 {
 			return errors.New("You cannot delete the final enabled central service")
 		}
-
-		err = snap.Stop("ovn-ovsdb-server-nb", true)
+		err = LeaveCentral(ctx, s)
 		if err != nil {
 			return err
 		}
-		err = snap.Stop("ovn-ovsdb-server-sb", true)
-		if err != nil {
-			return err
-		}
-		err = snap.Stop("ovn-northd", true)
-		if err != nil {
-			return err
-		}
-
 	} else {
 		err = snap.Stop(service, true)
 	}
@@ -106,9 +96,16 @@ func EnableService(ctx context.Context, s state.State, service string) error {
 	if !CheckValidService(service) {
 		return errors.New("Service does not exist")
 	}
-	err = snap.Start(service, true)
-	if err != nil {
-		return fmt.Errorf("Snapctl error, likely due to service not existing:\n%w", err)
+	if SrvName(service) == SrvCentral {
+		err = JoinCentral(ctx, s)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = snap.Start(service, true)
+		if err != nil {
+			return fmt.Errorf("Snapctl error, likely due to service not existing:\n%w", err)
+		}
 	}
 
 	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -222,8 +219,10 @@ func ServiceWarnings(ctx context.Context, s state.State) (types.WarningSet, erro
 	return output, nil
 }
 
-// StartCentral safely starts the central service and its child service while also generating certificates
-func StartCentral(ctx context.Context, s state.State) error {
+// JoinCentral safely starts the central services child services while also
+// generating certificates to ensure secure connection with other central
+// nodes in the database
+func JoinCentral(ctx context.Context, s state.State) error {
 	// Generate certificate for OVN Central services
 	err := certificates.GenerateNewServiceCertificate(ctx, s, "ovnnb", certificates.CertificateTypeServer)
 	if err != nil {
@@ -255,8 +254,9 @@ func StartCentral(ctx context.Context, s state.State) error {
 	return nil
 }
 
-// StopCentral safely stops the central service and its child service
-func StopCentral(ctx context.Context, s state.State) error {
+// LeaveCentral safely stops the central service's child services, and leaves
+// the central database cluster safely.
+func LeaveCentral(ctx context.Context, s state.State) error {
 	// Leave SB and NB clusters
 	logger.Info("Leaving OVN Northbound cluster")
 	_, err := ovnCmd.AppCtl(ctx, s, paths.OvnNBControlSock(), "cluster/leave", "OVN_Northbound")
