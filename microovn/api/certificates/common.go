@@ -10,7 +10,7 @@ import (
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/node"
-	"github.com/canonical/microovn/microovn/ovn"
+	"github.com/canonical/microovn/microovn/ovn/certificates"
 )
 
 // enabledOvnServices returns list of OVN services enabled on this MicroOVN cluster member.
@@ -53,7 +53,7 @@ func reissueAllCertificates(ctx context.Context, s state.State) (*types.IssueCer
 	}
 
 	for _, service := range activeServices {
-		err = ovn.GenerateNewServiceCertificate(ctx, s, service, ovn.CertificateTypeServer)
+		err = certificates.GenerateNewServiceCertificate(ctx, s, service, certificates.CertificateTypeServer)
 		if err != nil {
 			logger.Errorf("Failed to issue certificate for %s: %s", service, err)
 			responseData.Failed = append(responseData.Failed, service)

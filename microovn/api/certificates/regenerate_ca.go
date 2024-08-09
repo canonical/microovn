@@ -13,7 +13,7 @@ import (
 
 	"github.com/canonical/microovn/microovn/api/types"
 	microovnClient "github.com/canonical/microovn/microovn/client"
-	"github.com/canonical/microovn/microovn/ovn"
+	"github.com/canonical/microovn/microovn/ovn/certificates"
 )
 
 // RegenerateCaEndpoint defines endpoint for /1.0/ca
@@ -32,7 +32,7 @@ func regenerateCaPut(s state.State, r *http.Request) response.Response {
 	if client.IsNotification(r) {
 		// Only one recipient of this request needs to generate new CA
 		logger.Info("Re-issuing CA certificate and private key")
-		err = ovn.GenerateNewCACertificate(r.Context(), s)
+		err = certificates.GenerateNewCACertificate(r.Context(), s)
 		if err != nil {
 			logger.Errorf("Failed to generate new CA certificate: %v", err)
 			responseData.NewCa = false
@@ -69,7 +69,7 @@ func regenerateCaPut(s state.State, r *http.Request) response.Response {
 	}
 
 	logger.Info("Re-issuing all local OVN certificates")
-	err = ovn.DumpCA(r.Context(), s)
+	err = certificates.DumpCA(r.Context(), s)
 	if err != nil {
 		logger.Errorf("%v", err)
 		return response.SyncResponse(false, &responseData)

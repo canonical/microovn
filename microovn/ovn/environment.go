@@ -19,6 +19,7 @@ import (
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microovn/microovn/database"
+	"github.com/canonical/microovn/microovn/ovn/certificates"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )
 
@@ -33,7 +34,7 @@ OVN_LOCAL_IP="{{ .localAddr }}"
 // networkProtocol returns appropriate network protocol that should be used
 // by OVN services.
 func networkProtocol(ctx context.Context, s state.State) string {
-	_, _, err := getCA(ctx, s)
+	_, _, err := certificates.GetCA(ctx, s)
 	if err != nil {
 		return "tcp"
 	}

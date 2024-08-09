@@ -1,4 +1,6 @@
-package ovn
+// Package certificates is for exposing certificate generation functionality within
+// ovn
+package certificates
 
 import (
 	"context"
@@ -220,9 +222,9 @@ func DumpCA(ctx context.Context, s state.State) error {
 	return nil
 }
 
-// getCA pulls PEM encoded CA certificate and private key from shared database and returns
+// GetCA pulls PEM encoded CA certificate and private key from shared database and returns
 // them as parsed objects x509.Certificate and ecdsa.PrivateKey (+ error if any occurred).
-func getCA(ctx context.Context, s state.State) (*x509.Certificate, *ecdsa.PrivateKey, error) {
+func GetCA(ctx context.Context, s state.State) (*x509.Certificate, *ecdsa.PrivateKey, error) {
 	var err error
 	var CACertRecord *database.ConfigItem
 	var CAKeyRecord *database.ConfigItem
@@ -299,7 +301,7 @@ func GenerateNewServiceCertificate(ctx context.Context, s state.State, serviceNa
 		return fmt.Errorf("unable to set permissions for %s private key: %w", serviceName, err)
 	}
 
-	caCert, caKey, err := getCA(ctx, s)
+	caCert, caKey, err := GetCA(ctx, s)
 	if err != nil {
 		return err
 	}
