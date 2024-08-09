@@ -41,7 +41,7 @@ func Leave(ctx context.Context, s state.State, _ bool) error {
 		logger.Warnf("Failed to stop Switch service: %s", err)
 	}
 
-	err = node.StopCentral(ctx, s)
+	err = node.LeaveCentral(ctx, s)
 	if err != nil {
 		logger.Warnf("Failed to stop Central service: %s", err)
 	}

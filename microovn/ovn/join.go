@@ -99,7 +99,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 
 	// Enable OVN central (if needed).
 	if srvCentral < 3 {
-		err = node.StartCentral(ctx, s)
+		err = node.JoinCentral(ctx, s)
 		if err != nil {
 			return fmt.Errorf("Failed to start OVN central: %w", err)
 		}
