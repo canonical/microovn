@@ -6,8 +6,8 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
 
+	"github.com/canonical/microovn/microovn/node"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
-	"github.com/canonical/microovn/microovn/ovn/paths"
 	"github.com/canonical/microovn/microovn/snap"
 )
 
@@ -41,53 +41,9 @@ func Leave(ctx context.Context, s state.State, _ bool) error {
 		logger.Warnf("Failed to stop Switch service: %s", err)
 	}
 
-	// Leave SB and NB clusters
-	logger.Info("Leaving OVN Northbound cluster")
-	_, err = ovnCmd.AppCtl(ctx, s, paths.OvnNBControlSock(), "cluster/leave", "OVN_Northbound")
+	err = node.StopCentral(ctx, s)
 	if err != nil {
-		logger.Warnf("Failed to leave OVN Northbound cluster: %s", err)
-	}
-
-	logger.Info("Leaving OVN Southbound cluster")
-	_, err = ovnCmd.AppCtl(ctx, s, paths.OvnSBControlSock(), "cluster/leave", "OVN_Southbound")
-	if err != nil {
-		logger.Warnf("Failed to leave OVN Southbound cluster: %s", err)
-	}
-
-	// Wait for NB and SB cluster members to complete departure process
-	nbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
-	if err == nil {
-		err = ovnCmd.WaitForDBState(ctx, s, nbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
-		if err != nil {
-			logger.Warnf("Failed to wait for NB cluster departure: %s", err)
-		}
-	} else {
-		logger.Warnf("Failed to get NB database specification: %s", err)
-	}
-
-	sbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeSBLocal)
-	if err == nil {
-		err = ovnCmd.WaitForDBState(ctx, s, sbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
-		if err != nil {
-			logger.Warnf("Failed to wait for SB cluster departure: %s", err)
-		}
-	} else {
-		logger.Warnf("Failed to get SB database specification: %s", err)
-	}
-
-	err = snap.Stop("ovn-northd", true)
-	if err != nil {
-		logger.Warnf("Failed to stop OVN northd service: %s", err)
-	}
-
-	err = snap.Stop("ovn-ovsdb-server-nb", true)
-	if err != nil {
-		logger.Warnf("Failed to stop OVN NB service: %s", err)
-	}
-
-	err = snap.Stop("ovn-ovsdb-server-sb", true)
-	if err != nil {
-		logger.Warnf("Failed to stop OVN SB service: %s", err)
+		logger.Warnf("Failed to stop Central service: %s", err)
 	}
 
 	logger.Info("Cleaning up runtime and data directories.")

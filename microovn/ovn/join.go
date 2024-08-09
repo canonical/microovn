@@ -8,6 +8,7 @@ import (
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microovn/microovn/database"
+	"github.com/canonical/microovn/microovn/node"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/snap"
@@ -98,33 +99,9 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 
 	// Enable OVN central (if needed).
 	if srvCentral < 3 {
-		// Generate certificate for OVN Central services
-		err = certificates.GenerateNewServiceCertificate(ctx, s, "ovnnb", certificates.CertificateTypeServer)
+		err = node.StartCentral(ctx, s)
 		if err != nil {
-			return fmt.Errorf("failed to generate TLS certificate for ovnnb service")
-		}
-		err = certificates.GenerateNewServiceCertificate(ctx, s, "ovnsb", certificates.CertificateTypeServer)
-		if err != nil {
-			return fmt.Errorf("failed to generate TLS certificate for ovnsb service")
-		}
-		err = certificates.GenerateNewServiceCertificate(ctx, s, "ovn-northd", certificates.CertificateTypeServer)
-		if err != nil {
-			return fmt.Errorf("failed to generate TLS certificate for ovn-northd service")
-		}
-
-		err = snap.Start("ovn-ovsdb-server-nb", true)
-		if err != nil {
-			return fmt.Errorf("Failed to start OVN NB: %w", err)
-		}
-
-		err = snap.Start("ovn-ovsdb-server-sb", true)
-		if err != nil {
-			return fmt.Errorf("Failed to start OVN SB: %w", err)
-		}
-
-		err = snap.Start("ovn-northd", true)
-		if err != nil {
-			return fmt.Errorf("Failed to start OVN northd: %w", err)
+			return fmt.Errorf("Failed to start OVN central: %w", err)
 		}
 	}
 
