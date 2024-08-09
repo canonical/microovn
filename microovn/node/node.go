@@ -61,20 +61,10 @@ func DisableService(ctx context.Context, s state.State, service string) error {
 		if len(centrals) == 1 {
 			return errors.New("You cannot delete the final enabled central service")
 		}
-
-		err = snap.Stop("ovn-ovsdb-server-nb", true)
+		err = StopCentral(ctx, s)
 		if err != nil {
 			return err
 		}
-		err = snap.Stop("ovn-ovsdb-server-sb", true)
-		if err != nil {
-			return err
-		}
-		err = snap.Stop("ovn-northd", true)
-		if err != nil {
-			return err
-		}
-
 	} else {
 		err = snap.Stop(service, true)
 	}
@@ -106,9 +96,16 @@ func EnableService(ctx context.Context, s state.State, service string) error {
 	if !CheckValidService(service) {
 		return errors.New("Service does not exist")
 	}
-	err = snap.Start(service, true)
-	if err != nil {
-		return fmt.Errorf("Snapctl error, likely due to service not existing:\n%w", err)
+	if SrvName(service) == SrvCentral {
+		err = StartCentral(ctx, s)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = snap.Start(service, true)
+		if err != nil {
+			return fmt.Errorf("Snapctl error, likely due to service not existing:\n%w", err)
+		}
 	}
 
 	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
