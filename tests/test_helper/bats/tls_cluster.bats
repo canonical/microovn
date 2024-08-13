@@ -297,6 +297,11 @@ tls_cluster_regenerate_ca() {
     # Sample new CA certificate fingerprint from random host
     new_ca_hash=$(get_cert_fingerprint "$container" "$CA_CERT_PATH")
 
+    # Ensure that the CA actually changed
+    assert [ -n "$old_ca_hash" ]
+    assert [ -n "$new_ca_hash" ]
+    assert_not_equal "$old_ca_hash" "$new_ca_hash"
+
     # Ensure that all members have new CA
     for container in $TEST_CONTAINERS; do
         local local_ca_hash=""
