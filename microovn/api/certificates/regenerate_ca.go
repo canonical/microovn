@@ -29,7 +29,7 @@ func regenerateCaPut(s state.State, r *http.Request) response.Response {
 	responseData := types.NewRegenerateCaResponse()
 
 	// Check that this is the initial node that received the request and recreate new CA certificate
-	if client.IsNotification(r) {
+	if !client.IsNotification(r) {
 		// Only one recipient of this request needs to generate new CA
 		logger.Info("Re-issuing CA certificate and private key")
 		err = ovn.GenerateNewCACertificate(r.Context(), s)
@@ -41,7 +41,7 @@ func regenerateCaPut(s state.State, r *http.Request) response.Response {
 		responseData.NewCa = true
 
 		// Get clients for rest of the cluster members
-		cluster, err := s.Cluster(false)
+		cluster, err := s.Cluster(true)
 		if err != nil {
 			logger.Errorf("Failed to get a client for every cluster member: %v", err)
 			return response.SyncResponse(false, &responseData)
