@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microovn/microovn/client"
+	"github.com/canonical/microovn/microovn/node"
 )
 
 type cmdDisable struct {
@@ -16,9 +18,14 @@ type cmdDisable struct {
 
 func (c *cmdDisable) Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "disable <SERVICE>",
-		Short: "disables a service",
-		RunE:  c.Run,
+		Use: "disable <SERVICE>",
+		Short: fmt.Sprintf(
+			"Disable selected service on the local node. (Valid service names: %s)",
+			strings.Join(node.ServiceNames, ", "),
+		),
+		ValidArgs: node.ServiceNames,
+		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		RunE:      c.Run,
 	}
 
 	return cmd
@@ -56,9 +63,14 @@ type cmdEnable struct {
 
 func (c *cmdEnable) Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "enable <SERVICE>",
-		Short: "enables a service",
-		RunE:  c.Run,
+		Use: "enable <SERVICE>",
+		Short: fmt.Sprintf(
+			"Enable selected service on the local node. (Valid service names: %s)",
+			strings.Join(node.ServiceNames, ", "),
+		),
+		ValidArgs: node.ServiceNames,
+		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		RunE:      c.Run,
 	}
 
 	return cmd
