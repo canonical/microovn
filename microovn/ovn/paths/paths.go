@@ -149,6 +149,11 @@ func OvsdbSwitchSchema() string {
 	return filepath.Join(snapRoot, "share", "openvswitch", "vswitch.ovsschema")
 }
 
+// FrrConfigDir returns path to a directory that FRR uses to store configuration
+func FrrConfigDir() string {
+	return filepath.Join(dataDir, "frr", "etc")
+}
+
 // getServiceCertFiles returns path to certificate and key of give service in format
 // "<base_dir>/<service_name>-{cert,privkey}.pem"
 func getServiceCertFiles(service string) (string, string) {
@@ -170,6 +175,7 @@ func RequiredDirs() []string {
 		LogsDir(),
 		PkiDir(),
 		EnvDir(),
+		FrrConfigDir(),
 	}
 }
 
@@ -179,6 +185,7 @@ func BackupDirs() []string {
 	return []string{
 		dataDir,
 		LogsDir(),
+		FrrConfigDir(),
 	}
 }
 
