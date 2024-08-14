@@ -31,7 +31,7 @@ func (c *cmdCertificatesReissue) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "reissue <SERVICE>",
 		Short: fmt.Sprintf(
-			"Reissue certificate for specified SERVICE on local cluster member. (Valid service names: %s)",
+			"Reissue certificate for specified SERVICE on the local node. (Valid service names: %s)",
 			strings.Join(validCertificates, ", "),
 		),
 		ValidArgs: validCertificates,
