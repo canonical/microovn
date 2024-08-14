@@ -1,0 +1,5 @@
+#!/bin/sh
+# Load the environment
+. "${SNAP}/frr.env"
+
+exec vtysh --vty_socket "$_FRR_RUNDIR" "${@}"
