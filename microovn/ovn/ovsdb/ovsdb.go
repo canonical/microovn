@@ -271,7 +271,7 @@ func UpgradeCentralDB(ctx context.Context, s state.State, dbType ovnCmd.OvsdbTyp
 						60,
 						"convert",
 						dbSpec.SocketURL,
-						fmt.Sprintf(dbSpec.Schema),
+						dbSpec.Schema,
 					)
 					return err
 				}
