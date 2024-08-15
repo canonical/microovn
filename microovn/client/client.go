@@ -134,28 +134,60 @@ func getOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd
 
 // DisableService sends request to disable service with name as specified in
 // "serviceName" argument.
-func DisableService(ctx context.Context, c *client.Client, serviceName string) (types.WarningSet, error) {
+func DisableService(ctx context.Context, c *client.Client, serviceName string) (types.WarningSet, types.RegenerateEnvResponse, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 	scr := types.ServiceControlResponse{}
 	err := c.Query(queryCtx, "DELETE", types.APIVersion, api.NewURL().Path("service", serviceName), nil, &scr)
 
 	if err != nil {
-		return types.WarningSet{}, fmt.Errorf("Failed to disable service '%s': '%s'", serviceName, err)
+		return types.WarningSet{}, types.RegenerateEnvResponse{}, fmt.Errorf("Failed to disable service '%s': '%s'", serviceName, err)
 	}
-	return scr.Warnings, nil
+
+	regenerateEnvResponse := types.RegenerateEnvResponse{}
+	if serviceName == "central" {
+		regenerateEnvResponse, err = RegenerateEnvironment(ctx, c)
+		if err != nil {
+			return types.WarningSet{}, types.RegenerateEnvResponse{}, err
+		}
+	}
+
+	return scr.Warnings, regenerateEnvResponse, nil
 }
 
 // EnableService sends request to disable service with name as as specified in
 // "serviceName" argument.
-func EnableService(ctx context.Context, c *client.Client, serviceName string) (types.WarningSet, error) {
+func EnableService(ctx context.Context, c *client.Client, serviceName string) (types.WarningSet, types.RegenerateEnvResponse, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 	scr := types.ServiceControlResponse{}
 	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("service", serviceName), nil, &scr)
+	if err != nil {
+		return types.WarningSet{}, types.RegenerateEnvResponse{}, fmt.Errorf("Failed to enable service '%s': '%s'", serviceName, err)
+	}
+
+	regenerateEnvResponse := types.RegenerateEnvResponse{}
+	if serviceName == "central" {
+		regenerateEnvResponse, err = RegenerateEnvironment(ctx, c)
+		if err != nil {
+			return types.WarningSet{}, types.RegenerateEnvResponse{}, err
+		}
+	}
+
+	return scr.Warnings, regenerateEnvResponse, nil
+}
+
+// RegenerateEnvironment sends a request which then gets forwarded to all other
+// nodes in the cluster, this request then regenerates the environment files
+func RegenerateEnvironment(ctx context.Context, c *client.Client) (types.RegenerateEnvResponse, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+	responseData := types.NewRegenerateEnvResponse()
+	err := c.Query(queryCtx, "POST", types.APIVersion, api.NewURL().Path("env"), nil, &responseData)
 
 	if err != nil {
-		return types.WarningSet{}, fmt.Errorf("Failed to enable service '%s': '%s'", serviceName, err)
+		return types.RegenerateEnvResponse{}, fmt.Errorf("Failed to regenerate environment files: '%s'", err)
 	}
-	return scr.Warnings, nil
+	return responseData, nil
+
 }

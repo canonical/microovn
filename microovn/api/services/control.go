@@ -1,7 +1,6 @@
 package services
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/node"
-	"github.com/canonical/microovn/microovn/ovn"
 )
 
 // ServiceControlCmd - /1.0/services/service endpoint.
@@ -37,15 +35,6 @@ func enableService(s state.State, r *http.Request) response.Response {
 	}
 	if !node.CheckValidService(requestedService) {
 		return response.InternalError(errors.New("Service does not exist"))
-	}
-	if node.SrvName(requestedService) == node.SrvCentral {
-		shutdownCtx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		err = ovn.Refresh(shutdownCtx, r.Context(), s)
-		if err != nil {
-			logger.Errorf("Failed to refresh environment: %s", err)
-			return response.ErrorResponse(500, "Internal server error")
-		}
 	}
 
 	err = node.EnableService(r.Context(), s, requestedService)

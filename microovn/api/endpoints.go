@@ -21,6 +21,7 @@ var Server = map[string]rest.Server{
 				Endpoints: []rest.Endpoint{
 					services.ListCmd,
 					services.ServiceControlCmd,
+					RegenerateEnvEndpoint,
 					certificates.IssueCertificatesEndpoint,
 					certificates.IssueCertificatesAllEndpoint,
 					certificates.RegenerateCaEndpoint,
