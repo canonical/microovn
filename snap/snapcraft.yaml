@@ -250,7 +250,7 @@ parts:
       - ovn
       - ovs
     build-snaps:
-      - go
+      - go/1.22/stable
       - golangci-lint
     plugin: nil
     override-pull: |
