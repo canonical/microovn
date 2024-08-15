@@ -47,13 +47,15 @@ func (c *cmdDisable) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	targetService := args[0]
-	ws, err := client.DisableService(context.Background(), cli, targetService)
-
+	ws, regenEnv, err := client.DisableService(context.Background(), cli, targetService)
 	if err != nil {
 		return err
 	}
 	fmt.Printf("Service %s disabled\n", targetService)
 	ws.PrettyPrint(c.common.FlagLogVerbose)
+	if c.common.FlagLogVerbose {
+		regenEnv.PrettyPrint()
+	}
 	return nil
 }
 
@@ -92,12 +94,15 @@ func (c *cmdEnable) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	targetService := args[0]
-	ws, err := client.EnableService(context.Background(), cli, targetService)
+	ws, regenEnv, err := client.EnableService(context.Background(), cli, targetService)
 
 	if err != nil {
 		return err
 	}
 	fmt.Printf("Service %s enabled\n", targetService)
 	ws.PrettyPrint(c.common.FlagLogVerbose)
+	if c.common.FlagLogVerbose {
+		regenEnv.PrettyPrint()
+	}
 	return nil
 }

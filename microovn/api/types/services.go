@@ -2,6 +2,7 @@
 package types
 
 import (
+	"fmt"
 	"log"
 )
 
@@ -51,5 +52,39 @@ func (w WarningSet) PrettyPrint(verbose bool) {
 		} else {
 			log.Println("[central] Warning: OVN Cluster has critically few members")
 		}
+	}
+}
+
+// RegenerateEnvResponse is a structure that models response to requests for
+// a environment file regeneration for all nodes
+type RegenerateEnvResponse struct {
+	Success bool     `json:"success" yaml:"success"` // True if this node regenerates its environment
+	Errors  []string `json:"error"`                  // List of Errors
+}
+
+// PrettyPrint method formats and prints contents of RegenerateEnvResponse object
+func (r *RegenerateEnvResponse) PrettyPrint() {
+	var newEnvSuccess string
+	if r.Success {
+		newEnvSuccess = "Generated"
+	} else {
+		newEnvSuccess = "Not Generated"
+	}
+
+	fmt.Printf("New Environment: %s\n\n", newEnvSuccess)
+
+	if len(r.Errors) != 0 {
+		fmt.Println("\n[Errors]")
+		for _, errMsg := range r.Errors {
+			fmt.Println(errMsg)
+		}
+	}
+}
+
+// NewRegenerateEnvResponse returns pointer to initialized RegenerateEnvResponse object
+func NewRegenerateEnvResponse() RegenerateEnvResponse {
+	return RegenerateEnvResponse{
+		Success: false,
+		Errors:  make([]string, 0),
 	}
 }
