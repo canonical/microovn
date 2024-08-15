@@ -12,7 +12,7 @@ import (
 	"github.com/canonical/microovn/microovn/client"
 )
 
-var validServices = []string{
+var validCertificates = []string{
 	"client",
 	"ovnnb",
 	"ovnsb",
@@ -31,10 +31,10 @@ func (c *cmdCertificatesReissue) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "reissue <SERVICE>",
 		Short: fmt.Sprintf(
-			"Reissue certificate for specified SERVICE on local cluster member. (Valid service names: %s)",
-			strings.Join(validServices, ", "),
+			"Reissue certificate for specified SERVICE on the local node. (Valid service names: %s)",
+			strings.Join(validCertificates, ", "),
 		),
-		ValidArgs: validServices,
+		ValidArgs: validCertificates,
 		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		RunE:      c.Run,
 	}

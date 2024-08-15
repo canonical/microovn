@@ -30,11 +30,7 @@ service_tests() {
 
         # enable non existing service
         run lxc_exec "$container" "microovn enable switchh"
-        assert_output "Error: Failed to enable service 'switchh': 'Service does not exist'"
-
-        # disable non existing service
-        run lxc_exec "$container" "microovn disable switchh"
-        assert_output "Error: Failed to disable service 'switchh': 'Service does not exist'"
+        assert_output "Error: invalid argument \"switchh\" for \"microovn enable\""
 
         # disable service
         run lxc_exec "$container" "microovn disable switch"

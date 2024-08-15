@@ -16,7 +16,7 @@ import (
 )
 
 // SrvName - string representation of a service.
-type SrvName string
+type SrvName = string
 
 const (
 	// SrvChassis - string representation of chassis service.
