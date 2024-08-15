@@ -57,6 +57,14 @@ setup() {
         old_member_msg_sb="$original_sb"
     fi
 
+    # Before we proceed with upgrade, make sure that cluster is fully converged. Starting
+    # the upgrade before the cluster is ready may lead to unexpectedly long convergence
+    # after the upgrade.
+    local container=""
+    for container in $TEST_CONTAINERS; do
+        run wait_microovn_online "$container" 60
+    done
+
     local container_index=0
     local upgrade_container_index=0
     local old_container_index=0
