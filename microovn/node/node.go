@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"slices"
 
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/cluster"
@@ -20,30 +19,9 @@ import (
 	"github.com/canonical/microovn/microovn/snap"
 )
 
-// SrvName - string representation of a service.
-type SrvName = string
-
-const (
-	// SrvChassis - string representation of chassis service.
-	SrvChassis SrvName = "chassis"
-	// SrvCentral - string representation of central service.
-	SrvCentral SrvName = "central"
-	// SrvSwitch - string representation of switch service.
-	SrvSwitch SrvName = "switch"
-)
-
-// ServiceNames - slice containing all known SrvName strings.
-var ServiceNames = []SrvName{SrvChassis, SrvCentral, SrvSwitch}
-
-// CheckValidService - checks whether the string in "service" is in fact a
-// known and valid service name.
-func CheckValidService(service string) bool {
-	return slices.Contains(ServiceNames, SrvName(service))
-}
-
 // DisableService - stop snap service(s) (runtime state) and remove it from the
 // database (desired state).
-func DisableService(ctx context.Context, s state.State, service string) error {
+func DisableService(ctx context.Context, s state.State, service types.SrvName) error {
 	exists, err := HasServiceActive(ctx, s, service)
 
 	if err != nil {
@@ -53,7 +31,7 @@ func DisableService(ctx context.Context, s state.State, service string) error {
 		return errors.New("This service is not enabled")
 	}
 
-	if SrvName(service) == SrvCentral {
+	if service == types.SrvCentral {
 		centrals, err := FindService(ctx, s, service)
 		if err != nil {
 			return err
@@ -84,7 +62,7 @@ func DisableService(ctx context.Context, s state.State, service string) error {
 
 // EnableService - start snap service(s) (runtime state) and add it to the
 // database (desired state).
-func EnableService(ctx context.Context, s state.State, service string) error {
+func EnableService(ctx context.Context, s state.State, service types.SrvName) error {
 	exists, err := HasServiceActive(ctx, s, service)
 	if err != nil {
 		return err
@@ -93,10 +71,10 @@ func EnableService(ctx context.Context, s state.State, service string) error {
 		return errors.New("This Service is already enabled")
 	}
 
-	if !CheckValidService(service) {
+	if !types.CheckValidService(service) {
 		return errors.New("Service does not exist")
 	}
-	if SrvName(service) == SrvCentral {
+	if service == types.SrvCentral {
 		err = JoinCentral(ctx, s)
 		if err != nil {
 			return err
@@ -131,7 +109,7 @@ func ListServices(ctx context.Context, s state.State) (types.Services, error) {
 		for _, service := range records {
 			services = append(services, types.Service{
 				Location: service.Member,
-				Service:  service.Service,
+				Service:  types.SrvName(service.Service),
 			})
 		}
 
@@ -146,7 +124,7 @@ func ListServices(ctx context.Context, s state.State) (types.Services, error) {
 
 // HasServiceActive function accepts service names (like "central" or "switch") and returns true/false based
 // on whether the selected service is running on this node.
-func HasServiceActive(ctx context.Context, s state.State, serviceName string) (bool, error) {
+func HasServiceActive(ctx context.Context, s state.State, serviceName types.SrvName) (bool, error) {
 	serviceActive := false
 
 	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -171,7 +149,7 @@ func HasServiceActive(ctx context.Context, s state.State, serviceName string) (b
 }
 
 // FindService returns list of cluster members that have the specified service enabled.
-func FindService(ctx context.Context, s state.State, service string) ([]cluster.CoreClusterMember, error) {
+func FindService(ctx context.Context, s state.State, service types.SrvName) ([]cluster.CoreClusterMember, error) {
 	var membersWithService []cluster.CoreClusterMember
 
 	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -206,7 +184,7 @@ func FindService(ctx context.Context, s state.State, service string) ([]cluster.
 // This function returns a set of warnings to be handled
 func ServiceWarnings(ctx context.Context, s state.State) (types.WarningSet, error) {
 	output := types.WarningSet{}
-	centrals, err := FindService(ctx, s, string(SrvCentral))
+	centrals, err := FindService(ctx, s, types.SrvCentral)
 	if err != nil {
 		return output, err
 	}

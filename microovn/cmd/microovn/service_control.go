@@ -8,8 +8,8 @@ import (
 	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
 
+	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/client"
-	"github.com/canonical/microovn/microovn/node"
 )
 
 type cmdDisable struct {
@@ -21,9 +21,9 @@ func (c *cmdDisable) Command() *cobra.Command {
 		Use: "disable <SERVICE>",
 		Short: fmt.Sprintf(
 			"Disable selected service on the local node. (Valid service names: %s)",
-			strings.Join(node.ServiceNames, ", "),
+			strings.Join(types.ServiceNames, ", "),
 		),
-		ValidArgs: node.ServiceNames,
+		ValidArgs: types.ServiceNames,
 		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		RunE:      c.Run,
 	}
@@ -68,9 +68,9 @@ func (c *cmdEnable) Command() *cobra.Command {
 		Use: "enable <SERVICE>",
 		Short: fmt.Sprintf(
 			"Enable selected service on the local node. (Valid service names: %s)",
-			strings.Join(node.ServiceNames, ", "),
+			strings.Join(types.ServiceNames, ", "),
 		),
-		ValidArgs: node.ServiceNames,
+		ValidArgs: types.ServiceNames,
 		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		RunE:      c.Run,
 	}

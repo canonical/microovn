@@ -145,7 +145,7 @@ func DisableService(ctx context.Context, c *client.Client, serviceName string) (
 	}
 
 	regenerateEnvResponse := types.RegenerateEnvResponse{}
-	if serviceName == "central" {
+	if types.SrvName(serviceName) == types.SrvCentral {
 		regenerateEnvResponse, err = RegenerateEnvironment(ctx, c)
 		if err != nil {
 			return types.WarningSet{}, types.RegenerateEnvResponse{}, err
@@ -167,7 +167,7 @@ func EnableService(ctx context.Context, c *client.Client, serviceName string) (t
 	}
 
 	regenerateEnvResponse := types.RegenerateEnvResponse{}
-	if serviceName == "central" {
+	if types.SrvName(serviceName) == types.SrvCentral {
 		regenerateEnvResponse, err = RegenerateEnvironment(ctx, c)
 		if err != nil {
 			return types.WarningSet{}, types.RegenerateEnvResponse{}, err

@@ -18,12 +18,12 @@ func enabledOvnServices(ctx context.Context, s state.State) ([]string, error) {
 	var enabledServices []string
 	var wrappedError error
 
-	hasCentral, err := node.HasServiceActive(ctx, s, "central")
+	hasCentral, err := node.HasServiceActive(ctx, s, types.SrvCentral)
 	if err != nil {
 		wrappedError = errors.Join(wrappedError, fmt.Errorf("failed to lookup local services eligible for certificate refresh: %s", err))
 	}
 
-	hasSwitch, err := node.HasServiceActive(ctx, s, "switch")
+	hasSwitch, err := node.HasServiceActive(ctx, s, types.SrvSwitch)
 	if err != nil {
 		wrappedError = errors.Join(wrappedError, fmt.Errorf("failed to lookup local services eligible for certificate refresh: %s", err))
 	}

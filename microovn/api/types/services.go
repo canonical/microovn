@@ -12,7 +12,7 @@ type Services []Service
 // Service  - A service.
 type Service struct {
 	// Service - name of Service.
-	Service string `json:"service" yaml:"service"`
+	Service SrvName `json:"service" yaml:"service"`
 	// Location - location of Service.
 	Location string `json:"location" yaml:"location"`
 }
@@ -87,4 +87,30 @@ func NewRegenerateEnvResponse() RegenerateEnvResponse {
 		Success: false,
 		Errors:  make([]string, 0),
 	}
+}
+
+// SrvName - string representation of a service.
+type SrvName = string
+
+const (
+	// SrvChassis - string representation of chassis service.
+	SrvChassis SrvName = "chassis"
+	// SrvCentral - string representation of central service.
+	SrvCentral SrvName = "central"
+	// SrvSwitch - string representation of switch service.
+	SrvSwitch SrvName = "switch"
+)
+
+// ServiceNames - slice containing all known SrvName strings.
+var ServiceNames = []SrvName{SrvChassis, SrvCentral, SrvSwitch}
+
+// CheckValidService - checks whether the string in "service" is in fact a
+// known and valid service name.
+func CheckValidService(service string) bool {
+	for _, s := range ServiceNames {
+		if s == service {
+			return true
+		}
+	}
+	return false
 }
