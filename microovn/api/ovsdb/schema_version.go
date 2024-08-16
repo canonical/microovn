@@ -121,7 +121,7 @@ func getAllExpectedSchemaVersions(s state.State, r *http.Request) response.Respo
 // If the node receives request for Northbound or Southbound DB schema version, but the not is not running
 // these central services, the request will be forwarded to a node that does run them.
 func getActiveSchemaVersion(s state.State, r *http.Request) response.Response {
-	hasCentral, err := node.HasServiceActive(r.Context(), s, "central")
+	hasCentral, err := node.HasServiceActive(r.Context(), s, types.SrvCentral)
 	if err != nil {
 		logger.Errorf("failed to check if central is active on this node: %s", err)
 		return response.ErrorResponse(500, "Internal Server Error")

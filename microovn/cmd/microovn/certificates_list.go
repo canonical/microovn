@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/canonical/microcluster/v2/microcluster"
+	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/client"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 	"github.com/spf13/cobra"
@@ -90,7 +91,7 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 			continue
 		}
 
-		if srv.Service == "central" {
+		if srv.Service == types.SrvCentral {
 			nbCert, nbKey := paths.PkiOvnNbCertFiles()
 			sbCert, sbKey := paths.PkiOvnSbCertFiles()
 			northdCert, northdKey := paths.PkiOvnNorthdCertFiles()
@@ -100,7 +101,7 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 			expectedCertificates.Northd = &certBundle{northdCert, northdKey}
 		}
 
-		if srv.Service == "switch" {
+		if srv.Service == types.SrvChassis {
 			ctlCert, ctlKey := paths.PkiOvnControllerCertFiles()
 			expectedCertificates.Chassis = &certBundle{ctlCert, ctlKey}
 		}
