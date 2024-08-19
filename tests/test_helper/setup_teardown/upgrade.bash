@@ -53,7 +53,7 @@ setup_file() {
             microovn_wait_ovndb_state "$container" sb connected 15
         done
 
-        perform_manual_upgrade_steps $TEST_CONTAINERS
+        maybe_perform_manual_upgrade_steps $TEST_CONTAINERS
     fi
 }
 

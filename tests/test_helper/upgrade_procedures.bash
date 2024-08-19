@@ -121,11 +121,11 @@ function revision_111_upgrade_tls() {
     ovsdb_rebuild_tls_cluster "sb" "$central_containers"
 }
 
-# perform_manual_upgrade_steps CONTAINER1 [CONTAINER2 ...]
+# maybe_perform_manual_upgrade_steps CONTAINER1 [CONTAINER2 ...]
 #
 # Sequentially execute manual steps that are required for upgrade
 # between certain MicroOVN snap revisions.
-function perform_manual_upgrade_steps() {
+function maybe_perform_manual_upgrade_steps() {
     local containers=$*; shift
 
     if [ "$MICROOVN_SNAP_REV" -lt 111 ]; then
