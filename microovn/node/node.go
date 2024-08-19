@@ -21,6 +21,10 @@ import (
 
 // DisableService - stop snap service(s) (runtime state) and remove it from the
 // database (desired state).
+//
+// NOTE: this function does not update the environment file,
+// if central is disabled then the environment files for the other nodes will be
+// incorrect, please call with a method of updating the clusters env files afterwards
 func DisableService(ctx context.Context, s state.State, service types.SrvName) error {
 	exists, err := HasServiceActive(ctx, s, service)
 
@@ -31,6 +35,10 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName) e
 		return errors.New("This service is not enabled")
 	}
 
+	// If going to disable central, check if possible, this is done before the
+	// other check if central because we need to do a database transaction,
+	// and if this check is moved into the later "if central" then we
+	// will need to handle the database check on each branch of the if
 	if service == types.SrvCentral {
 		centrals, err := FindService(ctx, s, service)
 		if err != nil {
@@ -39,29 +47,36 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName) e
 		if len(centrals) == 1 {
 			return errors.New("You cannot delete the final enabled central service")
 		}
-		err = LeaveCentral(ctx, s)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = snap.Stop(service, true)
-	}
-
-	if err != nil {
-		return fmt.Errorf("Snapctl error, likely due to service not existing:\n %w", err)
 	}
 
 	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		err := database.DeleteService(ctx, tx, s.Name(), service)
 		return err
 	})
+	if err != nil {
+		return err
+	}
+
+	if service == types.SrvCentral {
+		err = leaveCentral(ctx, s)
+	} else if service == types.SrvChassis {
+		err = leaveChassis(ctx, s)
+	} else {
+		err = snap.Stop(service, true)
+		if err != nil {
+			err = fmt.Errorf("Snapctl error, likely due to service not existing:\n %w", err)
+		}
+	}
 
 	return err
-
 }
 
 // EnableService - start snap service(s) (runtime state) and add it to the
 // database (desired state).
+//
+// NOTE: this function does not update the environment file,
+// if central is enabled then the environment files for the other nodes will be
+// incorrect, please call with a method of updating the clusters env files afterwards
 func EnableService(ctx context.Context, s state.State, service types.SrvName) error {
 	exists, err := HasServiceActive(ctx, s, service)
 	if err != nil {
@@ -74,25 +89,27 @@ func EnableService(ctx context.Context, s state.State, service types.SrvName) er
 	if !types.CheckValidService(service) {
 		return errors.New("Service does not exist")
 	}
-	if service == types.SrvCentral {
-		err = JoinCentral(ctx, s)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = snap.Start(service, true)
-		if err != nil {
-			return fmt.Errorf("Snapctl error, likely due to service not existing:\n%w", err)
-		}
-	}
 
 	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := database.CreateService(ctx, tx, database.Service{Member: s.Name(), Service: service})
 		return err
 	})
+	if err != nil {
+		return err
+	}
+
+	if service == types.SrvCentral {
+		err = joinCentral(ctx, s)
+	} else if service == types.SrvChassis {
+		err = joinChassis(ctx, s)
+	} else {
+		err = snap.Start(service, true)
+		if err != nil {
+			err = fmt.Errorf("Snapctl error, likely due to service not existing:\n%w", err)
+		}
+	}
 
 	return err
-
 }
 
 // ListServices - List services in database (desired state).
@@ -197,10 +214,10 @@ func ServiceWarnings(ctx context.Context, s state.State) (types.WarningSet, erro
 	return output, nil
 }
 
-// JoinCentral safely starts the central services child services while also
+// joinCentral safely starts the central services child services while also
 // generating certificates to ensure secure connection with other central
 // nodes in the database
-func JoinCentral(ctx context.Context, s state.State) error {
+func joinCentral(ctx context.Context, s state.State) error {
 	// Generate certificate for OVN Central services
 	err := certificates.GenerateNewServiceCertificate(ctx, s, "ovnnb", certificates.CertificateTypeServer)
 	if err != nil {
@@ -232,9 +249,9 @@ func JoinCentral(ctx context.Context, s state.State) error {
 	return nil
 }
 
-// LeaveCentral safely stops the central service's child services, and leaves
+// leaveCentral safely stops the central service's child services, and leaves
 // the central database cluster safely.
-func LeaveCentral(ctx context.Context, s state.State) error {
+func leaveCentral(ctx context.Context, s state.State) error {
 	// Leave SB and NB clusters
 	logger.Info("Leaving OVN Northbound cluster")
 	_, err := ovnCmd.AppCtl(ctx, s, paths.OvnNBControlSock(), "cluster/leave", "OVN_Northbound")
@@ -282,6 +299,47 @@ func LeaveCentral(ctx context.Context, s state.State) error {
 	err = snap.Stop("ovn-ovsdb-server-sb", true)
 	if err != nil {
 		logger.Warnf("Failed to stop OVN SB service: %s", err)
+	}
+	return nil
+}
+
+func leaveChassis(ctx context.Context, s state.State) error {
+	chassisName := s.Name()
+
+	// Gracefully exit OVN controller causing chassis to be automatically removed.
+	logger.Infof("Stopping OVN Controller and removing Chassis '%s' from OVN SB database.", chassisName)
+	_, err := ovnCmd.ControllerCtl(ctx, s, "exit")
+	if err != nil {
+		logger.Warnf("Failed to gracefully stop OVN Controller: %s", err)
+	}
+
+	err = snap.Stop(types.SrvChassis, true)
+	if err != nil {
+		logger.Warnf("Failed to stop Chassis service: %s", err)
+	}
+	return nil
+}
+
+func joinChassis(ctx context.Context, s state.State) error {
+	// Generate certificate for OVN chassis (controller)
+	err := certificates.GenerateNewServiceCertificate(ctx, s, "ovn-controller", certificates.CertificateTypeServer)
+	if err != nil {
+		return fmt.Errorf("failed to generate TLS certificate for ovn-controller service")
+	}
+	err = snap.Start("chassis", true)
+	if err != nil {
+		return fmt.Errorf("Failed to start OVN chassis: %w", err)
+	}
+	return nil
+}
+
+// DisableAllServices is a function to disable alot of services
+func DisableAllServices(ctx context.Context, s state.State) error {
+	for _, service := range types.ServiceNames {
+		err := DisableService(ctx, s, service)
+		if err != nil {
+			logger.Warnf("%s", err)
+		}
 	}
 	return nil
 }
