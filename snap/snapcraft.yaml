@@ -330,13 +330,49 @@ parts:
       cp $CRAFT_PART_SRC/tools/etc/frr/vtysh.conf $CRAFT_PRIME/etc/frr/
 
   ovn:
-    plugin: nil
+    plugin: autotools
+    source: https://github.com/ovn-org/ovn.git
+    source-type: git
+    source-tag: branch-24.09
+    override-build: |
+      # build OVS first
+      cd ovs
+      ./boot.sh
+      ./configure \
+        --enable-ssl \
+        --localstatedir=/var \
+        --sysconfdir=/etc \
+        --prefix=/usr
+      make -j$CRAFT_PARALLEL_BUILD_COUNT
+      # build OVN
+      cd ..
+      ./boot.sh
+      ./configure \
+        --prefix=/usr \
+        --localstatedir=/var \
+        --sysconfdir=/etc \
+        --with-dbdir=/var/lib/ovn \
+        --enable-ssl
+      make -j$CRAFT_PARALLEL_BUILD_COUNT
+      make install DESTDIR=$CRAFT_PART_INSTALL
+      mkdir -p $CRAFT_PART_INSTALL/etc/ovn
+    build-packages:
+      - gcc
+      - libssl-dev
+      - libunbound-dev
+      - python3
+      - make
+      - automake
+      - autoconf
+      - libtool-bin
+      - pkgconf
     stage-packages:
-      - ovn-central
-      - ovn-host
+      - libunbound8
     organize:
       usr/bin/: bin/
       usr/share/: share/
+      usr/sbin/: bin/
+      usr/lib/: lib/
     prime:
      - bin/ovn-appctl
      - bin/ovn-controller
@@ -346,11 +382,6 @@ parts:
      - bin/ovn-trace
      - etc/ovn
      - share/ovn
-    override-build: |
-        craftctl default
-
-        mkdir -p "${CRAFT_PART_INSTALL}/etc/ovn/"
-
   ovs:
     plugin: nil
     stage-packages:
@@ -421,9 +452,8 @@ parts:
       # Note (mkalcok): This code reaches into other snapcraft parts via hardcoded paths
       #                 to determine version of packages from which they were built. It
       #                 will require updates if these part names ever change.
-      ovn_pkg_version=$(
-          dpkg-deb -f \
-          $CRAFT_PART_SRC/../../ovn/stage_packages/ovn-host*.deb Version)
+      ovn_pkg_version=$(grep -E '^PACKAGE_VERSION' $CRAFT_PART_SRC/../../ovn/build/Makefile | \
+                        awk '{print $NF;}')
       ovs_pkg_version=$(
           dpkg-deb -f \
           $CRAFT_PART_SRC/../../ovs/stage_packages/openvswitch-switch*.deb Version)
@@ -433,12 +463,7 @@ parts:
               --dirty \
               --abbrev=10)
       
-      # Set Snap's version string
-      # Note (mkalcok): Short version string does not include potential package snapshot hash.
-      #                 This is required because Snap's version string is limited to 32 chars
-      #                 and inclusion of snapshot hash violates this boundary.
-      ovn_pkg_short_version=$(echo $ovn_pkg_version | sed -rne 's/([0-9.]+)[-+~].*$$/\1/p')
-      craftctl set version=${ovn_pkg_short_version}+snap${git_version}
+      craftctl set version=${ovn_pkg_version}+snap${git_version}
       
       version_package=github.com/canonical/microovn/microovn/version
       go_ldflags="-X '${version_package}.MicroOvnVersion=${git_version}' \
