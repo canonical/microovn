@@ -48,12 +48,7 @@ setup_file() {
         echo "# Upgrading MicroOVN from revision $MICROOVN_SNAP_REV" >&3
         install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINERS
 
-        for container in $TEST_CONTAINERS; do
-            local container_services
-            container_services=$(microovn_get_cluster_services "$container")
-            if [[ "$container_services" != *"central"* ]]; then
-                continue
-            fi
+        for container in $CENTRAL_CONTAINERS; do
             microovn_wait_ovndb_state "$container" nb connected 15
             microovn_wait_ovndb_state "$container" sb connected 15
         done
