@@ -4,6 +4,9 @@ package types
 import (
 	"fmt"
 	"log"
+	"net"
+	"strconv"
+	"strings"
 )
 
 // DisableServiceRequest defines structure of a request to disable OVN services on the node
@@ -104,10 +107,103 @@ const (
 	SrvCentral SrvName = "central"
 	// SrvSwitch - string representation of switch service.
 	SrvSwitch SrvName = "switch"
+	// SrvBgp - string representation of BGP service
+	SrvBgp SrvName = "bgp"
 )
 
 // ServiceNames - slice containing all known SrvName strings.
-var ServiceNames = []SrvName{SrvChassis, SrvCentral, SrvSwitch}
+var ServiceNames = []SrvName{SrvBgp, SrvChassis, SrvCentral, SrvSwitch}
+
+// ExtraServiceConfig - structure containing optional extra configuration for enabling service
+type ExtraServiceConfig struct {
+	BgpConfig *ExtraBgpConfig `json:"bgpConfig,omitempty" yaml:"bgpConfig,omitempty"`
+}
+
+// ExtraBgpConfig holds extra config options that can be used when enabling BGP config
+type ExtraBgpConfig struct {
+	// ExternalConnection is comma separated list of <iface_name>:<ip4_cidr> values. "iface_name"
+	// is a name of the physical interface that provides connectivity to the external network and
+	// "ip4_cidr" is IPv4 address (e.g. 192.0.2.1/24) that should be assigned to a Logical Router
+	// Port connected to the external network
+	ExternalConnection string `json:"ext_iface,omitempty" yaml:"ext_iface,omitempty"`
+	// Vrf is a VRF table ID into which the OVN will leak its routes
+	Vrf string `json:"vrf,omitempty" yaml:"vrf,omitempty"`
+}
+
+// BgpExternalConnection represents a parsed structure from ExtraBgpConfig.ExternalConnection string.
+type BgpExternalConnection struct {
+	// Iface is a name of the physical interface that provides external connectivity
+	Iface string
+	// IPAddress is an IP that is assigned to the Logical Router Port connected to the external network
+	IPAddress net.IP
+	// IPMask is network mask assigned to the Logical Router Port connected to the external network
+	IPMask net.IPMask
+}
+
+// FromMap initializes ExtraBgpConfig structure from the provided map of string keys and string values.
+// This functions also validates the resulting structure and returns error if the validation fails.
+func (bgpConf *ExtraBgpConfig) FromMap(rawConfig map[string]string) error {
+	for key, value := range rawConfig {
+		if key == "ext_connection" {
+			bgpConf.ExternalConnection = value
+			continue
+		}
+		if key == "vrf" {
+			bgpConf.Vrf = value
+			continue
+		}
+		return fmt.Errorf("unknown BGP config option: %s", key)
+	}
+	return bgpConf.Validate()
+}
+
+// Validate ensures that all required fields of ExtraBgpConfig are present and that they have
+// correct types and values.
+func (bgpConf *ExtraBgpConfig) Validate() error {
+	if bgpConf.Vrf == "" {
+		return fmt.Errorf("option 'vrf' is rquired")
+	}
+
+	_, err := strconv.Atoi(bgpConf.Vrf)
+	if err != nil {
+		return fmt.Errorf("option 'vrf' is not a number: %s", bgpConf.Vrf)
+	}
+
+	extConnections, err := bgpConf.ParseExternalConnection()
+	if err != nil {
+		return fmt.Errorf("failed to parse connection string option: %s", err)
+	}
+
+	if len(extConnections) == 0 {
+		return fmt.Errorf("external connections have to be set")
+	}
+
+	return nil
+}
+
+// ParseExternalConnection parses ExtraBgpConfig.ExternalConnection string into list of BgpExternalConnection
+// instances.
+func (bgpConf *ExtraBgpConfig) ParseExternalConnection() ([]BgpExternalConnection, error) {
+	parsedConnections := make([]BgpExternalConnection, 0)
+	for _, extConn := range strings.Split(bgpConf.ExternalConnection, ",") {
+		ifaceName, cidr, found := strings.Cut(extConn, ":")
+		if !found {
+			return nil, fmt.Errorf("connection string requires format '<interface_name>:<ipv4_cidr>': %s", extConn)
+		}
+
+		ipAddr, ipNet, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid IPv4 CIDR notation: %s", cidr)
+		}
+		parsedConnections = append(parsedConnections, BgpExternalConnection{
+			Iface:     ifaceName,
+			IPAddress: ipAddr,
+			IPMask:    ipNet.Mask,
+		})
+	}
+
+	return parsedConnections, nil
+}
 
 // CheckValidService - checks whether the string in "service" is in fact a
 // known and valid service name.

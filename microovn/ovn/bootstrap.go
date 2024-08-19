@@ -108,7 +108,6 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 	}
 
 	// Start all the required services
-
 	if enableServices.Switch {
 		err = node.EnableService(ctx, s, types.SrvSwitch)
 		if err != nil {

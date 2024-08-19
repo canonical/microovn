@@ -14,6 +14,7 @@ import (
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/database"
+	"github.com/canonical/microovn/microovn/frr/bgp"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
 	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
@@ -72,11 +73,13 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName, a
 		leaveCentral(ctx, s, lastCentral)
 	case types.SrvChassis:
 		leaveChassis(ctx, s)
+	case:
+		err = bgp.DisableService()
 	default:
 		deactivateService(service, true)
 	}
 
-	return nil
+	return err
 }
 
 // EnableService - start snap service(s) (runtime state) and add it to the
@@ -85,7 +88,7 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName, a
 // NOTE: this function does not update the environment file,
 // if central is enabled then the environment files for the other nodes will be
 // incorrect, please call with a method of updating the clusters env files afterwards
-func EnableService(ctx context.Context, s state.State, service types.SrvName) error {
+func EnableService(ctx context.Context, s state.State, service types.SrvName, extraConfig *types.ExtraServiceConfig) error {
 	exists, err := HasServiceActive(ctx, s, service)
 	if err != nil {
 		return err
@@ -116,6 +119,8 @@ func EnableService(ctx context.Context, s state.State, service types.SrvName) er
 		err = joinCentral(ctx, s)
 	case types.SrvChassis:
 		err = joinChassis(ctx, s)
+	case types.SrvBgp:
+		err = bgp.EnableService()
 	default:
 		err = activateService(service, true)
 	}

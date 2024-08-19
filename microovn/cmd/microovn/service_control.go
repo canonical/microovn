@@ -59,7 +59,8 @@ func (c *cmdDisable) Run(_ *cobra.Command, args []string) error {
 }
 
 type cmdEnable struct {
-	common *CmdControl
+	common      *CmdControl
+	extraConfig []string
 }
 
 func (c *cmdEnable) Command() *cobra.Command {
@@ -73,7 +74,12 @@ func (c *cmdEnable) Command() *cobra.Command {
 		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		RunE:      c.Run,
 	}
-
+	cmd.Flags().StringArrayVar(
+		&c.extraConfig,
+		"config",
+		[]string{},
+		"Additional configuration options for enabling service",
+	)
 	return cmd
 }
 
@@ -89,7 +95,12 @@ func (c *cmdEnable) Run(_ *cobra.Command, args []string) error {
 	}
 
 	targetService := args[0]
-	ws, regenEnv, err := client.EnableService(context.Background(), cli, targetService)
+	extraConfig, err := c.parseExtraConfig(targetService)
+	if err != nil {
+		return err
+	}
+
+	ws, regenEnv, err := client.EnableService(context.Background(), cli, targetService, &extraConfig)
 
 	if err != nil {
 		return err
@@ -100,4 +111,41 @@ func (c *cmdEnable) Run(_ *cobra.Command, args []string) error {
 		regenEnv.PrettyPrint()
 	}
 	return nil
+}
+
+// parseExtraConfig parses extra arguments passed to the cmdEnable in form of "--config key=value". Based
+// on the service that's being enabled, it the initializes appropriate extra config structure from these values.
+func (c *cmdEnable) parseExtraConfig(targetService types.SrvName) (types.ExtraServiceConfig, error) {
+	extraConfig := types.ExtraServiceConfig{}
+	rawConfig := map[string]string{}
+
+	for _, configString := range c.extraConfig {
+		key, value, found := strings.Cut(configString, "=")
+		if !found {
+			err := fmt.Errorf("configuration '%s' does not conform to the 'key=value' format", configString)
+			return extraConfig, err
+		}
+		_, exists := rawConfig[key]
+		if exists {
+			err := fmt.Errorf("configuration '%s' already set", key)
+			return extraConfig, err
+		}
+		rawConfig[key] = value
+	}
+
+	if len(rawConfig) == 0 {
+		return extraConfig, nil
+	}
+
+	if targetService == types.SrvBgp {
+		bgpConfig := types.ExtraBgpConfig{}
+		err := bgpConfig.FromMap(rawConfig)
+		if err != nil {
+			return extraConfig, err
+		}
+		extraConfig.BgpConfig = &bgpConfig
+	} else {
+		return extraConfig, fmt.Errorf("service '%s' does not accpet extra config", targetService)
+	}
+	return extraConfig, nil
 }

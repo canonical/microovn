@@ -104,7 +104,6 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	}
 
 	// Start all the required services, and central if needed
-
 	if enableServices.Switch {
 		err = node.EnableService(ctx, s, types.SrvSwitch)
 		if err != nil {
