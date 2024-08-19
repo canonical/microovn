@@ -45,15 +45,22 @@ setup_file() {
     assert [ -n "$MICROOVN_SNAP_REV" ]
 
     if [ -n "$UPGRADE_DO_UPGRADE" ]; then
-        echo "# Upgrading MicroOVN from revision $MICROOVN_SNAP_REV" >&3
-        install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINERS
+        assert [ -n "$CENTRAL_CONTAINERS" ]
+        assert [ -n "$CHASSIS_CONTAINERS" ]
+        echo "# Upgrading MicroOVN from revision $MICROOVN_SNAP_REV " \
+             "central container(s)." >&3
+        install_microovn "$MICROOVN_SNAP_PATH" $CENTRAL_CONTAINERS
 
         for container in $CENTRAL_CONTAINERS; do
             microovn_wait_ovndb_state "$container" nb connected 15
             microovn_wait_ovndb_state "$container" sb connected 15
         done
 
-        maybe_perform_manual_upgrade_steps $TEST_CONTAINERS
+        maybe_perform_manual_upgrade_steps $CENTRAL_CONTAINERS
+
+        echo "# Upgrading MicroOVN from revision $MICROOVN_SNAP_REV " \
+             "on chassis container(s)." >&3
+        install_microovn "$MICROOVN_SNAP_PATH" $CHASSIS_CONTAINERS
     fi
 }
 
