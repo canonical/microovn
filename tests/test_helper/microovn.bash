@@ -553,12 +553,18 @@ MICROOVN_PREFIX_LRP=lrp-sw
 
 MICROOVN_SUFFIX_LRP_LSP=lrp
 
-function microovn_extract_ctn_n__() {
+# microovn_extract_ctn_n CONTAINER
+#
+# When CONTAINER is a string ending with "-n" this function will extract and
+# validate that n is an integer before printing it.
+#
+# Note that it is up to the caller to ensure that the prerequisite mentioned
+# above is met.
+function microovn_extract_ctn_n() {
     local container=$1; shift
 
     local n=${container##*-}
     assert test "$n" -ge 0
-    assert test "$n" -le 9
 
     echo "$n"
 }
@@ -575,7 +581,8 @@ function microovn_add_gw_router() {
     local container=$1; shift
 
     local n
-    n=$(microovn_extract_ctn_n__ "$container")
+    n=$(microovn_extract_ctn_n "$container")
+    assert test "$n" -le 9
     local ls_name="${MICROOVN_PREFIX_LS}-${container}"
     local lr_name="${MICROOVN_PREFIX_LR}-${container}"
     local lrp_name="${MICROOVN_PREFIX_LRP}-${container}"
@@ -650,7 +657,8 @@ function microovn_add_vif() {
     local if_name=$1; shift
 
     local n
-    n=$(microovn_extract_ctn_n__ "$container")
+    n=$(microovn_extract_ctn_n "$container")
+    assert test "$n" -le 9
     local lladdr="00:00:02:00:01:0$n"
     local cidr="10.42.$n.10/24"
     local ls_name="${MICROOVN_PREFIX_LS}-${container}"
