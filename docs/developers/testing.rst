@@ -88,6 +88,14 @@ For example:
     export MICROOVN_TEST_CONTAINER_IMAGE="ubuntu:jammy"
     make check-system
 
+Making use of `LXD remotes`_ to spawn containers on a remote cluster or server
+is supported through the use of the ``LXC_REMOTE`` `LXD environment`_ variable.
+
+.. code-block:: none
+
+   export LXC_REMOTE=microcloud
+   make check-system
+
 .. tip::
 
    If your hardware can handle it, you can run test suites in parallel by
@@ -119,3 +127,5 @@ Any leftover containers will be named according to:
 
 .. LINKS
 .. _Bash Automated Testing System (BATS): https://bats-core.readthedocs.io/en/stable/
+.. _LXD remotes: https://documentation.ubuntu.com/lxd/en/latest/remotes/
+.. _LXD environment: https://documentation.ubuntu.com/lxd/en/latest/environment/

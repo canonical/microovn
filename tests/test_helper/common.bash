@@ -100,7 +100,7 @@ wait_until() {
 
     _log_wait() {
         local how_soon=$1; shift
-        printf '%q: wait succeeded %q\n' $wait_cond $how_soon
+        printf '%q: wait succeeded %q\n' "$wait_cond" $how_soon
     }
 
     if $wait_cond; then _log_wait immediately; return 0; fi
@@ -113,7 +113,7 @@ wait_until() {
         if $wait_cond; then _log_wait "after $d seconds"; return 0; fi
     done
 
-    printf '%q: wait failed after %s seconds\n' $wait_cond $d
+    printf '%q: wait failed after %s seconds\n' "$wait_cond" $d
     $wait_failed
     return 1
 }
@@ -138,7 +138,6 @@ function test_snap_is_stable_base() {
 
     [ "$version_info" != "--" ]
 }
-
 
 # get_upgrade_test_version TEST_FILE_NAME TEST_PREFIX
 #
@@ -177,4 +176,94 @@ function get_upgrade_test_version() {
         upgrade_from_version="${upgrade_from_version}/stable"
     fi
     echo "$upgrade_from_version"
+}
+
+# netns_add CONTAINER NAME
+#
+# Add netns named NAME in CONTAINER.
+function netns_add() {
+    local container=$1; shift
+    local name=$1; shift
+
+    lxc_exec "$container" "ip netns add $name"
+}
+
+# netns_delete CONTAINER NAME
+#
+# Delete netns named NAME in CONTAINER.
+function netns_delete() {
+    local container=$1; shift
+    local name=$1; shift
+
+    lxc_exec "$container" "ip netns delete $name"
+}
+
+# netns_ifadd CONTAINER NAME IFNAME LLADDR CIDR
+#
+# Move the device identified by IFNAME into netns NAME in CONTAINER, set
+# Link-Layer Address to LLADDR, add CIDR and bring the interface up.
+function netns_ifadd() {
+    local container=$1; shift
+    local name=$1; shift
+    local ifname=$1; shift
+    local lladdr=$1; shift
+    local cidr=$1; shift
+
+    lxc_exec "$container" \
+        "ip link set netns $name dev $ifname"
+    lxc_exec "$container" \
+        "ip netns exec $name ip link set address $lladdr dev $ifname"
+    lxc_exec "$container" \
+        "ip netns exec $name ip address add $cidr dev $ifname"
+    lxc_exec "$container" \
+        "ip netns exec $name ip link set up dev $ifname"
+}
+
+function _netns_dst_base_name() {
+    local dst=$1; shift
+    local netns=$1
+
+    echo "${netns:+$netns-}${dst//[\.:]/_}"
+}
+
+# ping_start CONTAINER DST [ NETNS ]
+#
+# Start ping to DST in CONTAINER in the background, optionally using network
+# namespace NETNS.
+#
+# Output from ping and the PID will be recorded as files in '/tmp/' in
+# CONTAINER, and the process and results can be reaped by a subsequent call to
+# ``ping_reap``.
+function ping_start() {
+    local container=$1; shift
+    local dst=$1; shift
+    local netns=$1
+
+    local base_filename
+    base_filename=$(_netns_dst_base_name "$dst" "$netns")
+
+    lxc_exec "$container" \
+        "${netns:+ip netns exec $netns} \
+         ping $dst > /tmp/${base_filename}.stdout & \
+         echo \$! > /tmp/${base_filename}.pid"
+}
+
+# ping_reap CONTAINER DST [ NETNS ]
+#
+# Stop ping process previously started by a call to ``ping_start`` and print
+# its recorded output.
+function ping_reap() {
+    local container=$1; shift
+    local dst=$1; shift
+    local netns=$1
+
+    local base_filename
+    base_filename=$(_netns_dst_base_name "$dst" "$netns")
+
+
+    lxc_exec "$container" \
+        "pid=\$(cat /tmp/${base_filename}.pid) && \
+         kill -INT \$pid && \
+         while kill -0 \$pid; do sleep 0.1;done && \
+         cat /tmp/${base_filename}.stdout"
 }

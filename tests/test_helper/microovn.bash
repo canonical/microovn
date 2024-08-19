@@ -500,3 +500,142 @@ function wait_ovsdb_cluster_container_leave() {
 
     return $rc
 }
+
+MICROOVN_PREFIX_LS=sw
+MICROOVN_PREFIX_LR=lr
+MICROOVN_PREFIX_LRP=lrp-sw
+
+MICROOVN_SUFFIX_LRP_LSP=lrp
+
+function microovn_extract_ctn_n__() {
+    local container=$1; shift
+
+    local n=${container##*-}
+    assert test "$n" -ge 0
+    assert test "$n" -le 9
+
+    echo "$n"
+}
+
+# microovn_add_gw_router CONTAINER
+#
+# Add LR with options:chassis set to CONTAINER, attach it to LS for use by VIFs
+# on CONTAINER.
+#
+# Name of OVN objects is generated can be influenced using the
+# MICROOVN_PREFIX_LS, MICROOVN_PREFIX_LR, MICROOVN_PREFIX_LRP and
+# MICROOVN_SUFFIX_LRP_LSP variables.
+function microovn_add_gw_router() {
+    local container=$1; shift
+
+    local n
+    n=$(microovn_extract_ctn_n__ "$container")
+    local ls_name="${MICROOVN_PREFIX_LS}-${container}"
+    local lr_name="${MICROOVN_PREFIX_LR}-${container}"
+    local lrp_name="${MICROOVN_PREFIX_LRP}-${container}"
+    local lrp_lsp_name="${ls_name}-${MICROOVN_SUFFIX_LRP_LSP}"
+
+    lxc_exec "$container" \
+        "microovn.ovn-nbctl \
+         -- \
+         ls-add $ls_name \
+         -- \
+         lr-add $lr_name \
+         -- \
+         set Logical_Router $lr_name options:chassis=$container \
+         -- \
+         lrp-add $lr_name $lrp_name \
+             00:00:02:00:00:0$n 10.42.$n.1/24 \
+         -- \
+         lsp-add $ls_name $lrp_lsp_name \
+         -- \
+         lsp-set-type $lrp_lsp_name router \
+         -- \
+         lsp-set-options $lrp_lsp_name router-port=$lrp_name \
+         -- \
+         lsp-set-addresses $lrp_lsp_name router"
+
+}
+
+# microovn_delete_gw_router CONTAINER
+#
+# Delete LR and LS for CONTAINER previously created by the
+# ``microovn_add_gw_router`` function.
+function microovn_delete_gw_router() {
+    local container=$1; shift
+
+    local ls_name="${MICROOVN_PREFIX_LS}-${container}"
+    local lr_name="${MICROOVN_PREFIX_LR}-${container}"
+
+    lxc_exec "$container" \
+        "microovn.ovn-nbctl \
+         -- \
+         lr-del $lr_name \
+         -- \
+         ls-del $ls_name"
+
+}
+
+# microovn_lsp_up CONTAINER LSP
+#
+# Use CONTAINER to check status of LSP from OVN Northbound DB point of view.
+#
+# Returns success if LSP has status 'up', failure otherwise.
+function microovn_lsp_up() {
+    local container=$1; shift
+    local lsp=$1; shift
+
+    result=$(lxc_exec "$container" \
+        "microovn.ovn-nbctl --format=table --no-headings \
+         find Logical_Switch_Port name=${lsp} up=true | wc -l")
+    test "$result" -eq 1
+}
+
+# microovn_add_vif CONTAINER NSNAME IFNAME
+#
+# Create LSP in LS for CONTAINER, create OVS internal interface with IFNAME,
+# attach it to LSP and move it into network namespace NSNAME.
+#
+# LLADDR and CIDR is generated based on integer found after the last ``-`` in
+# CONTAINER which currently needs to be a value between 0-9.
+function microovn_add_vif() {
+    local container=$1; shift
+    local ns_name=$1; shift
+    local if_name=$1; shift
+
+    local n
+    n=$(microovn_extract_ctn_n__ "$container")
+    local lladdr="00:00:02:00:01:0$n"
+    local cidr="10.42.$n.10/24"
+    local ls_name="${MICROOVN_PREFIX_LS}-${container}"
+    local lsp_name="${container}-${ns_name}-${if_name}"
+
+    lxc_exec "$container" \
+        "microovn.ovn-nbctl \
+         -- \
+         lsp-add $ls_name $lsp_name \
+         -- \
+         lsp-set-addresses $lsp_name '$lladdr $cidr'"
+    lxc_exec "$container" \
+        "microovn.ovs-vsctl \
+         -- \
+         add-port br-int $if_name \
+         -- \
+         set Interface $if_name type=internal external_ids:iface-id=$lsp_name"
+    netns_ifadd "$container" "$ns_name" "$if_name" "$lladdr" "$cidr"
+    wait_until "microovn_lsp_up $container $lsp_name"
+}
+
+# microovn_delete_vif CONTAINER NSNAME IFNAME
+#
+# Delete OVS interface with IFNAME and the LSP associated with it.
+function microovn_delete_vif() {
+    local container=$1; shift
+    local ns_name=$1; shift
+    local if_name=$1; shift
+
+    local lsp_name="${container}-${ns_name}-${if_name}"
+
+    lxc_exec "$container" "microovn.ovs-vsctl del-port $if_name"
+    lxc_exec "$container" "microovn.ovn-nbctl lsp-del $lsp_name"
+}
