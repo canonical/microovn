@@ -547,6 +547,23 @@ function wait_ovsdb_cluster_container_join() {
     return $rc
 }
 
+# microovn_status_is_schema_ok CONTAINER NBSB
+#
+# Checks whether schema for NBSB (nb|sb) on CONTAINER is OK from the
+# perspective of the `microovn status` command.
+function microovn_status_is_schema_ok() {
+    local container=$1; shift
+    local nbsb=$1; shift
+
+    local schema_name
+    schema_name=$(_ovn_schema_name "$nbsb")
+
+    local cmd
+    printf -v cmd 'microovn status | grep -q %s:\ OK' "${schema_name//_/\\ }"
+
+    lxc_exec "$container" "$cmd"
+}
+
 MICROOVN_PREFIX_LS=sw
 MICROOVN_PREFIX_LR=lr
 MICROOVN_PREFIX_LRP=lrp-sw
