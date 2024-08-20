@@ -101,7 +101,7 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 			expectedCertificates.Northd = &certBundle{northdCert, northdKey}
 		}
 
-		if srv.Service == types.SrvSwitch {
+		if srv.Service == types.SrvChassis {
 			ctlCert, ctlKey := paths.PkiOvnControllerCertFiles()
 			expectedCertificates.Chassis = &certBundle{ctlCert, ctlKey}
 		}
