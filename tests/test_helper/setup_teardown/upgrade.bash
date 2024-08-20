@@ -38,6 +38,13 @@ setup_file() {
         fi
     done
 
+    # Make sure that microcluster is fully converged before proceeding.
+    # Performing further actions before the microcluster is ready may lead to
+    # unexpectedly long convergence after a microcluster schema upgrade.
+    for container in $TEST_CONTAINERS; do
+        wait_microovn_online "$container" 60
+    done
+
     # detect and export initial MicroOVN snap revision
     container=$(echo "$TEST_CONTAINERS" | awk '{print $1;}' )
     export MICROOVN_SNAP_REV=""
@@ -61,6 +68,8 @@ setup_file() {
         echo "# Upgrading MicroOVN from revision $MICROOVN_SNAP_REV " \
              "on chassis container(s)." >&3
         install_microovn "$MICROOVN_SNAP_PATH" $CHASSIS_CONTAINERS
+
+        wait_microovn_online "$container" 60
     fi
 }
 
