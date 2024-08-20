@@ -306,3 +306,18 @@ function collect_coverage() {
         lxc_pull_dir "$container/var/snap/microovn/common/data/coverage" "$output_dir"
     done
 }
+
+# ping_packets_lost CONTAINER DST [ NETNS ]
+#
+# Stop ping process previously started by a call to ``ping_start`` and print
+# how many packets were lost, if any.
+function ping_packets_lost() {
+    local container=$1; shift
+    local dst=$1; shift
+    local netns=$1
+
+    local n_lost
+    n_lost=$(ping_reap "$container" "$dst" "$netns" \
+        | awk '/packets/{print$1-$4}')
+    echo "$n_lost"
+}
