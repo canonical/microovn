@@ -59,8 +59,8 @@ setup_file() {
         install_microovn "$MICROOVN_SNAP_PATH" $CENTRAL_CONTAINERS
 
         for container in $CENTRAL_CONTAINERS; do
-            microovn_wait_ovndb_state "$container" nb connected 15
-            microovn_wait_ovndb_state "$container" sb connected 15
+            microovn_wait_ovndb_state "$container" nb connected 32
+            microovn_wait_ovndb_state "$container" sb connected 32
         done
 
         maybe_perform_manual_upgrade_steps $CENTRAL_CONTAINERS
