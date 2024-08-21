@@ -189,7 +189,9 @@ on nodes 2 and 3 and ensuring that node 1 is no longer part of the cluster:
 
 .. code-block:: none
 
-   snap stop microovn.central
+   snap stop microovn.ovn-ovsdb-server-nb
+   snap stop microovn.ovn-ovsdb-server-sb
+   snap stop microovn.ovn-northd
    rm $DB_FILE
 
 4. Rejoin the cluster with node 1, using ``ssl`` as protocol for
@@ -200,7 +202,9 @@ will get fixed automatically when other cluster members switch to ``ssl``:
 .. code-block:: none
 
    microovn.ovsdb-tool join-cluster $DB_FILE $DB ssl:<local_ip>:$PORT tcp:<node_2_ip>:$PORT
-   snap restart microovn.central
+   snap restart microovn.ovn-ovsdb-server-nb
+   snap restart microovn.ovn-ovsdb-server-sb
+   snap restart microovn.ovn-northd
 
 5. Monitor cluster, from node 1, as it converges to stable state. Use following
 command to monitor cluster until it indicates three members and field
@@ -219,7 +223,9 @@ here are the revised commands for the **4. step** to be used on node 2 and 3:
 .. code-block:: none
 
    microovn.ovsdb-tool join-cluster $DB_FILE $DB ssl:<local_ip>:$PORT ssl:<node_1_ip>:$PORT
-   snap restart microovn.central
+   snap restart microovn.ovn-ovsdb-server-nb
+   snap restart microovn.ovn-ovsdb-server-sb
+   snap restart microovn.ovn-northd
 
 After all three nodes transitioned to TLS usage, you can once again inspect
 cluster status on any node:

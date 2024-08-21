@@ -46,11 +46,6 @@ apps:
     slots:
       - microovn
 
-  central:
-    command: commands/central.start
-    daemon: simple
-    install-mode: disable
-
   ovn-ovsdb-server-nb:
     command: commands/ovn-ovsdb-server-nb.start
     daemon: simple
