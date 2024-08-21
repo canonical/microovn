@@ -14,24 +14,6 @@ The status of all services is displayed by running:
 
    snap services microovn
 
-``microovn.central``
---------------------
-
-.. warning::
-
-   The ``microovn.central`` service is deprecated and will be removed in a
-   future release.
-
-This is a transitional service. Starting this service will start and enable
-multiple services:
-
-* ``microovn.ovn-ovsdb-server-nb``
-* ``microovn.ovn-ovsdb-server-sb``
-* ``microovn.ovn-northd``
-
-However this service is not capable of stopping these child services so its
-usage is strongly discouraged. Users should use individual services instead.
-
 ``microovn.chassis``
 --------------------
 
