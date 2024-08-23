@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 var snapRoot = os.Getenv("SNAP")
@@ -30,6 +31,26 @@ func OvnRuntimeDir() string {
 // CentralDBDir returns path to the directory where OVN Central stores its databases
 func CentralDBDir() string {
 	return filepath.Join(dataDir, "central", "db")
+}
+
+// CentralDBNBPath returns path to the Northbound database file
+func CentralDBNBPath() string { return filepath.Join(CentralDBDir(), "ovnnb_db.db") }
+
+// CentralDBSBPath returns path to the Southbound database file
+func CentralDBSBPath() string { return filepath.Join(CentralDBDir(), "ovnsb_db.db") }
+
+// CentralDBSBBackupPath returns path to the where the Southbound database file should
+// be backed up to
+func CentralDBSBBackupPath() string {
+	return filepath.Join(CentralDBDir(),
+		"ovnsb_db_backup_"+time.Now().Format(time.DateTime)+".db")
+}
+
+// CentralDBNBBackupPath returns path to the where the Northbound database file should
+// be backed up to
+func CentralDBNBBackupPath() string {
+	return filepath.Join(CentralDBDir(),
+		"ovnnb_db_backup_"+time.Now().Format(time.DateTime)+".db")
 }
 
 // SwitchDBDir returns path to the directory where OpenvSwitch stores its database
