@@ -19,20 +19,67 @@ central_register_test_functions() {
         -- central_tests
 }
 
+# this takes a space seperated array of containers and then disables central
+# services on the first two nodes, leaving a cluster of one, enables central on
+# the 4th node then disabling central on the 3rd node. leaving again a cluster
+# of one but without any original members, then two more members are added to
+# the central cluster both of which were not original members.
+#
+# Then this function tests the correct services being enabled to ensure its
+# worked
 central_tests() {
     read -r -a containers_to_upgrade <<< "$TEST_CONTAINERS"
+
+    local ctl_path="/var/snap/microovn/common/run/ovn/"
+
+    target_server_id_nb=$(microovn_ovndb_server_id ${containers_to_upgrade[0]} "nb")
+    target_server_id_sb=$(microovn_ovndb_server_id ${containers_to_upgrade[0]} "sb")
     run lxc_exec "${containers_to_upgrade[0]}" "microovn disable central"
     assert_output -p "Service central disabled"
+
+    # check that container has left
+    wait_ovsdb_cluster_container_leave "$target_server_id_nb" "$ctl_path/ovnnb_db.ctl" "OVN_Northbound" 30 "${containers_to_upgrade[1]} ${containers_to_upgrade[2]}"
+    wait_ovsdb_cluster_container_leave "$target_server_id_sb" "$ctl_path/ovnsb_db.ctl" "OVN_Southbound" 30 "${containers_to_upgrade[1]} ${containers_to_upgrade[2]}"
+
+    target_server_id_nb=$(microovn_ovndb_server_id ${containers_to_upgrade[1]} "nb")
+    target_server_id_sb=$(microovn_ovndb_server_id ${containers_to_upgrade[1]} "sb")
     run lxc_exec "${containers_to_upgrade[1]}" "microovn disable central"
     assert_output -p "Service central disabled"
+
+    # check that container has left
+    wait_ovsdb_cluster_container_leave "$target_server_id_nb" "$ctl_path/ovnnb_db.ctl" "OVN_Northbound" 30 "${containers_to_upgrade[2]}"
+    wait_ovsdb_cluster_container_leave "$target_server_id_sb" "$ctl_path/ovnsb_db.ctl" "OVN_Southbound" 30 "${containers_to_upgrade[2]}"
+
     run lxc_exec "${containers_to_upgrade[3]}" "microovn enable central"
     assert_output -p "Service central enabled"
+
+    # check that container has joined
+    wait_ovsdb_cluster_container_join "$(microovn_ovndb_server_id "${containers_to_upgrade[3]}" "nb")" "$ctl_path/ovnnb_db.ctl" "OVN_Northbound" 30 "${containers_to_upgrade[2]}"
+    wait_ovsdb_cluster_container_join "$(microovn_ovndb_server_id "${containers_to_upgrade[3]}" "sb")" "$ctl_path/ovnsb_db.ctl" "OVN_Southbound" 30 "${containers_to_upgrade[2]}"
+
+    target_server_id_nb=$(microovn_ovndb_server_id ${containers_to_upgrade[2]} "nb")
+    target_server_id_sb=$(microovn_ovndb_server_id ${containers_to_upgrade[2]} "sb")
     run lxc_exec "${containers_to_upgrade[2]}" "microovn disable central"
     assert_output -p "Service central disabled"
+
+    # check that container has left
+    wait_ovsdb_cluster_container_leave "$target_server_id_nb" "$ctl_path/ovnnb_db.ctl" "OVN_Northbound" 30 "${containers_to_upgrade[3]}"
+    wait_ovsdb_cluster_container_leave "$target_server_id_sb" "$ctl_path/ovnsb_db.ctl" "OVN_Southbound" 30 "${containers_to_upgrade[3]}"
+
     run lxc_exec "${containers_to_upgrade[4]}" "microovn enable central"
     assert_output -p "Service central enabled"
+
+    # check that container has joined
+    wait_ovsdb_cluster_container_join "$(microovn_ovndb_server_id "${containers_to_upgrade[4]}" "nb")" "$ctl_path/ovnnb_db.ctl" "OVN_Northbound" 30 "${containers_to_upgrade[3]}"
+    wait_ovsdb_cluster_container_join "$(microovn_ovndb_server_id "${containers_to_upgrade[4]}" "sb")" "$ctl_path/ovnsb_db.ctl" "OVN_Southbound" 30 "${containers_to_upgrade[3]}"
+
     run lxc_exec "${containers_to_upgrade[5]}" "microovn enable central"
     assert_output -p "Service central enabled"
+
+    # check that container has joined
+    wait_ovsdb_cluster_container_join "$(microovn_ovndb_server_id "${containers_to_upgrade[5]}" "nb")" "$ctl_path/ovnnb_db.ctl" "OVN_Northbound" 30 ${containers_to_upgrade[3]} ${containers_to_upgrade[4]}
+    wait_ovsdb_cluster_container_join "$(microovn_ovndb_server_id "${containers_to_upgrade[5]}" "sb")" "$ctl_path/ovnsb_db.ctl" "OVN_Southbound" 30 ${containers_to_upgrade[3]} ${containers_to_upgrade[4]}
+
     assert [ -z "$(run lxc_exec "${containers_to_upgrade[0]}" "microovn status | grep -ozE 'microovn-central-control-1[^-]*' | grep central")"]
     assert [ -z "$(run lxc_exec "${containers_to_upgrade[0]}" "snap services microovn | grep ovn-northd | grep enabled")"]
     assert [ -z "$(run lxc_exec "${containers_to_upgrade[1]}" "microovn status | grep -ozE 'microovn-central-control-2[^-]*' | grep central")"]
