@@ -8,8 +8,33 @@ page will show how to run them.
 Linter checks
 -------------
 
-Linting is currently applied only to the tests themselves, not the main
-codebase. The prerequisites for running linter are:
+Go code
+~~~~~~~
+
+We make use of `golangci-lint`_ and you can find a list of enabled linters in
+the ``microovn/.golangci.yml`` configuration file.
+
+Successfully running the tool requires build dependencies to be installed and
+build environment variables properly set up.
+
+Developer ergonomics are important to us, and we want the same experience in
+local development environments as in our gate.
+
+As such we have opted to run `golangci-lint`_ as part of the snap build
+process as it gives us consistent results in both environments and relieves
+the developer of the burden of manually installing build dependencies to
+perform the checks locally.
+
+If you use an IDE with `golangci-lint`_ support and want to utilise it, the
+tool should automatically discover this configuration.  You will however need
+to install additional build dependencies and set up environment variables
+to make it work.  Refer to the definition of the ``microovn`` part in
+``snap/snapcraft.yaml`` for more information.
+
+Test code
+~~~~~~~~~
+
+The prerequisites for running linting on the test code are:
 
 * ``make``
 * ``shellcheck``
@@ -129,3 +154,4 @@ Any leftover containers will be named according to:
 .. _Bash Automated Testing System (BATS): https://bats-core.readthedocs.io/en/stable/
 .. _LXD remotes: https://documentation.ubuntu.com/lxd/en/latest/remotes/
 .. _LXD environment: https://documentation.ubuntu.com/lxd/en/latest/environment/
+.. _golangci-lint: https://golangci-lint.run/

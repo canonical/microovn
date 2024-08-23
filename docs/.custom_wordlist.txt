@@ -29,6 +29,7 @@ devel
 downscaling
 failover
 favicon
+golangci
 hostname
 installable
 lifecycle
