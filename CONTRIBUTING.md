@@ -45,8 +45,15 @@ instead.
 * lxd (`sudo snap install lxd`)
 * GNU parallel (`sudo apt -y install parallel`)
 * shellcheck (`sudo apt -y install shellcheck`)
+* snapcraft (`sudo snap install snapcraft`)
 
 #### Lint
+
+Go code is linted as part of the snap build process:
+
+    make
+
+To check lint for the test code:
 
     make check-lint
 
