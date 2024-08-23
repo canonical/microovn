@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/cluster"
@@ -284,6 +285,16 @@ func leaveCentral(ctx context.Context, s state.State) error {
 		}
 	} else {
 		logger.Warnf("Failed to get SB database specification: %s", err)
+	}
+
+	err = os.Rename(paths.CentralDBNBPath(), paths.CentralDBNBBackupPath())
+	if err != nil {
+		logger.Warnf("Failed to move Northbound database to backup: %s", err)
+	}
+
+	err = os.Rename(paths.CentralDBSBPath(), paths.CentralDBSBBackupPath())
+	if err != nil {
+		logger.Warnf("Failed to move Southbound database to backup: %s", err)
 	}
 
 	err = snap.Stop("ovn-northd", true)
