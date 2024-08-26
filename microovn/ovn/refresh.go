@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
 
+	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/node"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/snap"
@@ -39,12 +40,12 @@ func refresh(ctx context.Context, s state.State) error {
 	}
 
 	// Query existing local services.
-	hasCentral, err := node.HasServiceActive(ctx, s, "central")
+	hasCentral, err := node.HasServiceActive(ctx, s, types.SrvCentral)
 	if err != nil {
 		return err
 	}
 
-	hasSwitch, err := node.HasServiceActive(ctx, s, "switch")
+	hasSwitch, err := node.HasServiceActive(ctx, s, types.SrvSwitch)
 	if err != nil {
 		return err
 	}

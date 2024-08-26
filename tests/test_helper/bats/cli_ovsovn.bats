@@ -36,7 +36,46 @@ teardown() {
     fi
 }
 
-@test "ovs-appctl ovs-vswitchd" {
+cli_ovsovn_register_test_functions() {
+    bats_test_function \
+        --description "ovs-appctl ovs-vswitchd" \
+        -- ovs-appctl_ovs-vswitchd
+    bats_test_function \
+        --description "ovs-dpctl" \
+        -- ovs-dpctl
+    bats_test_function \
+        --description "ovs-ofctl" \
+        -- ovs-ofctl
+    bats_test_function \
+        --description "ovs-vsctl" \
+        -- ovs-vsctl
+    bats_test_function \
+        --description "ovs-appctl ovsdb-server" \
+        -- ovs-appctl_ovsdb-server
+    bats_test_function \
+        --description "ovn-appctl ovn-controller" \
+        -- ovn-appctl_ovn-controller
+    bats_test_function \
+        --description "ovn-appctl ovn-northd" \
+        -- ovn-appctl_ovn-northd
+    bats_test_function \
+        --description "ovn-nbctl" \
+        -- ovn-nbctl
+    bats_test_function \
+        --description "ovn-nbctl daemon" \
+        -- ovn-nbctl_daemon
+    bats_test_function \
+        --description "ovn-sbctl" \
+        -- ovn-sbctl
+    bats_test_function \
+        --description "ovn-sbctl daemon" \
+        -- ovn-sbctl_daemon
+    bats_test_function \
+        --description "ovn-trace" \
+        -- ovn-trace
+}
+
+ovs-appctl_ovs-vswitchd() {
     for container in $TEST_CONTAINERS; do
         run lxc_exec "$container" \
             "microovn.ovs-appctl version"
@@ -45,7 +84,7 @@ teardown() {
     done
 }
 
-@test "ovs-dpctl" {
+ovs-dpctl() {
     for container in $TEST_CONTAINERS; do
         run lxc_exec "$container" \
             "microovn.ovs-dpctl dump-dps"
@@ -54,7 +93,7 @@ teardown() {
     done
 }
 
-@test "ovs-ofctl" {
+ovs-ofctl() {
     for container in $TEST_CONTAINERS; do
         run lxc_exec "$container" \
             "microovn.ovs-ofctl dump-flows br-int >/dev/null"
@@ -62,7 +101,7 @@ teardown() {
     done
 }
 
-@test "ovs-vsctl" {
+ovs-vsctl() {
     for container in $TEST_CONTAINERS; do
         run lxc_exec "$container" \
             "microovn.ovs-vsctl show >/dev/null"
@@ -70,7 +109,7 @@ teardown() {
     done
 }
 
-@test "ovs-appctl ovsdb-server" {
+ovs-appctl_ovsdb-server() {
     for container in $TEST_CONTAINERS; do
         run lxc_exec "$container" \
             "microovn.ovs-appctl -t ovsdb-server version"
@@ -79,7 +118,7 @@ teardown() {
     done
 }
 
-@test "ovn-appctl ovn-controller" {
+ovn-appctl_ovn-controller() {
     for container in $TEST_CONTAINERS; do
         run lxc_exec "$container" \
             "microovn.ovn-appctl version"
@@ -88,7 +127,7 @@ teardown() {
     done
 }
 
-@test "ovn-appctl ovn-northd" {
+ovn-appctl_ovn-northd() {
     for container in $TEST_CONTAINERS; do
         run lxc_exec "$container" \
             "microovn.ovn-appctl -t ovn-northd version"
@@ -97,7 +136,7 @@ teardown() {
     done
 }
 
-@test "ovn-nbctl" {
+ovn-nbctl() {
     for container in $TEST_CONTAINERS; do
         run lxc_exec "$container" \
             "microovn.ovn-nbctl show > /dev/null"
@@ -105,7 +144,7 @@ teardown() {
     done
 }
 
-@test "ovn-nbctl daemon" {
+ovn-nbctl_daemon() {
     local ovn_nbctl_socket
 
     for container in $TEST_CONTAINERS; do
@@ -121,7 +160,7 @@ teardown() {
     done
 }
 
-@test "ovn-sbctl" {
+ovn-sbctl() {
     for container in $TEST_CONTAINERS; do
         run lxc_exec "$container" \
             "microovn.ovn-sbctl show > /dev/null"
@@ -129,7 +168,7 @@ teardown() {
     done
 }
 
-@test "ovn-sbctl daemon" {
+ovn-sbctl_daemon() {
     local ovn_sbctl_socket
 
     for container in $TEST_CONTAINERS; do
@@ -145,7 +184,7 @@ teardown() {
     done
 }
 
-@test "ovn-trace" {
+ovn-trace() {
     local first_container
     for container in $TEST_CONTAINERS; do
         if [ -z "$first_container" ]; then
@@ -167,3 +206,5 @@ teardown() {
         refute_output -p WARN
     done
 }
+
+cli_ovsovn_register_test_functions

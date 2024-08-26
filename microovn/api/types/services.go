@@ -2,6 +2,7 @@
 package types
 
 import (
+	"fmt"
 	"log"
 )
 
@@ -11,7 +12,7 @@ type Services []Service
 // Service  - A service.
 type Service struct {
 	// Service - name of Service.
-	Service string `json:"service" yaml:"service"`
+	Service SrvName `json:"service" yaml:"service"`
 	// Location - location of Service.
 	Location string `json:"location" yaml:"location"`
 }
@@ -52,4 +53,64 @@ func (w WarningSet) PrettyPrint(verbose bool) {
 			log.Println("[central] Warning: OVN Cluster has critically few members")
 		}
 	}
+}
+
+// RegenerateEnvResponse is a structure that models response to requests for
+// a environment file regeneration for all nodes
+type RegenerateEnvResponse struct {
+	Success bool     `json:"success" yaml:"success"` // True if this node regenerates its environment
+	Errors  []string `json:"error"`                  // List of Errors
+}
+
+// PrettyPrint method formats and prints contents of RegenerateEnvResponse object
+func (r *RegenerateEnvResponse) PrettyPrint() {
+	var newEnvSuccess string
+	if r.Success {
+		newEnvSuccess = "Generated"
+	} else {
+		newEnvSuccess = "Not Generated"
+	}
+
+	fmt.Printf("New Environment: %s\n\n", newEnvSuccess)
+
+	if len(r.Errors) != 0 {
+		fmt.Println("\n[Errors]")
+		for _, errMsg := range r.Errors {
+			fmt.Println(errMsg)
+		}
+	}
+}
+
+// NewRegenerateEnvResponse returns pointer to initialized RegenerateEnvResponse object
+func NewRegenerateEnvResponse() RegenerateEnvResponse {
+	return RegenerateEnvResponse{
+		Success: false,
+		Errors:  make([]string, 0),
+	}
+}
+
+// SrvName - string representation of a service.
+type SrvName = string
+
+const (
+	// SrvChassis - string representation of chassis service.
+	SrvChassis SrvName = "chassis"
+	// SrvCentral - string representation of central service.
+	SrvCentral SrvName = "central"
+	// SrvSwitch - string representation of switch service.
+	SrvSwitch SrvName = "switch"
+)
+
+// ServiceNames - slice containing all known SrvName strings.
+var ServiceNames = []SrvName{SrvChassis, SrvCentral, SrvSwitch}
+
+// CheckValidService - checks whether the string in "service" is in fact a
+// known and valid service name.
+func CheckValidService(service string) bool {
+	for _, s := range ServiceNames {
+		if s == service {
+			return true
+		}
+	}
+	return false
 }

@@ -33,9 +33,10 @@ func enableService(s state.State, r *http.Request) response.Response {
 		logger.Errorf("Failed to get service: %s", err)
 		return response.ErrorResponse(500, "Internal server error")
 	}
-	if !node.CheckValidService(requestedService) {
+	if !types.CheckValidService(requestedService) {
 		return response.InternalError(errors.New("Service does not exist"))
 	}
+
 	err = node.EnableService(r.Context(), s, requestedService)
 	if err != nil {
 		return response.InternalError(err)
@@ -63,7 +64,7 @@ func disableService(s state.State, r *http.Request) response.Response {
 		logger.Errorf("Failed to get service: %s", err)
 		return response.ErrorResponse(500, "Internal server error")
 	}
-	if !node.CheckValidService(requestedService) {
+	if !types.CheckValidService(requestedService) {
 		return response.InternalError(errors.New("Service does not exist"))
 	}
 	err = node.DisableService(r.Context(), s, requestedService)

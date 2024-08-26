@@ -501,6 +501,52 @@ function wait_ovsdb_cluster_container_leave() {
     return $rc
 }
 
+# wait_ovsdb_cluster_container_join SERVER_ID CONTROL_PATH DB_NAME TIMEOUT CONTAINER1 [CONTAINER2 ...]
+#
+# Wait until all CONTAINERs confirm that cluster member with SERVER_ID has successfully joined the cluster.
+#
+# This function requires CONTROL_PATH which points to the database's .ctl file (i.e. path/to/ovnnb_db.ctl)
+# and DB_NAME which should be either "OVN_Northbound" or "OVN_Southbound."
+#
+# TIMEOUT in seconds is roughly obeyed. If conditions are not met before the timeout is reached, this
+# function returns a non-zero RC.
+function wait_ovsdb_cluster_container_join() {
+    local target_server_id=$1; shift
+    local ctl_path=$1; shift
+    local db_name=$1; shift
+    local timeout=$1; shift
+    local monitor_containers=$*
+    local rc=1
+    local retries=""
+    retries=$((timeout * 2))
+
+    for (( i = 1; i <= "$retries"; i++ )); do
+        local container=""
+        local server_missing=0
+        for container in $monitor_containers; do
+            local connection_list=""
+            echo "# ($container) Waiting for $target_server_id to join cluster ($i/$retries)" >&3
+            run lxc_exec "$container" "microovn.ovn-appctl -t $ctl_path cluster/status $db_name"
+            # shellcheck disable=SC2154 # Variable "$output" is exported from previous execution of 'run'
+            echo "# ($container) Status: $output"
+            connection_list=$(grep -E '^Connections:' <<< "$output")
+            if [[ $connection_list != *"$target_server_id"* ]]; then
+                ((++server_missing))
+                echo "# ($container) Server $target_server_id not yet present" >&3
+            fi
+        done
+
+        if [ "$server_missing" -eq 0 ]; then
+            echo "# Server $target_server_id successfully joined." >&3
+            rc=0
+            break
+        fi
+        sleep 0.5
+    done
+
+    return $rc
+}
+
 MICROOVN_PREFIX_LS=sw
 MICROOVN_PREFIX_LR=lr
 MICROOVN_PREFIX_LRP=lrp-sw

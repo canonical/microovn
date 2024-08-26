@@ -5,11 +5,14 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
 
+	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/database"
+	"github.com/canonical/microovn/microovn/node"
+	"github.com/canonical/microovn/microovn/ovn/certificates"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
-	"github.com/canonical/microovn/microovn/snap"
 )
 
 // Join will join an existing OVN deployment.
@@ -42,32 +45,6 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 		return err
 	}
 
-	// Record the new roles in the database.
-	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		// Record the roles.
-		_, err := database.CreateService(ctx, tx, database.Service{Member: s.Name(), Service: "switch"})
-		if err != nil {
-			return fmt.Errorf("Failed to record role: %w", err)
-		}
-
-		if srvCentral < 3 {
-			_, err = database.CreateService(ctx, tx, database.Service{Member: s.Name(), Service: "central"})
-			if err != nil {
-				return fmt.Errorf("Failed to record role: %w", err)
-			}
-		}
-
-		_, err = database.CreateService(ctx, tx, database.Service{Member: s.Name(), Service: "chassis"})
-		if err != nil {
-			return fmt.Errorf("Failed to record role: %w", err)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
 	// Generate the configuration.
 	err = generateEnvironment(ctx, s)
 	if err != nil {
@@ -78,63 +55,41 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	// Note that we intentially use a sever type certificate here due to
 	// all OVS-based programs ability to specify active or passive (listen)
 	// connection types.
-	err = GenerateNewServiceCertificate(ctx, s, "client", CertificateTypeServer)
+	err = certificates.GenerateNewServiceCertificate(ctx, s, "client", certificates.CertificateTypeServer)
 	if err != nil {
 		return fmt.Errorf("failed to generate TLS certificate for client: %s", err)
 	}
 
 	// Copy shared CA certificate from shared database to file on disk
-	err = DumpCA(ctx, s)
+	err = certificates.DumpCA(ctx, s)
 	if err != nil {
 		return err
 	}
 
-	// Enable OVS switch.
-	err = snap.Start("switch", true)
+	// Start all the required services, and central if needed
+	err = node.EnableService(ctx, s, types.SrvSwitch)
 	if err != nil {
-		return fmt.Errorf("Failed to start OVS switch: %w", err)
+		logger.Infof("failed to enable switch")
+		return err
 	}
 
-	// Enable OVN central (if needed).
 	if srvCentral < 3 {
-		// Generate certificate for OVN Central services
-		err = GenerateNewServiceCertificate(ctx, s, "ovnnb", CertificateTypeServer)
+		err = node.EnableService(ctx, s, types.SrvCentral)
 		if err != nil {
-			return fmt.Errorf("failed to generate TLS certificate for ovnnb service")
-		}
-		err = GenerateNewServiceCertificate(ctx, s, "ovnsb", CertificateTypeServer)
-		if err != nil {
-			return fmt.Errorf("failed to generate TLS certificate for ovnsb service")
-		}
-		err = GenerateNewServiceCertificate(ctx, s, "ovn-northd", CertificateTypeServer)
-		if err != nil {
-			return fmt.Errorf("failed to generate TLS certificate for ovn-northd service")
-		}
-
-		err = snap.Start("ovn-ovsdb-server-nb", true)
-		if err != nil {
-			return fmt.Errorf("Failed to start OVN NB: %w", err)
-		}
-
-		err = snap.Start("ovn-ovsdb-server-sb", true)
-		if err != nil {
-			return fmt.Errorf("Failed to start OVN SB: %w", err)
-		}
-
-		err = snap.Start("ovn-northd", true)
-		if err != nil {
-			return fmt.Errorf("Failed to start OVN northd: %w", err)
+			logger.Infof("failed to enable central")
+			return err
 		}
 	}
 
-	// Generate certificate for OVN chassis (controller)
-	err = GenerateNewServiceCertificate(ctx, s, "ovn-controller", CertificateTypeServer)
+	err = generateEnvironment(ctx, s)
 	if err != nil {
-		return fmt.Errorf("failed to generate TLS certificate for ovn-controller service")
+		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
 	}
-	err = snap.Start("chassis", true)
+
+	err = node.EnableService(ctx, s, types.SrvChassis)
 	if err != nil {
-		return fmt.Errorf("Failed to start OVN chassis: %w", err)
+		logger.Infof("failed to enable switch")
+		return err
 	}
 
 	// Enable OVN chassis.
