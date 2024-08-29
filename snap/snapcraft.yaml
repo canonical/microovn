@@ -265,6 +265,9 @@ parts:
       # Check that `golangci-lint` is happy with the code.
       golangci-lint run --verbose
 
+      # Run any unit tests.
+      go test ./...
+
       # Determine versions of packages used to build MicroOVN
       # Note (mkalcok): This code reaches into other snapcraft parts via hardcoded paths
       #                 to determine version of packages from which they were built. It
