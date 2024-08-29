@@ -33,10 +33,17 @@ https://ubuntu.com/legal/contributors
 The tests mainly focus on functional validation of MicroOVN and how we build
 and configure OVN itself.
 
-Golang unit tests are also welcome, but if you find yourself redesigning
-interfaces or figuring out how to mock something to support unit testing, then
-stop and express your test by executing the program through the testsuite
-instead.
+We expect Go unit tests for pure functions.
+
+For impure functions, i.e. functions with side effects, if you find yourself
+redesigning interfaces or figuring out how to mock something to support unit
+tests, then stop and consider the following strategies instead:
+
+1. Extract the logic you want to test into pure functions.  When done right the
+   side effect would be increased composability, setting you up for future code
+   reuse.
+2. Contain the remaining functions with side effects in logical units that
+   can be thoroughly tested in the integration test suite.
 
 ### Running tests
 
