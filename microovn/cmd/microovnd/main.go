@@ -14,10 +14,8 @@ import (
 	"github.com/canonical/microovn/microovn/api"
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/ovn"
+	"github.com/canonical/microovn/microovn/version"
 )
-
-// MicroOvnVersion - the version string for the MicroOVN MicroCluster daemon.
-var MicroOvnVersion string
 
 // Debug indicates whether to log debug messages or not.
 var Debug bool
@@ -52,7 +50,7 @@ func (c *cmdDaemon) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "microd",
 		Short:   "Example daemon for MicroCluster - This will start a daemon with a running control socket and no database",
-		Version: MicroOvnVersion,
+		Version: version.MicroOvnVersion,
 	}
 
 	cmd.RunE = c.Run
@@ -83,7 +81,7 @@ func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
 	daemonArgs := microcluster.DaemonArgs{
 		Verbose:          c.global.flagLogVerbose,
 		Debug:            c.global.flagLogDebug,
-		Version:          MicroOvnVersion,
+		Version:          version.MicroOvnVersion,
 		ExtensionsSchema: database.SchemaExtensions,
 		APIExtensions:    api.Extensions(),
 		Hooks:            h,
