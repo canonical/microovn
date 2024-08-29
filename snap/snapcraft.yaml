@@ -266,7 +266,8 @@ parts:
       golangci-lint run --verbose
 
       # Run any unit tests.
-      go test ./...
+      LD_LIBRARY_PATH=${CRAFT_STAGE}/lib/:${CRAFT_STAGE}/usr/local/lib/ \
+          go test ./...
 
       # Determine versions of packages used to build MicroOVN
       # Note (mkalcok): This code reaches into other snapcraft parts via hardcoded paths
