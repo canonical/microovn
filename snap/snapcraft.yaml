@@ -265,6 +265,9 @@ parts:
       # Check that `golangci-lint` is happy with the code.
       golangci-lint run --verbose
 
+      # Run any unit tests.
+      go test ./...
+
       # Determine versions of packages used to build MicroOVN
       # Note (mkalcok): This code reaches into other snapcraft parts via hardcoded paths
       #                 to determine version of packages from which they were built. It
@@ -288,14 +291,16 @@ parts:
       ovn_pkg_short_version=$(echo $ovn_pkg_version | sed -rne 's/([0-9.]+)[-+~].*$$/\1/p')
       craftctl set version=${ovn_pkg_short_version}+snap${git_version}
       
+      version_package=github.com/canonical/microovn/microovn/version
+      go_ldflags="-X '${version_package}.MicroOvnVersion=${git_version}' \
+                  -X '${version_package}.OvnVersion=${ovn_pkg_version}' \
+                  -X '${version_package}.OvsVersion=${ovs_pkg_version}'"
       # Build the binaries
       go build -o "${CRAFT_PART_INSTALL}/bin/microovn" \
-               -ldflags "-X 'main.MicroOvnVersion=${git_version}' \
-                         -X 'main.OvnVersion=${ovn_pkg_version}' \
-                         -X 'main.OvsVersion=${ovs_pkg_version}'" \
+               -ldflags "$go_ldflags" \
                ./cmd/microovn
       go build -o "${CRAFT_PART_INSTALL}/bin/microovnd" \
-               -ldflags "-X 'main.MicroOvnVersion=${git_version}'" \
+               -ldflags "$go_ldflags" \
                -tags=libsqlite3 \
                ./cmd/microovnd
     prime:

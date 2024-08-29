@@ -73,6 +73,9 @@ cli_ovsovn_register_test_functions() {
     bats_test_function \
         --description "ovn-trace" \
         -- ovn-trace
+    bats_test_function \
+        --description "microovn --version" \
+        -- microovn_version
 }
 
 ovs-appctl_ovs-vswitchd() {
@@ -204,6 +207,19 @@ ovn-trace() {
         assert_output -p 'ingress(dp="ovn-trace", inport="ovn-trace-p0")'
         refute_output -p ERR
         refute_output -p WARN
+    done
+}
+
+microovn_version() {
+    for container in $TEST_CONTAINERS; do
+        run lxc_exec "$container" "microovn --version"
+        assert_success
+        assert_line --index 0 --regexp '^microovn: [^[:space:]]+'
+        assert_line --index 1 --regexp '^ovn: [^[:space:]]+'
+        assert_line --index 2 --regexp '^openvswitch: [^[:space:]]+'
+
+        # only need to check this on first container.
+        break
     done
 }
 
