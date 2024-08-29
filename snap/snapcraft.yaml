@@ -288,14 +288,15 @@ parts:
       ovn_pkg_short_version=$(echo $ovn_pkg_version | sed -rne 's/([0-9.]+)[-+~].*$$/\1/p')
       craftctl set version=${ovn_pkg_short_version}+snap${git_version}
       
+      go_ldflags="-X 'main.MicroOvnVersion=${git_version}' \
+                  -X 'main.OvnVersion=${ovn_pkg_version}' \
+                  -X 'main.OvsVersion=${ovs_pkg_version}'"
       # Build the binaries
       go build -o "${CRAFT_PART_INSTALL}/bin/microovn" \
-               -ldflags "-X 'main.MicroOvnVersion=${git_version}' \
-                         -X 'main.OvnVersion=${ovn_pkg_version}' \
-                         -X 'main.OvsVersion=${ovs_pkg_version}'" \
+               -ldflags "$go_ldflags" \
                ./cmd/microovn
       go build -o "${CRAFT_PART_INSTALL}/bin/microovnd" \
-               -ldflags "-X 'main.MicroOvnVersion=${git_version}'" \
+               -ldflags "$go_ldflags" \
                -tags=libsqlite3 \
                ./cmd/microovnd
     prime:
