@@ -81,7 +81,7 @@ func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
 	daemonArgs := microcluster.DaemonArgs{
 		Verbose:          c.global.flagLogVerbose,
 		Debug:            c.global.flagLogDebug,
-		Version:          version.MicroOvnVersion,
+		Version:          version.MajorVersion(version.OvnVersion),
 		ExtensionsSchema: database.SchemaExtensions,
 		APIExtensions:    api.Extensions(),
 		Hooks:            h,
