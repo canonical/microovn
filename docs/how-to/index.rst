@@ -14,3 +14,4 @@ a basic understanding of OVN.
    logs
    major-upgrades
    ovn-underlay
+   service-control

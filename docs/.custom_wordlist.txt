@@ -6,7 +6,9 @@ LXD
 Livepatch
 Makefile
 MicroOVN
+MicroOVN's
 OVN
+OVN's
 OVS
 OpenStack
 PKI
