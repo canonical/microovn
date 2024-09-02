@@ -346,6 +346,8 @@ parts:
       make -j$CRAFT_PARALLEL_BUILD_COUNT
       # build OVN
       cd ..
+      # apply patches related to the route leaking/learning
+      git am  $CRAFT_PROJECT_DIR/patches/*.patch
       ./boot.sh
       ./configure \
         --prefix=/usr \
