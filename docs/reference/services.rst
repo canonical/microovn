@@ -47,7 +47,7 @@ It is enabled by default.
 
 The snap service this controls is ``microovn.chassis``
 
-`switch service``
+``switch service``
 -------------------
 
 This service ``Open vSwitch`` and ensures its running properly. Much like chassis it
