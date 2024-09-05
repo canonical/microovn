@@ -1,0 +1,40 @@
+From a899d0d19f49e845d728c7dc65e5a93137a07399 Mon Sep 17 00:00:00 2001
+From: Martin Kalcok <martin.kalcok@canonical.com>
+Date: Thu, 5 Sep 2024 13:58:44 +0200
+Subject: [Patch ovn] northd: Dont block RAs from BGP redirect port.
+To: dev@openvswitch.org
+
+BGP unnumbered relies on IPv6 RAs to form peer connections,
+however unsolicited RAs from Logical Router do no seem to
+reach external networks [0]. Therefore we need to allow
+unsolicited RAs from the port designated for BGP redirect.
+
+[0]https://mail.openvswitch.org/pipermail/ovs-discuss/2024-August/053282.html
+
+Signed-off-by: Martin Kalcok <martin.kalcok@canonical.com>
+---
+ northd/northd.c | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/northd/northd.c b/northd/northd.c
+index a267cd5f8..603f900c1 100644
+--- a/northd/northd.c
++++ b/northd/northd.c
+@@ -14153,14 +14153,6 @@ build_lrouter_routing_protocol_redirect(
+                   ds_cstr(match),
+                   REGBIT_PORT_SEC_DROP " = 1; next;",
+                   lflow_ref);
+-
+-    ds_clear(match);
+-    ds_put_format(match, "inport == \"%s\" && nd_ra",
+-                  redirect_port_name);
+-    ovn_lflow_add(lflows, op->peer->od, S_SWITCH_IN_CHECK_PORT_SEC, 80,
+-                  ds_cstr(match),
+-                  REGBIT_PORT_SEC_DROP " = 1; next;",
+-                  lflow_ref);
+ }
+ 
+ /* This function adds ARP resolve flows related to a LSP. */
+-- 
+2.43.0
+
