@@ -74,7 +74,7 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName, a
 	case types.SrvChassis:
 		leaveChassis(ctx, s)
 	case types.SrvBgp:
-		err = bgp.DisableService()
+		err = bgp.DisableService(ctx, s)
 	default:
 		deactivateService(service, true)
 	}
