@@ -64,7 +64,7 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName) e
 	} else if service == types.SrvChassis {
 		err = leaveChassis(ctx, s)
 	} else if service == types.SrvBgp {
-		err = bgp.DisableService()
+		err = bgp.DisableService(ctx, s)
 		if err != nil {
 			return err
 		}

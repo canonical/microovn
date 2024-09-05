@@ -68,7 +68,7 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 }
 
 // DisableService stops and disables BGP services managed by MicroOVN.
-func DisableService() error {
+func DisableService(ctx context.Context, s state.State) error {
 	var allErrors error
 
 	err := snap.Stop(FrrZebraService, true)
@@ -81,6 +81,11 @@ func DisableService() error {
 	if err != nil {
 		logging.Warnf("Failed to stop %s service: %s", FrrBgpService, err)
 		allErrors = errors.Join(allErrors, errors.New("failed to stop BGP service"))
+	}
+
+	err = teardownAll(ctx, s)
+	if err != nil {
+		allErrors = errors.Join(allErrors, err)
 	}
 
 	return allErrors
