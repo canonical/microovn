@@ -109,7 +109,7 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 
 	// Start all the required services
 	if enableServices.Switch {
-		err = node.EnableService(ctx, s, types.SrvSwitch)
+		err = node.EnableService(ctx, s, types.SrvSwitch, nil)
 		if err != nil {
 			logger.Infof("Failed to enable switch")
 			return err
@@ -117,7 +117,7 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 	}
 
 	if enableServices.Central {
-		err = node.EnableService(ctx, s, types.SrvCentral)
+		err = node.EnableService(ctx, s, types.SrvCentral, nil)
 		if err != nil {
 			logger.Infof("Failed to enable central")
 			return err
@@ -135,7 +135,7 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 	}
 
 	if enableServices.Chassis {
-		err = node.EnableService(ctx, s, types.SrvChassis)
+		err = node.EnableService(ctx, s, types.SrvChassis, nil)
 		if err != nil {
 			logger.Infof("Failed to enable ovn-controller")
 			return err

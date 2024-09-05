@@ -73,7 +73,7 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName, a
 		leaveCentral(ctx, s, lastCentral)
 	case types.SrvChassis:
 		leaveChassis(ctx, s)
-	case:
+	case types.SrvBgp:
 		err = bgp.DisableService()
 	default:
 		deactivateService(service, true)
@@ -120,7 +120,7 @@ func EnableService(ctx context.Context, s state.State, service types.SrvName, ex
 	case types.SrvChassis:
 		err = joinChassis(ctx, s)
 	case types.SrvBgp:
-		err = bgp.EnableService()
+		err = bgp.EnableService(ctx, s, extraConfig.BgpConfig)
 	default:
 		err = activateService(service, true)
 	}

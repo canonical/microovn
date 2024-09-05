@@ -1,16 +1,33 @@
 package bgp
 
 import (
+	"context"
 	"errors"
+	"fmt"
 
+	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/snap"
 	"github.com/zitadel/logging"
 )
 
+// FrrBgpService - Name of the FRR BGP service managed by MicroOVN
 const FrrBgpService = "frr-bgp"
+
+// FrrZebraService - Name of the FRR Zebra service managed by MicroOVN
 const FrrZebraService = "frr-zebra"
 
-func EnableService() error {
+// EnableService starts BGP service managed by MicroOVN. If external connections are specified in the
+// "extraConfig" parameter, it also sets up additional OVS ports (one for each external connection) and
+// redirects BGP+BFD traffic from the external networks to them.
+func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraBgpConfig) error {
+	if extraConfig != nil {
+		err := extraConfig.Validate()
+		if err != nil {
+			return fmt.Errorf("failed to validate BGP config. Services won't be started: %v", err)
+		}
+	}
+
 	err := snap.Start(FrrZebraService, true)
 	if err != nil {
 		logging.Errorf("Failed to start %s service: %s", FrrZebraService, err)
@@ -22,9 +39,35 @@ func EnableService() error {
 		logging.Errorf("Failed to start %s service: %s", FrrBgpService, err)
 		return errors.New("failed to start BGP service")
 	}
-	return nil
+
+	if extraConfig == nil {
+		return nil
+	}
+
+	extConnections, err := extraConfig.ParseExternalConnection()
+	if err != nil {
+		logging.Errorf("Failed to parse external connections: %v", err)
+	}
+
+	err = createExternalBridges(ctx, s, extConnections)
+	if err != nil {
+		return err
+	}
+
+	err = createExternalNetworks(ctx, s, extConnections)
+	if err != nil {
+		return err
+	}
+
+	err = createVrf(ctx, s, extConnections, extraConfig.Vrf)
+	if err != nil {
+		return err
+	}
+
+	return redirectBgp(ctx, s, extConnections, extraConfig.Vrf)
 }
 
+// DisableService stops and disables BGP services managed by MicroOVN.
 func DisableService() error {
 	var allErrors error
 
