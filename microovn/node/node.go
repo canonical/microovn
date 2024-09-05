@@ -110,7 +110,7 @@ func EnableService(ctx context.Context, s state.State, service types.SrvName, ex
 	} else if service == types.SrvChassis {
 		err = joinChassis(ctx, s)
 	} else if service == types.SrvBgp {
-		err = bgp.EnableService()
+		err = bgp.EnableService(ctx, s, extraConfig.BgpConfig)
 	} else {
 		err = snap.Start(service, true)
 		if err != nil {
