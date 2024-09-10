@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 
 	"github.com/canonical/lxd/shared"
@@ -106,11 +107,14 @@ func WaitForDBState(ctx context.Context, _ state.State, db *OvsdbSpec, dbState s
 	return nil
 }
 
-// ovnDBCtl is a helper function to execute "ovn-nbctl" and "ovn-sbctl" commands. It takes "dbType" parameter
-// that identifies which database server it's going to talk to and "args" parameters which is list of
-// arguments that are directly passed to ovn-nbctl/ovn-sbctl commands. Before the command is executed, this
-// function ensures that underlying database is in connected state. If the database does not reach "connected"
-// state before specified timeout, an error is returned.
+// ovnDBCtl is a helper function to execute "ovn-nbctl" and "ovn-sbctl" commands
+// which are re-tried up to 3 times. If command arguments do not specify timeout (-t or
+// --timeout), a default of 30s will be added automatically. It takes "dbType"
+// parameter that identifies which database server it's going to talk to and
+// "args" parameters which is list of arguments that are directly passed to
+// ovn-nbctl/ovn-sbctl commands. Before the command is executed, this function
+// ensures that underlying database is in connected state. If the database does
+// not reach "connected" state before specified timeout, an error is returned.
 func ovnDBCtl(ctx context.Context, s state.State, dbType OvsdbType, timeout int, args ...string) (string, error) {
 	var baseCmd string
 
@@ -132,29 +136,52 @@ func ovnDBCtl(ctx context.Context, s state.State, dbType OvsdbType, timeout int,
 		return "", err
 	}
 
-	return shared.RunCommandContext(ctx, baseCmd, args...)
+	if !(slices.Contains(args, "--timeout") || slices.Contains(args, "-t")) {
+		args = append([]string{"--timeout", "30"}, args...)
+	}
+
+	// try command 3 times if it is failing
+	for attempts := 0; attempts < 3; attempts++ {
+		output, err := shared.RunCommandContext(ctx, baseCmd, args...)
+		if err == nil {
+			return output, nil
+		}
+	}
+	return "", err
 }
 
-// NBCtl is a convenience function for execution of ovn-nbctl command. Parameter "args" is list of arguments
-// that are passed directly to the shell command. Before the command is executed, this
-// function ensures that underlying database is in connected state. If the database does not reach "connected"
-// state before timeout (defined in DefaultDBConnectWait), an error is returned and command is not executed.
+// NBCtl is a convenience function for execution of ovn-nbctl command which is
+// re-tried up to 3 times. If command arguments do not specify timeout (-t or
+// --timeout), a default of 30s will be added automatically. Parameter "args"
+// is a list of arguments that are passed directly to the shell command.
+// Before the command is executed, this function ensures that underlying
+// database is in connected state. If the database does not reach "connected"
+// state before timeout (defined in DefaultDBConnectWait), an error is returned
+// and command is not executed.
 func NBCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 	return ovnDBCtl(ctx, s, OvsdbTypeNBLocal, DefaultDBConnectWait, args...)
 }
 
-// SBCtl is a convenience function for execution of ovn-sbctl command. Parameter "args" is list of arguments
-// that are passed directly to the shell command. Before the command is executed, this
-// function ensures that underlying database is in connected state. If the database does not reach "connected"
-// state before timeout (defined in DefaultDBConnectWait), an error is returned and command is not executed.
+// SBCtl is a convenience function for execution of ovn-sbctl command which is
+// re-tried up to 3 times. If command arguments do not specify timeout (-t or
+// --timeout), a default of 30s will be added automatically. Parameter "args" is
+// a list of arguments that are passed directly to the shell command. Before the
+// command is executed, this function ensures that underlying database is in
+// connected state. If the database does not reach "connected" state before
+// timeout (defined in DefaultDBConnectWait), an error is returned and command
+// is not executed.
 func SBCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 	return ovnDBCtl(ctx, s, OvsdbTypeSBLocal, DefaultDBConnectWait, args...)
 }
 
-// VSCtl is a convenience function for execution of ovs-vsctl command. Parameter "args" is list of arguments
-// that are passed directly to the shell command. Before the command is executed, this
-// function ensures that underlying database is in connected state. If the database does not reach "connected"
-// state before timeout (defined in DefaultDBConnectWait), an error is returned and command is not executed.
+// VSCtl is a convenience function for execution of ovs-vsctl command which is
+// re-tried up to 3 times. If command arguments do not specify timeout (-t or
+// --timeout), a default of 30s will be added automatically. Parameter "args" is
+// a list of arguments that are passed directly to the shell command. Before the
+// command is executed, this function ensures that underlying database is in
+// connected state. If the database does not reach "connected" state before
+// timeout (defined in DefaultDBConnectWait), an error is returned and command
+// is not executed.
 func VSCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 
 	dbSpec, err := NewOvsdbSpec(OvsdbTypeSwitchLocal)
@@ -167,7 +194,18 @@ func VSCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 		return "", err
 	}
 
-	return shared.RunCommandContext(ctx, "ovs-vsctl", args...)
+	if !(slices.Contains(args, "--timeout") || slices.Contains(args, "-t")) {
+		args = append([]string{"--timeout", "30"}, args...)
+	}
+
+	// try command 3 times if it is failing
+	for attempts := 0; attempts < 3; attempts++ {
+		output, err := shared.RunCommandContext(ctx, "ovs-vsctl", args...)
+		if err == nil {
+			return output, nil
+		}
+	}
+	return "", err
 }
 
 // AppCtl is a convenience function that wraps execution of 'ovn-appctl' command. It requires argument
