@@ -321,3 +321,13 @@ function ping_packets_lost() {
         | awk '/packets/{print$1-$4}')
     echo "$n_lost"
 }
+
+# install_apt_package CONTAINER PACKAGE
+#
+# install PACKAGE via apt in the CONTAINER
+function install_apt_package() {
+    local container=$1; shift
+    local package=$1; shift
+
+    lxc_exec "$container" "DEBIAN_FRONTEND=noninteractive apt install -yqq $package"
+}

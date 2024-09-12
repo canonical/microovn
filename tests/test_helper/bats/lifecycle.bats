@@ -42,7 +42,7 @@ teardown() {
 
     # The tests will need external `ovs-dpctl` command to check DPs after
     # microovn removal.
-    lxc_exec "$TEST_CONTAINER" "DEBIAN_FRONTEND=noninteractive apt install -yqq openvswitch-switch"
+    install_apt_package "$TEST_CONTAINER" "openvswitch-switch"
 
     echo "Checking datapaths on container '$TEST_CONTAINER' before MicroOVN installation."
     run lxc_exec "$TEST_CONTAINER" "ovs-dpctl dump-dps | wc -l"
