@@ -142,7 +142,8 @@ func ovnDBCtl(ctx context.Context, s state.State, dbType OvsdbType, timeout int,
 
 	// try command 3 times if it is failing
 	for attempts := 0; attempts < 3; attempts++ {
-		output, err := shared.RunCommandContext(ctx, baseCmd, args...)
+		var output string
+		output, err = shared.RunCommandContext(ctx, baseCmd, args...)
 		if err == nil {
 			return output, nil
 		}
@@ -200,7 +201,8 @@ func VSCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 
 	// try command 3 times if it is failing
 	for attempts := 0; attempts < 3; attempts++ {
-		output, err := shared.RunCommandContext(ctx, "ovs-vsctl", args...)
+		var output string
+		output, err = shared.RunCommandContext(ctx, "ovs-vsctl", args...)
 		if err == nil {
 			return output, nil
 		}
