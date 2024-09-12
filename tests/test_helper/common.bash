@@ -267,3 +267,13 @@ function ping_reap() {
          while kill -0 \$pid; do sleep 0.1;done && \
          cat /tmp/${base_filename}.stdout"
 }
+
+# install_apt_package CONTAINER PACKAGE
+#
+# install PACKAGE via apt in the CONTAINER
+function install_apt_package() {
+    local container=$1; shift
+    local package=$1; shift
+
+    lxc_exec "$container" "DEBIAN_FRONTEND=noninteractive apt install -yqq $package"
+}
