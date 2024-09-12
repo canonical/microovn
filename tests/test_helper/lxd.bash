@@ -45,6 +45,15 @@ function create_lxd_network() {
     echo "$ipv4_subnet|$ipv6_subnet"
 }
 
+# create_lxd_network_no_dhcp NETWORK_NAME
+#
+# Create LXC bridge network named NETWORK_NAME without DHCP
+function create_lxd_network_no_dhcp() {
+    local net_name=$1; shift
+
+    lxc network create "$net_name" -t bridge ipv4.address=none ipv6.address=none
+}
+
 function delete_lxd_network() {
     local network_name=$1; shift
 
@@ -82,6 +91,24 @@ function connect_containers_to_network_ipv4() {
     done
 
     echo "$output"
+}
+
+# connect_container_to_network_no_ip CONTAINER NETWORK INTERFACE
+#
+# add INTERFACE to the CONTAINER that's connected to the lxc
+# NETWORK, without setting up any IP addresses on it. The interface
+# will keep only its IPv6 LLA address.
+function connect_container_to_network_no_ip() {
+    local container=$1; shift
+    local network=$1; shift
+    local interface=$1; shift
+
+    lxc config device add "$container" "$interface" nic \
+        name="$interface" nictype=bridged parent="${network}" > /dev/null 2>&1
+    lxc exec "$container" ip address flush dev "$interface"
+    # Flick interface up and down to retain IPv6 LLA
+    lxc exec "$container" ip link set "$interface" down
+    lxc exec "$container" ip link set "$interface" up
 }
 
 function connect_containers_to_network_ipv6() {
