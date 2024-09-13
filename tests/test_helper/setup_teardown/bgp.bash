@@ -37,7 +37,6 @@ setup_file() {
     load test_helper/microovn.bash
     load test_helper/bgp_utils.bash
 
-
     TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 3)
     export TEST_CONTAINERS
     launch_containers_args "-c linux.kernel_modules=vrf,openvswitch" $TEST_CONTAINERS
