@@ -173,7 +173,7 @@ function get_upgrade_test_version() {
             exit 1
         fi
 
-        upgrade_from_version="${upgrade_from_version}/stable"
+        upgrade_from_version="${upgrade_from_version}/beta"
     fi
     echo "$upgrade_from_version"
 }
