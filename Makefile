@@ -34,4 +34,7 @@ clean:
 	rm -f $(MICROOVN_SNAP_PATH);						\
 	snapcraft clean
 
-.PHONY: $(ALL_TESTS) clean check-system check-lint check-tabs
+distclean: clean
+	git clean -fdX
+
+.PHONY: $(ALL_TESTS) clean check-system check-lint check-tabs distclean
