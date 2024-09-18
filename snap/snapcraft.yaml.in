@@ -279,28 +279,25 @@ parts:
       ovs_pkg_version=$(
           dpkg-deb -f \
           $CRAFT_PART_SRC/../../ovs/stage_packages/openvswitch-switch*.deb Version)
-      git_version=$(
-          git -C $CRAFT_PROJECT_DIR describe \
-              --always \
-              --dirty \
-              --abbrev=10)
-      
+
       # Set Snap's version string
       # Note (mkalcok): Short version string does not include potential package snapshot hash.
       #                 This is required because Snap's version string is limited to 32 chars
       #                 and inclusion of snapshot hash violates this boundary.
       ovn_pkg_short_version=$(echo $ovn_pkg_version | sed -rne 's/([0-9.]+)[-+~].*$$/\1/p')
-      craftctl set version=${ovn_pkg_short_version}+snap${git_version}
+      craftctl set version=${ovn_pkg_short_version}+snap@PACKAGE_VERSION@
       
       version_package=github.com/canonical/microovn/microovn/version
-      go_ldflags="-X '${version_package}.MicroOvnVersion=${git_version}' \
+      go_ldflags="-X '${version_package}.MicroOvnVersion=@PACKAGE_VERSION@' \
                   -X '${version_package}.OvnVersion=${ovn_pkg_version}' \
                   -X '${version_package}.OvsVersion=${ovs_pkg_version}'"
       # Build the binaries
       go build -o "${CRAFT_PART_INSTALL}/bin/microovn" \
+               @GO_COVERAGE_ARG@ \
                -ldflags "$go_ldflags" \
                ./cmd/microovn
       go build -o "${CRAFT_PART_INSTALL}/bin/microovnd" \
+               @GO_COVERAGE_ARG@ \
                -ldflags "$go_ldflags" \
                -tags=libsqlite3 \
                ./cmd/microovnd
@@ -343,6 +340,7 @@ parts:
       usr/lib/: lib/
     prime:
       - commands/*
+      - -commands/*.in
       - ./*.env
       - bin/jq
       - lib/*/libjq.so*
