@@ -8,6 +8,8 @@ MICROOVN_SOURCES := $(shell find microovn/ -type f)
 COMMAND_WRAPPERS := $(shell find snapcraft/ -type f)
 SNAP_SOURCES := $(shell find snap/ -type f)
 
+export MICROOVN_COVERAGE_DST := $(CURDIR)/.coverage
+
 check: check-lint check-system
 
 check-tabs:
