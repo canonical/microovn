@@ -137,3 +137,15 @@ function lxc_file_push() {
 
     lxc file push -q "$file_path" "$container_path"
 }
+
+# lxc_pull_dir CONTAINER_PATH DST
+#
+# Copy directory and all its contents from CONTAINER_PATH to DST.
+# CONTAINER_PATH is a source path in form "<container_name>/path/to/file"
+# and DST is local destination path to which files will be copied.
+function lxc_pull_dir() {
+    local container_path=$1; shift
+    local dst=$1; shift
+
+    lxc file pull -q --recursive "$container_path" "$dst"
+}
