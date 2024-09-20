@@ -267,3 +267,42 @@ function ping_reap() {
          while kill -0 \$pid; do sleep 0.1;done && \
          cat /tmp/${base_filename}.stdout"
 }
+
+# collect_coverage CONTAINERS
+#
+# NOTE: Coverage data collection is skipped unless environment
+#       variable MICROOVN_COVERAGE_ENABLED  is set to "yes".
+#
+# WARNING: This function restarts microovn.daemon service on each container in
+#          CONTAINERS, to force 'microovnd' process to write out its coverage data.
+#
+# For each container in CONTAINERS, pull runtime coverage data gathered from MicroOVN
+# daemon and client binaries. Coverage data is by default collected
+# in ".coverage/<test_name>/<container_name>". This location can be controlled by
+# environment variable MICROOVN_COVERAGE_DST
+function collect_coverage() {
+    local containers=$*; shift
+
+    if [ "$MICROOVN_COVERAGE_ENABLED" != "yes" ]; then
+        echo "# Skipping coverage data collection" >&3
+        return 0
+    fi
+
+    local test_name=""
+    test_name=$(basename "$BATS_TEST_FILENAME" | cut -f1 -d\.)
+
+    local dst_prefix="$MICROOVN_COVERAGE_DST"
+    if [ -z "$dst_prefix" ]; then
+        dst_prefix=".coverage"
+    fi
+
+    local container
+    for container in $containers; do
+        echo "# ($container) Collecting coverage information" >&3
+
+        lxc_exec "$container" "snap restart microovn.daemon"
+
+        local output_dir="$dst_prefix/$test_name/$container"
+        lxc_pull_dir "$container/var/snap/microovn/common/data/coverage" "$output_dir"
+    done
+}

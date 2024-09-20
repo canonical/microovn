@@ -28,16 +28,22 @@ AC_ARG_ENABLE([coverage],
     )
 )
 if test "$enable_coverage" = "yes"; then
+    AC_SUBST([GO_COVERAGE_ENABLED], [yes])
     AC_SUBST([GO_COVERAGE_ARG], [-cover])
+
     AC_SUBST_FILE([GO_COVERAGE_OUTPUT])
     GO_COVERAGE_OUTPUT=$srcdir/snapcraft/coverage_include
 else
+    AC_SUBST([GO_COVERAGE_ENABLED], [no])
     AC_SUBST([GO_COVERAGE_ARG], [""])
+
     AC_SUBST_FILE([GO_COVERAGE_OUTPUT])
     GO_COVERAGE_OUTPUT=/dev/null
 fi
 
-AC_CONFIG_FILES([snap/snapcraft.yaml])
+AC_CONFIG_FILES([
+    snap/snapcraft.yaml
+    Makefile])
 AC_CONFIG_FILES([snapcraft/commands/microovn], [chmod +x snapcraft/commands/microovn])
 AC_CONFIG_FILES([snapcraft/commands/daemon.start], [chmod +x snapcraft/commands/daemon.start])
 
