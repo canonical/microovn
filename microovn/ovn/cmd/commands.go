@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 
@@ -153,8 +154,9 @@ func ovnDBCtl(ctx context.Context, s state.State, dbType OvsdbType, timeout int,
 	return "", err
 }
 
-// NBCtl is a convenience function for execution of ovn-nbctl command which is
-// re-tried up to 3 times. If command arguments do not specify timeout (-t or
+// NBCtl is a convenience function for execution of ovn-nbctl command against
+// OVN NB local unix socket. The command is re-tried up to 3 times.
+// If command arguments do not specify timeout (-t or
 // --timeout), a default of 30s will be added automatically. Parameter "args"
 // is a list of arguments that are passed directly to the shell command.
 // Before the command is executed, this function ensures that underlying
@@ -165,8 +167,33 @@ func NBCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 	return ovnDBCtl(ctx, s, OvsdbTypeNBLocal, DefaultDBConnectWait, args...)
 }
 
-// SBCtl is a convenience function for execution of ovn-sbctl command which is
-// re-tried up to 3 times. If command arguments do not specify timeout (-t or
+// NBCtlCluster is a convenience function for execution of ovn-nbctl command
+// against OVN NB cluster endpoints. The command is re-tried up to 3 times.
+// If command arguments do not specify timeout (-t or
+// --timeout), a default of 30s will be added automatically. Parameter "args"
+// is a list of arguments that are passed directly to the shell command.
+//
+// Warning: This function will fail if local MicroOVN node is not bootstrapped.
+func NBCtlCluster(ctx context.Context, args ...string) (string, error) {
+	if !slices.Contains(args, "--timeout") && !slices.Contains(args, "-t") {
+		args = append([]string{"--timeout", "30"}, args...)
+	}
+
+	var err error
+	// try command 3 times if it is failing
+	for attempts := 0; attempts < 3; attempts++ {
+		var output string
+		output, err = shared.RunCommandContext(ctx, filepath.Join(paths.Wrappers(), "ovn-nbctl"), args...)
+		if err == nil {
+			return output, nil
+		}
+	}
+	return "", err
+}
+
+// SBCtl is a convenience function for execution of ovn-sbctl command against
+// OVN NB local unix socket. The command is re-tried up to 3 times.
+// If command arguments do not specify timeout (-t or
 // --timeout), a default of 30s will be added automatically. Parameter "args" is
 // a list of arguments that are passed directly to the shell command. Before the
 // command is executed, this function ensures that underlying database is in

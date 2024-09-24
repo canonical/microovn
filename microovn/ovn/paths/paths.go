@@ -149,6 +149,9 @@ func OvsdbSwitchSchema() string {
 	return filepath.Join(snapRoot, "share", "openvswitch", "vswitch.ovsschema")
 }
 
+// Wrappers returns path to a directory with snap's command wrappers
+func Wrappers() string { return filepath.Join(snapRoot, "commands") }
+
 // FrrConfigDir returns path to a directory that FRR uses to store configuration
 func FrrConfigDir() string {
 	return filepath.Join(dataDir, "frr", "etc")
