@@ -128,6 +128,8 @@ type ExtraBgpConfig struct {
 	ExternalConnection string `json:"ext_iface,omitempty" yaml:"ext_iface,omitempty"`
 	// Vrf is a VRF table ID into which the OVN will leak its routes
 	Vrf string `json:"vrf,omitempty" yaml:"vrf,omitempty"`
+	// Asn is an Autonomous System Number that will be used to set up BGP daemon
+	Asn string `json:"asn,omitempty" yaml:"asn,omitempty"`
 }
 
 // BgpExternalConnection represents a parsed structure from ExtraBgpConfig.ExternalConnection string.
@@ -152,6 +154,10 @@ func (bgpConf *ExtraBgpConfig) FromMap(rawConfig map[string]string) error {
 			bgpConf.Vrf = value
 			continue
 		}
+		if key == "asn" {
+			bgpConf.Asn = value
+			continue
+		}
 		return fmt.Errorf("unknown BGP config option: %s", key)
 	}
 	return bgpConf.Validate()
@@ -167,6 +173,11 @@ func (bgpConf *ExtraBgpConfig) Validate() error {
 	_, err := strconv.Atoi(bgpConf.Vrf)
 	if err != nil {
 		return fmt.Errorf("option 'vrf' is not a number: %s", bgpConf.Vrf)
+	}
+
+	_, err = strconv.Atoi(bgpConf.Asn)
+	if err != nil && bgpConf.Asn != "" {
+		return fmt.Errorf("option 'asn' is not a number: %s", bgpConf.Asn)
 	}
 
 	extConnections, err := bgpConf.ParseExternalConnection()

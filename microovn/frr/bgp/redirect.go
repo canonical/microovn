@@ -6,14 +6,18 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/ovn/paths"
 )
 
 // BgpManagedTag - a key used in "external_ids" table of various OVN/OVS
@@ -126,6 +130,23 @@ func vsctlGetIfExists(ctx context.Context, s state.State, table string, record s
 		return "", err
 	}
 	return strings.Trim(strings.TrimSpace(result), "\""), nil
+}
+
+// getVrfName Based on the supplied VRF table ID, return name
+// of the VRF that would be created by OVN.
+//
+// When OVN is requested to maintain VRF, it uses established
+// pattern to generate VRF name from the VRF table ID. Following
+// this patter is currently our only way to relate table IDs to the
+// OVN's VRF names.
+func getVrfName(tableID string) string {
+	return fmt.Sprintf("ovnvrf%s", tableID)
+}
+
+// getBgpRedirectIfaceName returns name of the system interface to which all BGP
+// traffic from externalIface network is redirected.
+func getBgpRedirectIfaceName(externalIface string) string {
+	return fmt.Sprintf("%s-bgp", externalIface)
 }
 
 // parseOvnFind parses STDOUT string of OVN/OVS "find" commands with "--bare"
@@ -279,12 +300,12 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 	if err != nil {
 		return fmt.Errorf("failed to lookup integration bridge: %v", err)
 	}
-	vrfName := fmt.Sprintf("ovnvrf%s", tableID)
+	vrfName := getVrfName(tableID)
 
 	for _, extConnection := range extConnections {
 		lsName := getLsName(s, extConnection.Iface)
 		lrpName := getLrpName(s, extConnection.Iface)
-		bgpIface := fmt.Sprintf("%s-bgp", extConnection.Iface)
+		bgpIface := getBgpRedirectIfaceName(extConnection.Iface)
 		bgpLsp := fmt.Sprintf("lsp-%s-%s-bgp", s.Name(), extConnection.Iface)
 		mac := generateLrpMac(lrpName)
 		bgpIfaceIP4 := getExternalConnectionCidr(extConnection)
@@ -325,6 +346,29 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 		}
 	}
 	return nil
+}
+
+// startBgpUnnumbered configures BGP process for each external connection. A BGP daemon is started on each interface
+// in extConnections, using provided ASN and configured to use "BGP Unnumbered" (auto-discovery mechanism).
+// Resulting running configuration is then saved to the startup config.
+func startBgpUnnumbered(_ context.Context, extConnections []types.BgpExternalConnection, tableID string, asn string) error {
+	vrfName := getVrfName(tableID)
+
+	var confBuilder strings.Builder
+	fmt.Fprintln(&confBuilder, "configure")
+	fmt.Fprintf(&confBuilder, "router bgp %s vrf %s\n", asn, vrfName)
+	for _, connection := range extConnections {
+		fmt.Fprintf(&confBuilder,
+			"neighbor %s interface remote-as external\n",
+			getBgpRedirectIfaceName(connection.Iface),
+		)
+	}
+	fmt.Fprintln(&confBuilder, "do copy running-config startup-config")
+
+	cmd := exec.Command(filepath.Join(paths.Wrappers(), "vtysh"))
+	cmd.Stdin = strings.NewReader(confBuilder.String())
+	err := cmd.Run()
+	return err
 }
 
 func moveInterfaceToVrf(ctx context.Context, iface string, ipv4Cidr string, vrf string) error {
@@ -457,6 +501,20 @@ func teardownAll(ctx context.Context, s state.State) error {
 	_, err = ovnCmd.VSCtl(ctx, s, "remove", "Open_vSwitch", ".", "external-ids", BgpBridgeMapping)
 	if err != nil {
 		allErrors = errors.Join(allErrors, fmt.Errorf("failed to remove %s: %v", BgpBridgeMapping, err))
+	}
+
+	// Backup and reset FRR's config
+	backupConfig := fmt.Sprintf("%s_%d", paths.FrrStartupConfig(), time.Now().Unix())
+	_, err = shared.RunCommandContext(ctx, "cp", paths.FrrStartupConfig(), backupConfig)
+	if err != nil {
+		allErrors = errors.Join(allErrors, fmt.Errorf(
+			"failed to backup FRR startup config. Will not proceed with its removal: %v", err),
+		)
+	} else {
+		_, err = shared.RunCommandContext(ctx, "cp", paths.FrrDefaultConfig(), paths.FrrConfigDir())
+		if err != nil {
+			allErrors = errors.Join(allErrors, fmt.Errorf("failed to reset FRR startup config: %v", err))
+		}
 	}
 
 	return allErrors

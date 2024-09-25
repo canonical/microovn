@@ -64,7 +64,16 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 		return err
 	}
 
-	return redirectBgp(ctx, s, extConnections, extraConfig.Vrf)
+	err = redirectBgp(ctx, s, extConnections, extraConfig.Vrf)
+	if err != nil {
+		return err
+	}
+
+	if extraConfig.Asn != "" {
+		err = startBgpUnnumbered(ctx, extConnections, extraConfig.Vrf, extraConfig.Asn)
+	}
+
+	return err
 }
 
 // DisableService stops and disables BGP services managed by MicroOVN.
