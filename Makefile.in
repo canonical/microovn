@@ -30,8 +30,12 @@ $(ALL_TESTS): $(MICROOVN_SNAP)
 check-system: $(ALL_TESTS)
 
 $(MICROOVN_SNAP): $(MICROOVN_SOURCES) $(SNAP_SOURCES) $(COMMAND_WRAPPERS)
-	echo "Building the snap";						\
-	snapcraft pack -v -o $(MICROOVN_SNAP)
+	@if [ "$(SKIP_SNAP_REBUILD)" = "yes" ]; then	\
+		echo "Skipping snap build";					\
+	else											\
+		echo "Building the snap";					\
+		snapcraft pack -v -o $(MICROOVN_SNAP);		\
+	fi
 
 clean:
 	rm -f $(MICROOVN_SNAP_PATH);						\
