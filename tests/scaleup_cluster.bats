@@ -14,7 +14,6 @@ setup() {
 }
 
 teardown() {
-    collect_coverage $TEST_CONTAINERS
     delete_containers $TEST_CONTAINERS
 }
 

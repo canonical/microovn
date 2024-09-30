@@ -128,18 +128,6 @@ is supported through the use of the ``LXC_REMOTE`` `LXD environment`_ variable.
    To avoid interleaving output from these parallel test suites, you can
    specify the ``-O`` argument as well.
 
-Test coverage information
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When MicroOVN build is configured with the code coverage support via
-``./configure --enable-coverage`` (see more information about bootstrapping
-and configuring build environment in :doc:`Build MicroOVN <building>` page),
-all functional tests will automatically collect coverage information, when
-executed via ``make``. You can find collected data in the ``.coverage/``
-directory, where it's organised in a ``<test_name>/<container_name>/coverage``
-structure. For more information about the coverage data format and what you can
-do with it, see `Go Coverage Documentation`_.
-
 Clean up
 ~~~~~~~~
 
@@ -167,4 +155,3 @@ Any leftover containers will be named according to:
 .. _LXD remotes: https://documentation.ubuntu.com/lxd/en/latest/remotes/
 .. _LXD environment: https://documentation.ubuntu.com/lxd/en/latest/environment/
 .. _golangci-lint: https://golangci-lint.run/
-.. _Go Coverage Documentation: https://go.dev/doc/build-cover#working
