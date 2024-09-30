@@ -1,6 +1,4 @@
 #!/bin/sh
-@GO_COVERAGE_OUTPUT@
-
 export DQLITE_SOCKET="@snap.${SNAP_INSTANCE_NAME}.dqlite"
 export OVS_RUNDIR="${SNAP_COMMON}/run/switch/"
 

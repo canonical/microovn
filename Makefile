@@ -8,9 +8,6 @@ MICROOVN_SOURCES := $(shell find microovn/ -type f)
 COMMAND_WRAPPERS := $(shell find snapcraft/ -type f)
 SNAP_SOURCES := $(shell find snap/ -type f)
 
-export MICROOVN_COVERAGE_DST := $(CURDIR)/.coverage
-export MICROOVN_COVERAGE_ENABLED := @GO_COVERAGE_ENABLED@
-
 check: check-lint check-system
 
 check-tabs:
@@ -30,18 +27,11 @@ $(ALL_TESTS): $(MICROOVN_SNAP)
 check-system: $(ALL_TESTS)
 
 $(MICROOVN_SNAP): $(MICROOVN_SOURCES) $(SNAP_SOURCES) $(COMMAND_WRAPPERS)
-	@if [ "$(SKIP_SNAP_REBUILD)" = "yes" ]; then	\
-		echo "Skipping snap build";					\
-	else											\
-		echo "Building the snap";					\
-		snapcraft pack -v -o $(MICROOVN_SNAP);		\
-	fi
+	echo "Building the snap";						\
+	snapcraft pack -v -o $(MICROOVN_SNAP)
 
 clean:
 	rm -f $(MICROOVN_SNAP_PATH);						\
 	snapcraft clean
 
-distclean: clean
-	git clean -fdX
-
-.PHONY: $(ALL_TESTS) clean check-system check-lint check-tabs distclean
+.PHONY: $(ALL_TESTS) clean check-system check-lint check-tabs

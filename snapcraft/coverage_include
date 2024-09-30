@@ -1,3 +1,0 @@
-GOCOVERDIR="$SNAP_COMMON/data/coverage"
-export GOCOVERDIR
-mkdir -p "$GOCOVERDIR"

@@ -63,6 +63,5 @@ setup_file() {
 }
 
 teardown_file() {
-    collect_coverage $TEST_CONTAINERS
     delete_containers $TEST_CONTAINERS
 }
