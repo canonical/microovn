@@ -9,16 +9,13 @@ want to test your changes locally.
 Build requirements
 ------------------
 
-MicroOVN is distributed as a snap and most of the build requirements are handled
-by ``snapcraft`` automatically. However your build host will need:
+MicroOVN is distributed as a snap and the only requirements for building it
+are ``Make`` and ``snapcraft``. You can install them with:
 
-* make
-* autoconf
-* snapcraft
-* lxd
+.. code-block:: none
 
-Bootstrap the build environment
--------------------------------
+   sudo apt install make
+   sudo snap install snapcraft --classic
 
 Snapcraft requires ``LXD`` to build snaps. So if your system does not have LXD
 installed and initiated, you can check out either `LXD getting started
@@ -26,18 +23,8 @@ guides`_ or go with following default setup:
 
 .. code-block:: none
 
+   sudo snap install lxd
    lxd init --auto
-
-Before you can build MicroOVN, you will need to configure the build with:
-
-.. code-block:: none
-
-   autoconf
-   ./configure
-
-You can check available ``Optional Features`` in the output of
-``./configure --help``, and reconfigure the build environment any time by
-running ``./configure`` with the desired feature flags.
 
 Build MicroOVN
 --------------
