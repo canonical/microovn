@@ -1,0 +1,4 @@
+# Commiting changes of this file to the repository
+# will adjust MicroOVN build defaults for everyone. It
+# should generally not be done.
+export MICROOVN_COVERAGE="no"
