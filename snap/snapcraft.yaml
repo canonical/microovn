@@ -256,6 +256,17 @@ parts:
       go get -d -v ./...
     override-build: |
       set -ex
+      
+      # Load dynamic configuration options for MicroOVN snap build
+      source ./build-aux/environment
+      
+      # Conditionally build MicroOVN with coverage instrumentation
+      EXTRA_BUILD_ARGS=""
+      echo "" > $CRAFT_STAGE/coverage.env
+      if [ "$MICROOVN_COVERAGE" = "yes" ]; then
+        EXTRA_BUILD_ARGS="-cover"
+        cp "$CRAFT_PROJECT_DIR/snapcraft/coverage.env.ignore" "$CRAFT_STAGE/coverage.env"
+      fi
 
       # Setup build environment
       export CGO_CFLAGS="-I${CRAFT_STAGE}/include/ -I${CRAFT_STAGE}/usr/local/include/"
@@ -293,20 +304,23 @@ parts:
       craftctl set version=${ovn_pkg_short_version}+snap${git_version}
       
       version_package=github.com/canonical/microovn/microovn/version
-      go_ldflags="-X '${version_package}.MicroOvnVersion=${git_version}' \
+      go_ldflags="-X '${version_package}.MicroOvnVersion=${git_version}${EXTRA_BUILD_ARGS}' \
                   -X '${version_package}.OvnVersion=${ovn_pkg_version}' \
                   -X '${version_package}.OvsVersion=${ovs_pkg_version}'"
       # Build the binaries
       go build -o "${CRAFT_PART_INSTALL}/bin/microovn" \
                -ldflags "$go_ldflags" \
+               $EXTRA_BUILD_ARGS \
                ./cmd/microovn
       go build -o "${CRAFT_PART_INSTALL}/bin/microovnd" \
                -ldflags "$go_ldflags" \
                -tags=libsqlite3 \
+               $EXTRA_BUILD_ARGS \
                ./cmd/microovnd
     prime:
       - bin/microovn
       - bin/microovnd
+      - coverage.env
 
   docs:
     plugin: nil
