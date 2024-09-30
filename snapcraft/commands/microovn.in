@@ -1,2 +1,4 @@
 #!/bin/sh
+@GO_COVERAGE_OUTPUT@
+
 exec microovn --state-dir "${SNAP_COMMON}/state" "$@"
