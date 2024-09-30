@@ -17,8 +17,6 @@ jobs:
 
       - name: Lint
         run: |
-          autoconf
-          ./configure --disable-dep-check
           make check-lint
 
   build:
@@ -61,10 +59,7 @@ jobs:
               --classic
 
       - name: Build snap
-        run: |
-          autoconf
-          ./configure --enable-coverage
-          make $MICROOVN_SNAP
+        run: make $MICROOVN_SNAP
 
       - name: Upload artifacts
         if: always()
@@ -136,66 +131,5 @@ jobs:
           sudo lxd init --auto
           snap list
 
-      - name: Configure repository
-        run: |
-          autoconf
-          ./configure --enable-coverage --disable-dep-check
-
       - name: Run system tests
-        run: SKIP_SNAP_REBUILD=yes make tests/${{ matrix.test-file }}
-
-      - name: Upload test coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.test-file }}_coverage
-          path: ${{ github.workspace }}/.coverage
-          include-hidden-files: true
-          retention-days: 1
-
-  generate-coverage:
-    name: Generate coverage profile
-    needs:
-      - metadata
-      - system-tests
-    # 'ubuntu-latest' currently resolves to '22.04' [0] and since we require "Go >=1.20"
-    # for coverage tools, we need to use explicit 'ubuntu-24.04' image name.
-    # [0] https://github.com/actions/runner-images/issues/10636
-    runs-on: ubuntu-24.04
-    env:
-      COVERAGE_DIR: ${{ github.workspace }}/.coverage
-      COVERAGE_MERGED: ${{ github.workspace }}/.coverage/_merged
-      COVERAGE_MERGED_PROFILE: ${{ github.workspace }}/.coverage/_merged/profile.out
-    steps:
-      - name: Install dependencies
-        run: |
-          sudo apt install -yqq golang
-          go install github.com/boumenot/gocover-cobertura@v1.2.0
-
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download test coverage data
-        uses: actions/download-artifact@v4
-        with:
-          path: ${{ env.COVERAGE_DIR }}
-          pattern: "*_coverage"
-
-      - name: Merge test coverage data
-        run: |
-          mkdir -p "$COVERAGE_MERGED"
-          coverage_inputs=$(find "$COVERAGE_DIR" -type d -name coverage | tr '\n' ',' | sed 's/,$//g')
-          go tool covdata merge -i="$coverage_inputs" -o="$COVERAGE_MERGED"
-          go tool covdata textfmt -i="$COVERAGE_MERGED" -o="$COVERAGE_MERGED_PROFILE"
-
-      - name: Generate cobertura.xml
-        run: |
-          cd microovn/
-          $HOME/go/bin/gocover-cobertura < "$COVERAGE_MERGED_PROFILE" > "$COVERAGE_DIR/cobertura.xml"
-
-      - name: Upload cobertura.xml
-        uses: actions/upload-artifact@v4
-        with:
-          name: cobertura.xml
-          path: ${{ env.COVERAGE_DIR }}/cobertura.xml
-          include-hidden-files: true
-
+        run: .bats/bats-core/bin/bats tests/${{ matrix.test-file }}

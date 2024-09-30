@@ -23,7 +23,6 @@ VMs
 Virtualization
 YY
 appctl
-autoconf
 backport
 bugfixes
 codebase
@@ -38,7 +37,6 @@ installable
 lifecycle
 linter
 linters
-lxd
 manpage
 northd
 ovs
@@ -48,7 +46,6 @@ reST
 reStructuredText
 readthedocs
 schemas
-snapcraft
 submodules
 systemd
 unencrypted
