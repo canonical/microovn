@@ -38,6 +38,20 @@ To build MicroOVN, go into the repository's root directory and run:
 This will produce the ``microovn.snap`` file that can be then used to install
 MicroOVN on your system.
 
+Adjust build parameters
+-----------------------
+
+``snapcraft.yaml`` is by nature a very static build recipe that does not allow
+build-time modification without changing the file itself. To achieve some
+level of control over MicroOVN builds, we are using a
+``microovn/build-aux/environment`` file that is loaded and during the build
+process. Environment variables defined in this file can influence properties
+of the final build. Currently supported variables are:
+
+* ``MICROOVN_COVERAGE`` (default: ``no``) - When set to ``yes``, MicroOVN binaries
+  will be built with coverage instrumentation and output coverage data into
+  ``$SNAP_COMMON/data/coverage``.
+
 Install MicroOVN
 ----------------
 

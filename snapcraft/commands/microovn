@@ -1,2 +1,4 @@
 #!/bin/sh
+
+. "$SNAP/coverage.env" 2>/dev/null || true
 exec microovn --state-dir "${SNAP_COMMON}/state" "$@"
