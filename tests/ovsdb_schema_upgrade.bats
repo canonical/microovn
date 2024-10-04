@@ -1,1 +1,0 @@
-test_helper/bats/ovsdb_schema_upgrade.bats

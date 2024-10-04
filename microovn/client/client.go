@@ -157,11 +157,11 @@ func DisableService(ctx context.Context, c *client.Client, serviceName string) (
 
 // EnableService sends request to disable service with name as as specified in
 // "serviceName" argument.
-func EnableService(ctx context.Context, c *client.Client, serviceName string) (types.WarningSet, types.RegenerateEnvResponse, error) {
+func EnableService(ctx context.Context, c *client.Client, serviceName string, extraConfig *types.ExtraServiceConfig) (types.WarningSet, types.RegenerateEnvResponse, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 	scr := types.ServiceControlResponse{}
-	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("service", serviceName), nil, &scr)
+	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("service", serviceName), extraConfig, &scr)
 	if err != nil {
 		return types.WarningSet{}, types.RegenerateEnvResponse{}, fmt.Errorf("Failed to enable service '%s': '%s'", serviceName, err)
 	}

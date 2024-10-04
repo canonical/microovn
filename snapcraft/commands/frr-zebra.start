@@ -1,0 +1,5 @@
+#!/bin/sh
+# Load the environment
+. "${SNAP}/frr.env"
+
+exec zebra $_FRR_COMMON_ARGS --pid_file "$_FRR_RUNDIR/zebra.pid" "$@"

@@ -67,14 +67,14 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	}
 
 	// Start all the required services, and central if needed
-	err = node.EnableService(ctx, s, types.SrvSwitch)
+	err = node.EnableService(ctx, s, types.SrvSwitch, nil)
 	if err != nil {
 		logger.Infof("failed to enable switch")
 		return err
 	}
 
 	if srvCentral < 3 {
-		err = node.EnableService(ctx, s, types.SrvCentral)
+		err = node.EnableService(ctx, s, types.SrvCentral, nil)
 		if err != nil {
 			logger.Infof("failed to enable central")
 			return err
@@ -86,7 +86,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
 	}
 
-	err = node.EnableService(ctx, s, types.SrvChassis)
+	err = node.EnableService(ctx, s, types.SrvChassis, nil)
 	if err != nil {
 		logger.Infof("failed to enable switch")
 		return err

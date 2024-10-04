@@ -8,3 +8,12 @@ if test -e "${SNAP_COMMON}/data/ovn.env" ; then
   mkdir "${SNAP_COMMON}/data/env" || true
   mv "${SNAP_COMMON}/data/ovn.env" "${SNAP_COMMON}/data/env/ovn.env"
 fi
+
+# Create directories required by FRR
+frr_etc="$SNAP_COMMON/data/frr/etc/"
+mkdir -p $frr_etc
+mkdir -p "$SNAP_COMMON/data/frr/tmp"
+mkdir -p "$SNAP_COMMON/run/frr"
+
+# Seed default config files for FRR
+cp -r --update=none "$SNAP"/etc/frr/* "$frr_etc"

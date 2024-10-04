@@ -5,6 +5,9 @@ import (
 	"fmt"
 
 	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/microovn/microovn/api/types"
+	"github.com/canonical/microovn/microovn/frr/bgp"
+	"github.com/zitadel/logging"
 
 	"github.com/canonical/microcluster/v2/state"
 
@@ -84,5 +87,16 @@ func Start(ctx context.Context, s state.State) error {
 		}()
 	}
 
+	bgpActive, err := node.HasServiceActive(ctx, s, types.SrvBgp)
+	if err != nil {
+		return fmt.Errorf("failed to query local services: %w", err)
+	}
+
+	if bgpActive {
+		err = bgp.EnsureInterfacesInVrf(ctx, s)
+		if err != nil {
+			logging.Errorf("failed to configure VRF master or IP address for BGP redirect interface: %v", err)
+		}
+	}
 	return nil
 }

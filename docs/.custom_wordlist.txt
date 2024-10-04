@@ -1,6 +1,10 @@
+BFD
+BGP
 CLI
 ESM
+FRR
 Geneve
+IPv
 LTS
 LXD
 Livepatch
@@ -19,6 +23,8 @@ RTD
 Snapcraft
 TLS
 UI
+VRF
+VRFs
 VMs
 Virtualization
 YY
@@ -26,6 +32,7 @@ appctl
 backport
 bugfixes
 codebase
+config
 datapaths
 devel
 downscaling

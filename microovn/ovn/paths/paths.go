@@ -149,6 +149,24 @@ func OvsdbSwitchSchema() string {
 	return filepath.Join(snapRoot, "share", "openvswitch", "vswitch.ovsschema")
 }
 
+// Wrappers returns path to a directory with snap's command wrappers
+func Wrappers() string { return filepath.Join(snapRoot, "commands") }
+
+// FrrConfigDir returns path to a directory that FRR uses to store configuration
+func FrrConfigDir() string {
+	return filepath.Join(dataDir, "frr", "etc")
+}
+
+// FrrDefaultConfig returns path to FRR's default config file
+func FrrDefaultConfig() string {
+	return filepath.Join(snapRoot, "etc", "frr", "frr.conf")
+}
+
+// FrrStartupConfig returns path to current FRR's startup config
+func FrrStartupConfig() string {
+	return filepath.Join(FrrConfigDir(), "frr.conf")
+}
+
 // getServiceCertFiles returns path to certificate and key of give service in format
 // "<base_dir>/<service_name>-{cert,privkey}.pem"
 func getServiceCertFiles(service string) (string, string) {
@@ -170,6 +188,7 @@ func RequiredDirs() []string {
 		LogsDir(),
 		PkiDir(),
 		EnvDir(),
+		FrrConfigDir(),
 	}
 }
 
@@ -179,5 +198,6 @@ func BackupDirs() []string {
 	return []string{
 		dataDir,
 		LogsDir(),
+		FrrConfigDir(),
 	}
 }
