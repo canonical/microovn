@@ -1,4 +1,3 @@
 #!/bin/sh
-export OVS_RUNDIR="${SNAP_COMMON}/run/switch/"
-
+. "${SNAP}/ovn.env"
 exec "$(basename ${0})" "${@}"

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-export OVS_RUNDIR="${SNAP_COMMON}/run/switch"
+. "${SNAP}/ovn.env"
 
 # Stop vswitchd
 "${SNAP}/commands/ovs-appctl" exit --cleanup
