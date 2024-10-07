@@ -12,9 +12,9 @@ OVN_ARGS="--db-nb-addr="${OVN_LOCAL_IP}" \
 --db-nb-cluster-local-proto=ssl \
 --db-nb-cluster-remote-proto=ssl \
 --db-nb-election-timer="${ELECTION_TIMER}" \
---ovn-nb-db-ssl-key="${OVN_PKIDIR}"/ovnnb-privkey.pem \
---ovn-nb-db-ssl-cert="${OVN_PKIDIR}"/ovnnb-cert.pem \
---ovn-nb-db-ssl-ca-cert="${OVN_PKIDIR}"/cacert.pem \
+--ovn-nb-db-ssl-key="${OVN_PKI_DIR}"/ovnnb-privkey.pem \
+--ovn-nb-db-ssl-cert="${OVN_PKI_DIR}"/ovnnb-cert.pem \
+--ovn-nb-db-ssl-ca-cert="${OVN_PKI_DIR}"/cacert.pem \
 --db-cluster-schema-upgrade=no"
 
 if [ "${OVN_INITIAL_NB}" != "${OVN_LOCAL_IP}" ]; then
