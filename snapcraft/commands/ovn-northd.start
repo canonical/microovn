@@ -8,7 +8,7 @@ OVN_ARGS="--ovn-northd-nb-db="${OVN_NB_CONNECT}" \
 --ovn-northd-sb-db="${OVN_SB_CONNECT}" \
 --ovn-northd-ssl-key="${OVN_PKI_DIR}"/ovn-northd-privkey.pem \
 --ovn-northd-ssl-cert="${OVN_PKI_DIR}"/ovn-northd-cert.pem \
---ovn-northd-ssl-ca-cert="${OVN_PKI_DIR}"/cacert.pem"
+--ovn-northd-ssl-ca-cert="${CA_CERT}""
 
 # Start Northd daemon
 "${SNAP}/share/ovn/scripts/ovn-ctl" start_northd ${OVN_ARGS} \

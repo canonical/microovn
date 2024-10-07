@@ -20,7 +20,7 @@ OVN_ARGS="--db-nb-addr="${OVN_LOCAL_IP}" \
 --db-sb-cluster-remote-proto=ssl \
 --ovn-controller-ssl-key="${OVN_PKI_DIR}"/ovn-controller-privkey.pem \
 --ovn-controller-ssl-cert="${OVN_PKI_DIR}"/ovn-controller-cert.pem \
---ovn-controller-ssl-ca-cert="${OVN_PKI_DIR}"/cacert.pem"
+--ovn-controller-ssl-ca-cert="${CA_CERT}""
 
 
 if [ "${OVN_INITIAL_NB}" != "${OVN_LOCAL_IP}" ]; then
