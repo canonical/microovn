@@ -1,8 +1,9 @@
 #!/bin/sh
 set -eu
 
+. "${SNAP}/ovn.env"
+
 # Setup directories
-export OVS_RUNDIR="${SNAP_COMMON}/run/switch"
 export OVS_LOGDIR="${SNAP_COMMON}/logs"
 export OVS_SYSCONFDIR="${SNAP_COMMON}/data/switch"
 export OVS_DBDIR="${SNAP_COMMON}/data/switch/db"

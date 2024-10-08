@@ -1,17 +1,14 @@
 #!/bin/sh
 set -eux
 
-# Load the environment
-. "${SNAP_COMMON}/data/env/ovn.env"
+# Load runtime OVN environment variables
+. "${SNAP}/ovn.env"
 
 # Setup directories
-export OVS_RUNDIR="${SNAP_COMMON}/run/switch/"
 export OVN_DBDIR="${SNAP_COMMON}/data/central/db"
 export OVN_LOGDIR="${SNAP_COMMON}/logs"
-export OVN_RUNDIR="${SNAP_COMMON}/run/ovn"
 export OVN_PKGDATADIR="${SNAP}/share/ovn"
 export OVN_SYSCONFDIR="${SNAP}/etc"
-export OVN_PKIDIR="${SNAP_COMMON}/data/pki"
 
 # Prepare the arguments
 OVN_ARGS="--db-nb-addr="${OVN_LOCAL_IP}" \
@@ -21,9 +18,9 @@ OVN_ARGS="--db-nb-addr="${OVN_LOCAL_IP}" \
 --ovn-northd-nb-db="${OVN_NB_CONNECT}" \
 --ovn-northd-sb-db="${OVN_SB_CONNECT}" \
 --db-sb-cluster-remote-proto=ssl \
---ovn-controller-ssl-key="${OVN_PKIDIR}"/ovn-controller-privkey.pem \
---ovn-controller-ssl-cert="${OVN_PKIDIR}"/ovn-controller-cert.pem \
---ovn-controller-ssl-ca-cert="${OVN_PKIDIR}"/cacert.pem"
+--ovn-controller-ssl-key="${OVN_PKI_DIR}"/ovn-controller-privkey.pem \
+--ovn-controller-ssl-cert="${OVN_PKI_DIR}"/ovn-controller-cert.pem \
+--ovn-controller-ssl-ca-cert="${CA_CERT}""
 
 
 if [ "${OVN_INITIAL_NB}" != "${OVN_LOCAL_IP}" ]; then

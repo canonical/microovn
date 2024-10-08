@@ -1,6 +1,8 @@
 #!/bin/sh
+
+. "${SNAP}/ovn.env"
+
 export DQLITE_SOCKET="@snap.${SNAP_INSTANCE_NAME}.dqlite"
-export OVS_RUNDIR="${SNAP_COMMON}/run/switch/"
 
 . "$SNAP/coverage.env" 2>/dev/null || true
 exec microovnd --verbose --state-dir "${SNAP_COMMON}/state"

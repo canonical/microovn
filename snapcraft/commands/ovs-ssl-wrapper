@@ -1,5 +1,4 @@
 #!/bin/sh
-export OVS_RUNDIR="${SNAP_COMMON}/run/switch/"
 . "${SNAP}/ovn.env"
 
 # Optionally load SSL certificates if they are readable
