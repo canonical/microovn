@@ -9,3 +9,4 @@ does not cover upstream OVN/OVS topics.
    :maxdepth: 1
 
    services
+   cryptography
