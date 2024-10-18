@@ -5,11 +5,13 @@ LTS
 LXD
 Livepatch
 Makefile
+MicroCluster
 MicroOVN
 MicroOVN's
 OVN
 OVN's
 OVS
+OpenSSL
 OpenStack
 PKI
 Permalink
