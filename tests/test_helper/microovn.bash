@@ -547,18 +547,41 @@ function wait_ovsdb_cluster_container_join() {
     return $rc
 }
 
+# microovn_status_is_schema_ok CONTAINER NBSB
+#
+# Checks whether schema for NBSB (nb|sb) on CONTAINER is OK from the
+# perspective of the `microovn status` command.
+function microovn_status_is_schema_ok() {
+    local container=$1; shift
+    local nbsb=$1; shift
+
+    local schema_name
+    schema_name=$(_ovn_schema_name "$nbsb")
+
+    local cmd
+    printf -v cmd 'microovn status | grep -q %s:\ OK' "${schema_name//_/\\ }"
+
+    lxc_exec "$container" "$cmd"
+}
+
 MICROOVN_PREFIX_LS=sw
 MICROOVN_PREFIX_LR=lr
 MICROOVN_PREFIX_LRP=lrp-sw
 
 MICROOVN_SUFFIX_LRP_LSP=lrp
 
-function microovn_extract_ctn_n__() {
+# microovn_extract_ctn_n CONTAINER
+#
+# When CONTAINER is a string ending with "-n" this function will extract and
+# validate that n is an integer before printing it.
+#
+# Note that it is up to the caller to ensure that the prerequisite mentioned
+# above is met.
+function microovn_extract_ctn_n() {
     local container=$1; shift
 
     local n=${container##*-}
     assert test "$n" -ge 0
-    assert test "$n" -le 9
 
     echo "$n"
 }
@@ -575,11 +598,14 @@ function microovn_add_gw_router() {
     local container=$1; shift
 
     local n
-    n=$(microovn_extract_ctn_n__ "$container")
+    n=$(microovn_extract_ctn_n "$container")
+    assert test "$n" -le 255
     local ls_name="${MICROOVN_PREFIX_LS}-${container}"
     local lr_name="${MICROOVN_PREFIX_LR}-${container}"
     local lrp_name="${MICROOVN_PREFIX_LRP}-${container}"
     local lrp_lsp_name="${ls_name}-${MICROOVN_SUFFIX_LRP_LSP}"
+    local lrp_addresses
+    printf -v lrp_addresses "00:00:02:00:00:%02x 10.42.%d.1/24" "$n" "$n"
 
     lxc_exec "$container" \
         "microovn.ovn-nbctl \
@@ -590,8 +616,7 @@ function microovn_add_gw_router() {
          -- \
          set Logical_Router $lr_name options:chassis=$container \
          -- \
-         lrp-add $lr_name $lrp_name \
-             00:00:02:00:00:0$n 10.42.$n.1/24 \
+         lrp-add $lr_name $lrp_name $lrp_addresses \
          -- \
          lsp-add $ls_name $lrp_lsp_name \
          -- \
@@ -650,9 +675,12 @@ function microovn_add_vif() {
     local if_name=$1; shift
 
     local n
-    n=$(microovn_extract_ctn_n__ "$container")
-    local lladdr="00:00:02:00:01:0$n"
-    local cidr="10.42.$n.10/24"
+    n=$(microovn_extract_ctn_n "$container")
+    assert test "$n" -le 255
+    local lladdr
+    printf -v lladdr "00:00:02:00:01:%02x" "$n"
+    local cidr
+    printf -v cidr "10.42.%d.10/24" "$n"
     local ls_name="${MICROOVN_PREFIX_LS}-${container}"
     local lsp_name="${container}-${ns_name}-${if_name}"
 
