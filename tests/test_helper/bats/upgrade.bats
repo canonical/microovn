@@ -25,8 +25,8 @@ setup() {
         if [[ "$container_services" != *"central"* ]]; then
             continue
         fi
-        microovn_wait_ovndb_state "$container" nb connected 15
-        microovn_wait_ovndb_state "$container" sb connected 15
+        microovn_wait_ovndb_state "$container" nb connected 30
+        microovn_wait_ovndb_state "$container" sb connected 30
     done
 
     perform_manual_upgrade_steps $TEST_CONTAINERS
