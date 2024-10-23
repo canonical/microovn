@@ -6,6 +6,8 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -14,7 +16,6 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
 	"github.com/canonical/microovn/microovn/api/types"
-	"github.com/canonical/microovn/microovn/frr/vtysh"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )
@@ -350,19 +351,23 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 // startBgpUnnumbered configures BGP process for each external connection. A BGP daemon is started on each interface
 // in extConnections, using provided ASN and configured to use "BGP Unnumbered" (auto-discovery mechanism).
 // Resulting running configuration is then saved to the startup config.
-func startBgpUnnumbered(ctx context.Context, extConnections []types.BgpExternalConnection, tableID string, asn string) error {
+func startBgpUnnumbered(_ context.Context, extConnections []types.BgpExternalConnection, tableID string, asn string) error {
 	vrfName := getVrfName(tableID)
 
-	vtyCommands := vtysh.NewVtyshCommand("configure")
-	vtyCommands.Add(fmt.Sprintf("router bgp %s vrf %s", asn, vrfName))
+	var confBuilder strings.Builder
+	fmt.Fprintln(&confBuilder, "configure")
+	fmt.Fprintf(&confBuilder, "router bgp %s vrf %s\n", asn, vrfName)
 	for _, connection := range extConnections {
-		vtyCommands.Add(fmt.Sprintf(
-			"neighbor %s interface remote-as external", getBgpRedirectIfaceName(connection.Iface),
-		))
+		fmt.Fprintf(&confBuilder,
+			"neighbor %s interface remote-as external\n",
+			getBgpRedirectIfaceName(connection.Iface),
+		)
 	}
-	vtyCommands.Add("do copy running-config startup-config")
+	fmt.Fprintln(&confBuilder, "do copy running-config startup-config")
 
-	_, err := vtyCommands.Execute(ctx)
+	cmd := exec.Command(filepath.Join(paths.Wrappers(), "vtysh"))
+	cmd.Stdin = strings.NewReader(confBuilder.String())
+	err := cmd.Run()
 	return err
 }
 
