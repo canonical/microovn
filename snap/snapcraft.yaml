@@ -334,7 +334,7 @@ parts:
     plugin: autotools
     source: https://github.com/ovn-org/ovn.git
     source-type: git
-    source-tag: branch-24.09
+    source-tag: v24.09.0
     override-build: |
       # build OVS first
       cd ovs
