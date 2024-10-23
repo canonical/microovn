@@ -348,7 +348,8 @@ parts:
       # build OVN
       cd ..
       # apply patches related to the route leaking/learning
-      git am  $CRAFT_PROJECT_DIR/patches/*.patch
+      git am  $CRAFT_PROJECT_DIR/patches/0*.patch
+      patch -p1 < $CRAFT_PROJECT_DIR/patches/dont-delete-other-routes.patch
       ./boot.sh
       ./configure \
         --prefix=/usr \
