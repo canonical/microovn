@@ -87,12 +87,15 @@ bgp_multiple_peers() {
     # Populate list of containers on which BGP service gets enabled
     export USED_BGP_CHASSIS=$TEST_CONTAINERS
 
+    local tor_asn=4200000100
     local container
     for container in $BGP_PEERS; do
+        tor_asn="$((tor_asn + 1))"
         echo "# Starting BGP in $container on interface $BGP_CONTAINER_IFACE" >&3
-        frr_start_bgp_unnumbered "$container" "$BGP_CONTAINER_IFACE" 1
+        frr_start_bgp_unnumbered "$container" "$BGP_CONTAINER_IFACE" "$tor_asn"
     done
 
+    local host_asn=4210000000
     local i=0
     for container in $TEST_CONTAINERS; do
         local BGP_NET_1_IP="10.$i.10.1/24"
@@ -101,25 +104,25 @@ bgp_multiple_peers() {
         local bgp_iface_1="$OVN_CONTAINER_NET_1_IFACE-bgp"
         local bgp_iface_2="$OVN_CONTAINER_NET_2_IFACE-bgp"
         local vrf_device="ovnvrf$vrf"
-        local asn="1"
+        host_asn="$((host_asn + 1))"
 
         local external_connections="$OVN_CONTAINER_NET_1_IFACE:$BGP_NET_1_IP,$OVN_CONTAINER_NET_2_IFACE:$BGP_NET_2_IP"
         if [ "$autoconfig_bgp" == "yes" ]; then
-            echo "# Enabling MicroOVN BGP in $container with automatic daemon configuration (ASN $asn)" >&3
+            echo "# Enabling MicroOVN BGP in $container with automatic daemon configuration (ASN $host_asn)" >&3
             lxc_exec "$container" "microovn enable bgp \
                 --config ext_connection=$external_connections \
                 --config vrf=$vrf \
-                --config asn=$asn"
+                --config asn=$host_asn"
         else
             echo "# Enabling MicroOVN BGP in $container with manual daemon configuration" >&3
             lxc_exec "$container" "microovn enable bgp \
                 --config ext_connection=$external_connections \
                 --config vrf=$vrf"
 
-            echo "# Manually configuring FRR to start BGP daemon on $bgp_iface_1 (ASN $asn)" >&3
-            microovn_start_bgp_unnumbered "$container" "$bgp_iface_1" "$asn" "$vrf_device"
-            echo "# Manually configuring FRR to start BGP daemon on $bgp_iface_2 (ASN $asn)" >&3
-            microovn_start_bgp_unnumbered "$container" "$bgp_iface_2" "$asn" "$vrf_device"
+            echo "# Manually configuring FRR to start BGP daemon on $bgp_iface_1 (ASN $host_asn)" >&3
+            microovn_start_bgp_unnumbered "$container" "$bgp_iface_1" "$host_asn" "$vrf_device"
+            echo "# Manually configuring FRR to start BGP daemon on $bgp_iface_2 (ASN $host_asn)" >&3
+            microovn_start_bgp_unnumbered "$container" "$bgp_iface_2" "$host_asn" "$vrf_device"
         fi
         # TODO: Figure out why is this sleep necessary
         sleep 3
@@ -165,13 +168,13 @@ bgp_single_peer() {
     read -r -a all_bgp_peers <<< "$BGP_PEERS"
     bgp_peer_container="${all_bgp_peers[0]}"
     echo "# Starting BGP in $bgp_peer_container on interface $BGP_CONTAINER_IFACE" >&3
-    frr_start_bgp_unnumbered "$bgp_peer_container" "$BGP_CONTAINER_IFACE" 1
+    frr_start_bgp_unnumbered "$bgp_peer_container" "$BGP_CONTAINER_IFACE" 4200000101
 
     local BGP_NET_IP="10.0.10.1/24"
     local vrf="20"
     local bgp_iface="$OVN_CONTAINER_NET_1_IFACE-bgp"
     local vrf_device="ovnvrf$vrf"
-    local asn="1"
+    local asn="4210000001"
 
     local external_connections="$OVN_CONTAINER_NET_1_IFACE:$BGP_NET_IP"
 

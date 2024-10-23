@@ -357,7 +357,7 @@ func startBgpUnnumbered(ctx context.Context, extConnections []types.BgpExternalC
 	vtyCommands.Add(fmt.Sprintf("router bgp %s vrf %s", asn, vrfName))
 	for _, connection := range extConnections {
 		vtyCommands.Add(fmt.Sprintf(
-			"neighbor %s interface remote-as internal", getBgpRedirectIfaceName(connection.Iface),
+			"neighbor %s interface remote-as external", getBgpRedirectIfaceName(connection.Iface),
 		))
 	}
 	vtyCommands.Add("do copy running-config startup-config")
