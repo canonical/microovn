@@ -29,7 +29,7 @@ function frr_start_bgp_unnumbered() {
     lxc_exec "$container" "vtysh \
         -c \"configure\" \
         -c \"router bgp $asn\" \
-        -c \"neighbor $interface interface remote-as internal\""
+        -c \"neighbor $interface interface remote-as external\""
 }
 
 # microovn_start_bgp_unnumbered CONTAINER INTERFACE ASN VRF
@@ -46,7 +46,7 @@ function microovn_start_bgp_unnumbered() {
     lxc_exec "$container" "microovn.vtysh \
         -c \"configure\" \
         -c \"router bgp $asn vrf $vrf\" \
-        -c \"neighbor $interface interface remote-as internal\""
+        -c \"neighbor $interface interface remote-as external\""
 }
 
 # microovn_bgp_neighbors CONTAINER
