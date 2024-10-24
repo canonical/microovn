@@ -6,6 +6,8 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -14,7 +16,6 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
 	"github.com/canonical/microovn/microovn/api/types"
-	"github.com/canonical/microovn/microovn/frr/vtysh"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )
@@ -350,19 +351,72 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 // startBgpUnnumbered configures BGP process for each external connection. A BGP daemon is started on each interface
 // in extConnections, using provided ASN and configured to use "BGP Unnumbered" (auto-discovery mechanism).
 // Resulting running configuration is then saved to the startup config.
-func startBgpUnnumbered(ctx context.Context, extConnections []types.BgpExternalConnection, tableID string, asn string) error {
+func startBgpUnnumbered(_ context.Context, extConnections []types.BgpExternalConnection, tableID string, asn string) error {
 	vrfName := getVrfName(tableID)
 
-	vtyCommands := vtysh.NewVtyshCommand("configure")
-	vtyCommands.Add(fmt.Sprintf("router bgp %s vrf %s", asn, vrfName))
-	for _, connection := range extConnections {
-		vtyCommands.Add(fmt.Sprintf(
-			"neighbor %s interface remote-as internal", getBgpRedirectIfaceName(connection.Iface),
-		))
-	}
-	vtyCommands.Add("do copy running-config startup-config")
+	var confBuilder strings.Builder
+	fmt.Fprintln(&confBuilder, "configure")
 
-	_, err := vtyCommands.Execute(ctx)
+	// Ensure we don't announce any default route from VRF to our peer.
+	fmt.Fprint(&confBuilder, `
+ip prefix-list no-default seq 5 deny 0.0.0.0/0
+ip prefix-list no-default seq 10 permit 0.0.0.0/0 le 32
+ipv6 prefix-list no-default seq 5 deny ::/0
+ipv6 prefix-list no-default seq 10 permit ::/0 le 128
+`)
+
+	fmt.Fprintf(&confBuilder, "router bgp %s vrf %s\n", asn, vrfName)
+	for _, connection := range extConnections {
+		fmt.Fprintf(&confBuilder,
+			"neighbor %s interface remote-as external\n",
+			getBgpRedirectIfaceName(connection.Iface),
+		)
+
+		// Disable IPv4 address family until we actually have support for
+		// routing IPv4 prefixes over IPv6 nexthops in OVN.
+		fmt.Fprint(&confBuilder,
+			"address-family ipv4 unicast\n",
+		)
+		fmt.Fprintf(&confBuilder,
+			"no neighbor %s activate\n",
+			getBgpRedirectIfaceName(connection.Iface),
+		)
+		fmt.Fprintln(&confBuilder,
+			"exit-address-family",
+		)
+
+		// Enable IPv6 address family.
+		fmt.Fprint(&confBuilder,
+			"address-family ipv6 unicast\n",
+		)
+		fmt.Fprintf(&confBuilder,
+			"neighbor %s soft-reconfiguration inbound\n",
+			getBgpRedirectIfaceName(connection.Iface),
+		)
+		fmt.Fprintf(&confBuilder,
+			"neighbor %s prefix-list no-default out\n",
+			getBgpRedirectIfaceName(connection.Iface),
+		)
+		fmt.Fprintln(&confBuilder,
+			"redistribute kernel",
+		)
+		fmt.Fprintf(&confBuilder,
+			"neighbor %s activate\n",
+			getBgpRedirectIfaceName(connection.Iface),
+		)
+		fmt.Fprintln(&confBuilder,
+			"exit-address-family",
+		)
+	}
+	fmt.Fprintln(&confBuilder, "do copy running-config startup-config")
+
+	cmd := exec.Command(filepath.Join(paths.Wrappers(), "vtysh"))
+	cmd.Stdin = strings.NewReader(confBuilder.String())
+	err := cmd.Start()
+	if err != nil {
+		return err
+	}
+	err = cmd.Wait()
 	return err
 }
 
