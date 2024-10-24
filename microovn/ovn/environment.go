@@ -122,6 +122,22 @@ func generateEnvironment(ctx context.Context, s state.State) error {
 		localAddr = "[" + localAddr + "]"
 	}
 
+	//set northbound to be at the local address if there is no central db found
+	if nbInitial == "" {
+		nbInitial = localAddr
+	}
+	if nbConnect == "" {
+		nbConnect = "ssl:" + localAddr + ":6641"
+	}
+
+	//set southbound to be at the local address if there is no central db found
+	if sbInitial == "" {
+		sbInitial = localAddr
+	}
+	if sbConnect == "" {
+		sbConnect = "ssl:" + localAddr + ":6642"
+	}
+
 	err = ovnEnvTpl.Execute(fd, map[string]any{
 		"localAddr": localAddr,
 		"nbInitial": nbInitial,
