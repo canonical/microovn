@@ -168,7 +168,7 @@ cluster_ovs_ovn_remote_addresses() {
     done
 }
 
-# _test_db_connection_string NBSB
+# cluster_test_db_connection_string NBSB
 #
 # Tests that database connection string for NBSB contains the expected
 # addresses.
@@ -211,7 +211,7 @@ cluster_test_db_connection_string() {
     done
 }
 
-# _test_southbound_propagation
+# cluster_test_southbound_propagation
 #
 # Tests that database connection between northbound and southbound databases
 # is properly functional.
