@@ -35,6 +35,9 @@ cluster_register_test_functions() {
     bats_test_function \
         --description "Open_vSwitch external_ids:ovn-remote addresses" \
         -- cluster_ovs_ovn_remote_addresses
+    bats_test_function \
+        --description "Ensure northd connectivity between NB and SB" \
+        -- cluster_test_southbound_propagation
 }
 
 cluster_expected_count() {
@@ -165,7 +168,7 @@ cluster_ovs_ovn_remote_addresses() {
     done
 }
 
-# _test_db_connection_string NBSB
+# cluster_test_db_connection_string NBSB
 #
 # Tests that database connection string for NBSB contains the expected
 # addresses.
@@ -205,6 +208,25 @@ cluster_test_db_connection_string() {
             # partial matching.
             assert_output -p "ssl:${expected_addr}:${expected_port}"
         done
+    done
+}
+
+# cluster_test_southbound_propagation
+#
+# Tests that database connection between northbound and southbound databases
+# is properly functional.
+#
+# The command tested is one which waits for the change to propagate to the
+# southbound database and was specficially picked as it was at one point
+# failing until pointed out by microcloud
+cluster_test_southbound_propagation() {
+    for container in $TEST_CONTAINERS; do
+        run lxc_exec "$container" \
+            "microovn.ovn-nbctl --timeout=10 --wait=sb ha-chassis-group-add testnet"
+        assert_success
+        run lxc_exec "$container" \
+            "microovn.ovn-nbctl --timeout=10 --wait=sb ha-chassis-group-del testnet"
+        assert_success
     done
 }
 
