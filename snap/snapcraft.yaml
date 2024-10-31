@@ -4,7 +4,6 @@ base: core24
 assumes:
  - snapd2.59
 adopt-info: microovn
-grade: devel
 source-code: https://github.com/canonical/microovn.git
 summary: Simple clustered OVN deployment
 description: |-
@@ -160,7 +159,7 @@ parts:
     source: https://github.com/canonical/dqlite
     source-type: git
     source-depth: 1
-    source-tag: v1.17.0-rc1
+    source-tag: v1.17.1
     plugin: autotools
     autotools-configure-parameters:
       - --prefix=
