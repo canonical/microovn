@@ -3,7 +3,7 @@ module github.com/canonical/microovn/microovn
 go 1.22.5
 
 require (
-	github.com/canonical/lxd v0.0.0-20240730172021-8e39e5d4f55f
+	github.com/canonical/lxd v0.0.0-20241030172432-dee0d04b56ee
 	github.com/canonical/microcluster/v2 v2.0.2
 	github.com/gorilla/mux v1.8.1
 	github.com/olekukonko/tablewriter v0.0.5

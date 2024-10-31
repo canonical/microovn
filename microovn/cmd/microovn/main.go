@@ -27,7 +27,7 @@ type CmdControl struct {
 
 func main() {
 	// common flags.
-	commonCmd := CmdControl{asker: cli.NewAsker(bufio.NewReader(os.Stdin))}
+	commonCmd := CmdControl{asker: cli.NewAsker(bufio.NewReader(os.Stdin), nil)}
 
 	app := &cobra.Command{
 		Use:               "microovn",
