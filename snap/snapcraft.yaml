@@ -245,8 +245,13 @@ parts:
       - ovn
       - ovs
     build-snaps:
-      - go/1.22/stable
-      - golangci-lint
+      # golangci-lint is currently not available on all architectures.
+      # (alexmurray/golangci-lint-snap#3)
+      - to riscv64:
+        - go/1.22/stable
+      - else:
+        - go/1.22/stable
+        - golangci-lint
     plugin: nil
     override-pull: |
       craftctl default
@@ -274,7 +279,11 @@ parts:
       export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
 
       # Check that `golangci-lint` is happy with the code.
-      golangci-lint run --verbose
+      if command -v golangci-lint; then
+          golangci-lint run --verbose
+      else
+          echo WARNING: Not running golangci-lint as binary is not available.
+      fi
 
       # Run any unit tests.
       LD_LIBRARY_PATH=${CRAFT_STAGE}/lib/:${CRAFT_STAGE}/usr/local/lib/ \
