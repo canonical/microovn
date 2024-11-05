@@ -288,7 +288,7 @@ parts:
     plugin: autotools
     source: https://github.com/FRRouting/frr.git
     source-type: git
-    source-tag: frr-10.1
+    source-tag: frr-10.1.1
     autotools-configure-parameters:
       - --disable-doc
       - --disable-ripd
