@@ -55,34 +55,46 @@ teardown() {
 tls_cluster_register_test_functions() {
     bats_test_function \
         --description "OVN with multiple BGP peers (Automatic BGP config)" \
-        -- bgp_multiple_peers yes
+        -- bgp_unnumbered_peering yes yes
 
     bats_test_function \
         --description "OVN with multiple BGP peers (Manual BGP config)" \
-        -- bgp_multiple_peers no
+        -- bgp_unnumbered_peering no yes
 
     bats_test_function \
         --description "OVN with single BGP peer (Automatic BGP config)" \
-        -- bgp_single_peer yes
+        -- bgp_unnumbered_peering yes no
 
     bats_test_function \
         --description "OVN with single BGP peer (Manual BGP config)" \
-        -- bgp_single_peer no
+        -- bgp_unnumbered_peering no no
 
     bats_test_function \
         --description "Enable BGP without configuration" \
         -- bgp_no_config
 }
 
-# bgp_multiple_peers AUTOCONFIG_BGP
+# bgp_unnumbered_peering AUTOCONFIG_BGP MULTI_LINK
 #
-# Test that enables BGP on each chassis and configures two
-# interfaces per chassis to redirect incoming BGP traffic
-# to dedicated <iface_name>-bgp ports.
-# If AUTOCONFIG_BGP is set to "yes", MicroOVN will also configure
-# FRR BGP daemons to listen on the redirected interfaces.
-bgp_multiple_peers() {
+# This test enables BGP service on each MicroOVN chassis and verifies
+# that each chassis can form a BGP neighbor connection with a standalone
+# FRR daemon running on a separate host(s).
+# This test can be configured via positional arguments to create multiple
+# scenarios:
+#
+# If AUTOCONFIG_BGP is set to "yes", MicroOVN will automatically configure
+# FRR services running on OVN chassis to start BGP daemons in the "unnumbered" mode.
+# If AUTOCONFIG_BGP is any other value, the FRR's CLI will be used directly to configure
+# the BGP daemons.
+#
+# IF MULTI_LINK is set to "yes", two interfaces per OVN chassis will be used for connection
+# with two separate BGP neighbors. IF MULTI_LINK is any other value, only one interface/bgp daemon
+# will be used.
+#
+# Note: For more details about the topology of this test, see comments in the 'setup_teardown/bgp.bash' file.
+bgp_unnumbered_peering() {
     local autoconfig_bgp=$1; shift
+    local multi_link=$1; shift
 
     # Populate list of containers on which BGP service gets enabled
     export USED_BGP_CHASSIS=$TEST_CONTAINERS
@@ -106,7 +118,15 @@ bgp_multiple_peers() {
         local vrf_device="ovnvrf$vrf"
         host_asn="$((host_asn + 1))"
 
-        local external_connections="$OVN_CONTAINER_NET_1_IFACE:$BGP_NET_1_IP,$OVN_CONTAINER_NET_2_IFACE:$BGP_NET_2_IP"
+        # Set up external connection string, used to configure MicroOVN BGP, based on number of upstream
+        # links
+        local external_connections="$OVN_CONTAINER_NET_1_IFACE:$BGP_NET_1_IP"
+        if [ "$multi_link" == "yes" ]; then
+            external_connections="$external_connections,$OVN_CONTAINER_NET_2_IFACE:$BGP_NET_2_IP"
+        fi
+
+        # Configure FRR on the OVN chassis either automatically (by supplying ASN) or manually
+        # (via FRR CLI)
         if [ "$autoconfig_bgp" == "yes" ]; then
             echo "# Enabling MicroOVN BGP in $container with automatic daemon configuration (ASN $host_asn)" >&3
             lxc_exec "$container" "microovn enable bgp \
@@ -121,8 +141,10 @@ bgp_multiple_peers() {
 
             echo "# Manually configuring FRR to start BGP daemon on $bgp_iface_1 (ASN $host_asn)" >&3
             microovn_start_bgp_unnumbered "$container" "$bgp_iface_1" "$host_asn" "$vrf_device"
-            echo "# Manually configuring FRR to start BGP daemon on $bgp_iface_2 (ASN $host_asn)" >&3
-            microovn_start_bgp_unnumbered "$container" "$bgp_iface_2" "$host_asn" "$vrf_device"
+            if [ "$multi_link" == "yes" ]; then
+                echo "# Manually configuring FRR to start BGP daemon on $bgp_iface_2 (ASN $host_asn)" >&3
+                microovn_start_bgp_unnumbered "$container" "$bgp_iface_2" "$host_asn" "$vrf_device"
+            fi
         fi
         # TODO: Figure out why is this sleep necessary
         sleep 3
@@ -144,58 +166,13 @@ bgp_multiple_peers() {
         echo "# ($container) waiting on established BGP with $neighbor_1" >&3
         wait_until "microovn_bgp_established $container $vrf_device $neighbor_1"
 
-        echo "# ($container) waiting on established BGP with $neighbor_2" >&3
-        wait_until "microovn_bgp_established $container $vrf_device $neighbor_2"
+        if [ "$multi_link" == "yes" ]; then
+            echo "# ($container) waiting on established BGP with $neighbor_2" >&3
+            wait_until "microovn_bgp_established $container $vrf_device $neighbor_2"
+        fi
 
         i=$((++i))
     done
-}
-
-# bgp_single_peer AUTOCONFIG_BGP
-#
-# Test that enables BGP on each chassis and configures single
-# interface per chassis to redirect incoming BGP traffic
-# to dedicated <iface_name>-bgp port.
-# If AUTOCONFIG_BGP is set to "yes", MicroOVN will also configure
-# FRR BGP daemon to listen on the redirected interface.
-bgp_single_peer() {
-    local autoconfig_bgp=$1; shift
-
-    # Populate list of containers on which BGP service gets enabled
-    MICROOVN_BGP_CONTAINER=$(echo $TEST_CONTAINERS | awk '{print $1}')
-    export USED_BGP_CHASSIS="$MICROOVN_BGP_CONTAINER"
-
-    read -r -a all_bgp_peers <<< "$BGP_PEERS"
-    bgp_peer_container="${all_bgp_peers[0]}"
-    echo "# Starting BGP in $bgp_peer_container on interface $BGP_CONTAINER_IFACE" >&3
-    frr_start_bgp_unnumbered "$bgp_peer_container" "$BGP_CONTAINER_IFACE" 4200000101
-
-    local BGP_NET_IP="10.0.10.1/24"
-    local vrf="20"
-    local bgp_iface="$OVN_CONTAINER_NET_1_IFACE-bgp"
-    local vrf_device="ovnvrf$vrf"
-    local asn="4210000001"
-
-    local external_connections="$OVN_CONTAINER_NET_1_IFACE:$BGP_NET_IP"
-
-    if [ "$autoconfig_bgp" == "yes" ]; then
-        echo "# Enabling MicroOVN BGP in $MICROOVN_BGP_CONTAINER with automatic daemon configuration (ASN $asn)" >&3
-        lxc_exec "$MICROOVN_BGP_CONTAINER" "microovn enable bgp \
-            --config ext_connection=$external_connections \
-            --config vrf=$vrf \
-            --config asn=$asn"
-    else
-        echo "# Enabling MicroOVN BGP in $MICROOVN_BGP_CONTAINER with manual daemon configuration" >&3
-        lxc_exec "$MICROOVN_BGP_CONTAINER" "microovn enable bgp \
-            --config ext_connection=$external_connections \
-            --config vrf=$vrf"
-
-        echo "# Manually configuring FRR to start BGP daemon on $bgp_iface (ASN $asn)" >&3
-        microovn_start_bgp_unnumbered "$MICROOVN_BGP_CONTAINER" "$bgp_iface" "$asn" "$vrf_device"
-    fi
-
-    echo "# ($MICROOVN_BGP_CONTAINER) waiting on established BGP with $bgp_peer_container" >&3
-    wait_until "microovn_bgp_established $MICROOVN_BGP_CONTAINER $vrf_device $bgp_peer_container"
 }
 
 # bgp_no_config
