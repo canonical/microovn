@@ -107,3 +107,18 @@ function microovn_bgp_established() {
 
     grep -A 2 "Hostname: $neighbor$" <<< "$status" | grep "BGP state = Established"
 }
+
+
+function microovn_bgp_neighbor_address() {
+    local container=$1; shift
+    local vrf=$1; shift
+    local neighbor=$1; shift
+
+    local neighbor_status
+    local foreign_host_line
+    neighbor_status=$(lxc_exec "$container" "microovn.vtysh -c \"show bgp vrf $vrf neighbor $neighbor\"")
+    foreign_host_line=$(grep "^Foreign host:" <<< "$neighbor_status")
+
+    # Print clean IPv6 address of the BGP neighbor
+    awk '{print $3}' <<< "$foreign_host_line" | tr -d ','
+}
