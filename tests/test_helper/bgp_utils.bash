@@ -29,11 +29,14 @@ function frr_start_bgp_unnumbered() {
     cat << EOF | lxc_exec "$container" "vtysh"
         configure
         !
+        ip prefix-list accept-all seq 5 permit any
+        !
         router bgp $asn
         neighbor $interface interface remote-as external
         !
         address-family ipv4 unicast
-          no neighbor $interface activate
+          neighbor $interface soft-reconfiguration inbound
+          neighbor $interface prefix-list accept-all in
         exit-address-family
         !
         address-family ipv6 unicast
@@ -58,11 +61,15 @@ function microovn_start_bgp_unnumbered() {
     cat << EOF | lxc_exec "$container" "microovn.vtysh"
         configure
         !
+        ip prefix-list no-default seq 5 deny 0.0.0.0/0
+        ip prefix-list no-default seq 10 permit 0.0.0.0/0 le 32
+        !
         router bgp $asn vrf $vrf
         neighbor $interface interface remote-as external
         !
         address-family ipv4 unicast
-          no neighbor $interface activate
+          redistribute kernel
+          neighbor $interface prefix-list no-default out
         exit-address-family
         !
         address-family ipv6 unicast

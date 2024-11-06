@@ -351,6 +351,7 @@ parts:
       git am  $CRAFT_PROJECT_DIR/patches/route_leaking/0*.patch
       patch -p1 < $CRAFT_PROJECT_DIR/patches/route_leaking/dont-delete-other-routes.patch
       git am  $CRAFT_PROJECT_DIR/patches/allow_ipv6_ra/*.patch
+      git am  $CRAFT_PROJECT_DIR/patches/ipv4_over_ipv6/*.patch
       ./boot.sh
       ./configure \
         --prefix=/usr \

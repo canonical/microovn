@@ -372,13 +372,13 @@ ipv6 prefix-list no-default seq 10 permit ::/0 le 128
 			getBgpRedirectIfaceName(connection.Iface),
 		)
 
-		// Disable IPv4 address family until we actually have support for
-		// routing IPv4 prefixes over IPv6 nexthops in OVN.
+		// Redistribute IPv4 routes announced by OVN.
 		fmt.Fprint(&confBuilder,
 			"address-family ipv4 unicast\n",
 		)
+		fmt.Fprint(&confBuilder, "redistribute kernel\n")
 		fmt.Fprintf(&confBuilder,
-			"no neighbor %s activate\n",
+			"neighbor %s prefix-list no-default out\n",
 			getBgpRedirectIfaceName(connection.Iface),
 		)
 		fmt.Fprintln(&confBuilder,
