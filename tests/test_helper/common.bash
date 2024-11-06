@@ -331,3 +331,20 @@ function install_apt_package() {
 
     lxc_exec "$container" "DEBIAN_FRONTEND=noninteractive apt install -yqq $package"
 }
+
+# container_has_ipv4_route CONTAINER IP_ADDR INTERFACE
+#
+# This function succeeds if CONTAINER has route for IP_ADDR routed
+# through the specified INTERFACE
+function container_has_ipv4_route() {
+    local container=$1; shift
+    local ip_addr=$1; shift
+    local interface=$1; shift
+    local route=""
+
+    echo "# ($container) Looking for route to '$ip_addr' (using dev '$interface')" >&3
+    route=$(lxc_exec "$container" "ip -4 route get $ip_addr")
+    echo "# ($container) $route"
+
+    grep "dev $interface" <<< "$route"
+}

@@ -171,6 +171,19 @@ bgp_unnumbered_peering() {
             wait_until "microovn_bgp_established $container $vrf_device $neighbor_2"
         fi
 
+        # Set up NAT in OVN
+        local nat_ext_ip="172.16.$i.10"
+        local nat_logic_ip="192.168.$i.10"
+        echo "# ($container) setting up DNAT $nat_ext_ip -> $nat_logic_ip" >&3
+        lxc_exec "$container" "microovn.ovn-nbctl lr-nat-add lr-$container-microovn dnat $nat_ext_ip $nat_logic_ip"
+
+        # Wait for the route to external NAT address to show up in BGP peer's routing table
+        wait_until "container_has_ipv4_route $neighbor_1 $nat_ext_ip $BGP_CONTAINER_IFACE"
+
+        if [ "$multi_link" == "yes" ]; then
+            wait_until "container_has_ipv4_route $neighbor_2 $nat_ext_ip $BGP_CONTAINER_IFACE"
+        fi
+
         i=$((++i))
     done
 }
