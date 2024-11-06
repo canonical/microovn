@@ -15,6 +15,7 @@ usage:
 .PHONY: update-gomod
 update-gomod:
 	go get -u ./...
+	go get github.com/canonical/lxd@stable-5.21
 	go mod tidy
 
 # Update lxd-generate generated database helpers.
