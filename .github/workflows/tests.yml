@@ -19,6 +19,35 @@ jobs:
         run: |
           make check-lint
 
+      - name: Ensure go.mod is up to date
+        run: |
+          set -euxo pipefail
+          # The Launchpad build pipeline will run `go mod tidy`.
+          #
+          # Consequently a rebuild could produce a `-dirty` version string if
+          # any of our dependencies have changed.
+          #
+          # While annoying, it is actually a nice feature, because we do want
+          # to make concious choices about updates to our dependencies.
+          #
+          # Check whether a `go mod tidy` would cause go.mod to change and fail
+          # if it does.
+          assert_git_status() {
+              local files="go.mod go.sum"
+              if [ -n "$(git status --porcelain=v2 $files)" ]; then
+                  echo "files NOT in sync with git: $files"
+                  git status $files
+                  exit 1
+              else
+                  echo "files in sync with git: $files"
+              fi
+          }
+
+          cd microovn
+          assert_git_status
+          go mod tidy -v -x
+          assert_git_status
+
   build:
     name: build
     needs:
