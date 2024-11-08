@@ -662,26 +662,39 @@ function microovn_lsp_up() {
     test "$result" -eq 1
 }
 
-# microovn_add_vif CONTAINER NSNAME IFNAME
+# microovn_add_vif CONTAINER NS_NAME IF_NAME [LS_NAME [LSP_IP]]
 #
-# Create LSP in LS for CONTAINER, create OVS internal interface with IFNAME,
-# attach it to LSP and move it into network namespace NSNAME.
+# Create LSP in LS for CONTAINER, create OVS internal interface with IF_NAME,
+# attach it to LSP and move it into network namespace NS_NAME.
 #
-# LLADDR and CIDR is generated based on integer found after the last ``-`` in
-# CONTAINER which currently needs to be a value between 0-9.
+# LS name is either automatically generated based on CONTAINER name and
+# MICROOVN_PREFIX_LS, or it can be optionally specified with LS_NAME argument.
+#
+# IP address for the LSP/VIF can be optionally provided as LSP_IP argument (in
+# CIDR format). Otherwise it will be automatically generated (along with MAC
+# address) based on integer found after the last ``-`` in CONTAINER which needs
+# to be a numeric value ranging from 0 to 255.
 function microovn_add_vif() {
     local container=$1; shift
     local ns_name=$1; shift
     local if_name=$1; shift
+    local ls_name=""; if [ "$#" -gt 0 ]; then ls_name="$1"; shift; fi
+    local cidr=""; if [ "$#" -gt 0 ]; then cidr="$1"; shift; fi
 
     local n
     n=$(microovn_extract_ctn_n "$container")
     assert test "$n" -le 255
+
+    if [ -z "$ls_name" ]; then
+        ls_name="${MICROOVN_PREFIX_LS}-${container}"
+    fi
+
+    if [ -z "$cidr" ]; then
+        printf -v cidr "10.42.%d.10/24" "$n"
+    fi
+
     local lladdr
     printf -v lladdr "00:00:02:00:01:%02x" "$n"
-    local cidr
-    printf -v cidr "10.42.%d.10/24" "$n"
-    local ls_name="${MICROOVN_PREFIX_LS}-${container}"
     local lsp_name="${container}-${ns_name}-${if_name}"
 
     lxc_exec "$container" \
