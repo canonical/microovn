@@ -1,1 +1,0 @@
-test_helper/bats/bgp.bats

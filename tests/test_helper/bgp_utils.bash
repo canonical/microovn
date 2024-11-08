@@ -29,11 +29,14 @@ function frr_start_bgp_unnumbered() {
     cat << EOF | lxc_exec "$container" "vtysh"
         configure
         !
+        ip prefix-list accept-all seq 5 permit any
+        !
         router bgp $asn
         neighbor $interface interface remote-as external
         !
         address-family ipv4 unicast
-          no neighbor $interface activate
+          neighbor $interface soft-reconfiguration inbound
+          neighbor $interface prefix-list accept-all in
         exit-address-family
         !
         address-family ipv6 unicast
@@ -58,11 +61,15 @@ function microovn_start_bgp_unnumbered() {
     cat << EOF | lxc_exec "$container" "microovn.vtysh"
         configure
         !
+        ip prefix-list no-default seq 5 deny 0.0.0.0/0
+        ip prefix-list no-default seq 10 permit 0.0.0.0/0 le 32
+        !
         router bgp $asn vrf $vrf
         neighbor $interface interface remote-as external
         !
         address-family ipv4 unicast
-          no neighbor $interface activate
+          redistribute kernel
+          neighbor $interface prefix-list no-default out
         exit-address-family
         !
         address-family ipv6 unicast
@@ -99,4 +106,24 @@ function microovn_bgp_established() {
     echo "# ($container) Neighbor status: $status"
 
     grep -A 2 "Hostname: $neighbor$" <<< "$status" | grep "BGP state = Established"
+}
+
+#  microovn_bgp_neighbor_address CONTAINER VRF NEIGHBOR
+#
+# This function logs into CONTAINER and prints the IP address of
+# of a BGP NEIGHBOR. The NEIGHBOR parameter is expected to be an interface
+# name which is used to set up BGP unnumbered session.
+# Since MicroOVN runs BGP daemon in VRF, the VRF name is required as well.
+function microovn_bgp_neighbor_address() {
+    local container=$1; shift
+    local vrf=$1; shift
+    local neighbor=$1; shift
+
+    local neighbor_status
+    local foreign_host_line
+    neighbor_status=$(lxc_exec "$container" "microovn.vtysh -c \"show bgp vrf $vrf neighbor $neighbor\"")
+    foreign_host_line=$(grep "^Foreign host:" <<< "$neighbor_status")
+
+    # Print clean IPv6 address of the BGP neighbor
+    awk '{print $3}' <<< "$foreign_host_line" | tr -d ','
 }
