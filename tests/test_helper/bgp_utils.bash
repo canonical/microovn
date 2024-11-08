@@ -108,7 +108,12 @@ function microovn_bgp_established() {
     grep -A 2 "Hostname: $neighbor$" <<< "$status" | grep "BGP state = Established"
 }
 
-
+#  microovn_bgp_neighbor_address CONTAINER VRF NEIGHBOR
+#
+# This function logs into CONTAINER and prints the IP address of
+# of a BGP NEIGHBOR. The NEIGHBOR parameter is expected to be an interface
+# name which is used to set up BGP unnumbered session.
+# Since MicroOVN runs BGP daemon in VRF, the VRF name is required as well.
 function microovn_bgp_neighbor_address() {
     local container=$1; shift
     local vrf=$1; shift

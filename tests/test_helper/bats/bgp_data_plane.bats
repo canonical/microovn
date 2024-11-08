@@ -55,8 +55,6 @@ function ping_ovn_int_network_over_bgp_router() {
     local guest_lrp_cidr="$guest_lrp_ip/24"
     local guest_vm_ip="192.168.10.10"
     local guest_vm_cidr="$guest_vm_ip/24"
-    local guest_vm_mac="02:00:aa:00:00:01"
-    local guest_vm_lsp="lsp-guest-vm"
     local guest_vm_iface="guest-vm"
     local guest_vm_ns="ns-guest"
 
@@ -78,24 +76,9 @@ function ping_ovn_int_network_over_bgp_router() {
          lsp-set-addresses $guest_lsp_to_lr router \
          "
 
-    echo "# ($TEST_CONTAINER) Create LSP '$guest_vm_lsp' ($guest_vm_cidr)"
-    lxc_exec "$TEST_CONTAINER" \
-        "microovn.ovn-nbctl \
-         -- \
-         lsp-add $guest_ls $guest_vm_lsp \
-         -- \
-         lsp-set-addresses $guest_vm_lsp '$guest_vm_mac $guest_vm_cidr'"
-
-    echo "# ($TEST_CONTAINER) Create netns '$guest_vm_ns' and move VM interface '$guest_vm_iface' into it"
+    echo "# ($TEST_CONTAINER) Create VIF in the OVN's internal network ($guest_vm_ip)"
     lxc_exec "$TEST_CONTAINER" "ip netns add $guest_vm_ns"
-    lxc_exec "$TEST_CONTAINER" \
-        "microovn.ovs-vsctl \
-         -- \
-         add-port br-int $guest_vm_iface \
-         -- \
-         set Interface $guest_vm_iface type=internal external_ids:iface-id=$guest_vm_lsp"
-    netns_ifadd "$TEST_CONTAINER" "$guest_vm_ns" "$guest_vm_iface" "$guest_vm_mac" "$guest_vm_cidr"
-    wait_until "microovn_lsp_up $TEST_CONTAINER $guest_vm_lsp"
+    microovn_add_vif "$TEST_CONTAINER" "$guest_vm_ns" "$guest_vm_iface" "$guest_ls" "$guest_vm_cidr"
 
     echo "# ($TEST_CONTAINER) Set VM's default route via $guest_lrp_ip"
     lxc_exec "$TEST_CONTAINER" "ip netns exec $guest_vm_ns ip route add default via $guest_lrp_ip"
@@ -132,6 +115,7 @@ function ping_ovn_int_network_over_bgp_router() {
     # Wait for the route to propagate to BGP peer
     wait_until "container_has_ipv4_route $BGP_PEER $nat_ext_ip $BGP_CONTAINER_INT_IFACE"
 
+    # Check that external host can reach NAT address
     echo "# ($EXT_HOST) Reach NAT address $nat_ext_ip with ping" >&3
     lxc_exec "$EXT_HOST" "ping -W 1 -c 1 $nat_ext_ip"
 
