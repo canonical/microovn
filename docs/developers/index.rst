@@ -9,5 +9,6 @@ covers topics useful for code or documentation contributors.
    :maxdepth: 1
 
    building
-   testing
+   contributing
    release-process
+   testing
