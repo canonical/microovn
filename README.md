@@ -39,7 +39,7 @@ file (the actual license) for more information.
 [docs-dir-microovn]: https://github.com/canonical/microovn/tree/main/docs
 [ubuntu-discourse-microovn]: https://discourse.ubuntu.com/c/microovn/160
 [ubuntu-discourse-microovn-support]: https://discourse.ubuntu.com/c/microovn/support/164
-[contrib-microovn]: ./CONTRIBUTING.md
+[contrib-microovn]: ./CONTRIBUTING.rst
 [license-microovn]: ./COPYING
 [ubuntu-coc]: https://ubuntu.com/community/ethos/code-of-conduct
 [bug-microovn]: https://bugs.launchpad.net/microovn/+filebug
