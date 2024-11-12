@@ -1,4 +1,5 @@
 CLI
+CVE
 ESM
 Geneve
 LTS
@@ -40,6 +41,7 @@ lifecycle
 linter
 linters
 manpage
+mitigations
 northd
 ovs
 ovsdb
@@ -50,6 +52,8 @@ readthedocs
 schemas
 submodules
 systemd
+ubuntu
 unencrypted
+uptime
 vSwitch
 yaml
