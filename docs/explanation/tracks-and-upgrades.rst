@@ -1,3 +1,5 @@
+.. _snap channels:
+
 ===================================
 MicroOVN snap channels and upgrades
 ===================================
