@@ -15,6 +15,7 @@ OpenSSL
 OpenStack
 PKI
 Permalink
+PRs
 README
 RST
 RTD
@@ -28,6 +29,7 @@ appctl
 backport
 bugfixes
 codebase
+composability
 datapaths
 devel
 downscaling
@@ -36,9 +38,11 @@ favicon
 golangci
 hostname
 installable
+interdependencies
 lifecycle
 linter
 linters
+lxd
 manpage
 northd
 ovs
@@ -48,7 +52,10 @@ reST
 reStructuredText
 readthedocs
 schemas
+shellcheck
+snapcraft
 submodules
+sudo
 systemd
 unencrypted
 vSwitch
