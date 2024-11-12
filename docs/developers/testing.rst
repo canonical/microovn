@@ -1,3 +1,5 @@
+.. _run MicroOVN tests:
+
 ==================
 Run MicroOVN tests
 ==================

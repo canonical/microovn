@@ -1,0 +1,1 @@
+docs/developers/contributing.rst
