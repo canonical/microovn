@@ -8,5 +8,6 @@ does not cover upstream OVN/OVS topics.
 .. toctree::
    :maxdepth: 1
 
-   services
    cryptography
+   security
+   services
