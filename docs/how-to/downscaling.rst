@@ -52,13 +52,13 @@ properly removed.
 .. code-block:: none
 
    # Check status of OVN SB cluster
-   microovn.ovn-appctl -t /var/snap/microovn/common/run/central/ovnsb_db.ctl cluster/status OVN_Southbound
+   ovn-appctl -t /var/snap/microovn/common/run/central/ovnsb_db.ctl cluster/status OVN_Southbound
 
    # Check status of OVN NB cluster
-   microovn.ovn-appctl -t /var/snap/microovn/common/run/central/ovnnb_db.ctl cluster/status OVN_Northbound
+   ovn-appctl -t /var/snap/microovn/common/run/central/ovnnb_db.ctl cluster/status OVN_Northbound
 
    # Check registered chassis
-   microovn.ovn-sbctl show
+   ovn-sbctl show
 
 Data preservation
 -----------------

@@ -176,14 +176,14 @@ open with following variables exported:
 
 .. code-block:: none
 
-   microovn.ovn-appctl -t $CONTROL_SOCKET cluster/leave $DB
+   ovn-appctl -t $CONTROL_SOCKET cluster/leave $DB
 
 2. Make sure that member properly left the cluster by inspecting cluster status
 on nodes 2 and 3 and ensuring that node 1 is no longer part of the cluster:
 
 .. code-block:: none
 
-   microovn.ovn-appctl -t /var/snap/microovn/common/run/ovn/ovnnb_db.ctl cluster/status OVN_Northbound
+   ovn-appctl -t /var/snap/microovn/common/run/ovn/ovnnb_db.ctl cluster/status OVN_Northbound
 
 3. Clean up remaining DB files on node 1:
 
@@ -201,7 +201,7 @@ will get fixed automatically when other cluster members switch to ``ssl``:
 
 .. code-block:: none
 
-   microovn.ovsdb-tool join-cluster $DB_FILE $DB ssl:<local_ip>:$PORT tcp:<node_2_ip>:$PORT
+   ovsdb-tool join-cluster $DB_FILE $DB ssl:<local_ip>:$PORT tcp:<node_2_ip>:$PORT
    snap restart microovn.ovn-ovsdb-server-nb
    snap restart microovn.ovn-ovsdb-server-sb
    snap restart microovn.ovn-northd
@@ -212,17 +212,17 @@ command to monitor cluster until it indicates three members and field
 
 .. code-block:: none
 
-   microovn.ovn-appctl -t $CONTROL_SOCKET cluster/status $DB
+   ovn-appctl -t $CONTROL_SOCKET cluster/status $DB
 
 Now that node 1 successfully transitioned to TLS we can repeat the same steps
 on node 2 and then on node 3. The only difference is in **4. step** where we
 will use protocol ``ssl`` and IP of a node 1 as last arguments for
-``microovn.ovsdb-tool`` command. To save you some searching and replacing,
+``ovsdb-tool`` command. To save you some searching and replacing,
 here are the revised commands for the **4. step** to be used on node 2 and 3:
 
 .. code-block:: none
 
-   microovn.ovsdb-tool join-cluster $DB_FILE $DB ssl:<local_ip>:$PORT ssl:<node_1_ip>:$PORT
+   ovsdb-tool join-cluster $DB_FILE $DB ssl:<local_ip>:$PORT ssl:<node_1_ip>:$PORT
    snap restart microovn.ovn-ovsdb-server-nb
    snap restart microovn.ovn-ovsdb-server-sb
    snap restart microovn.ovn-northd
@@ -232,7 +232,7 @@ cluster status on any node:
 
 .. code-block:: none
 
-   microovn.ovn-appctl -t $CONTROL_SOCKET cluster/status $DB
+   ovn-appctl -t $CONTROL_SOCKET cluster/status $DB
 
 to verify that all three cluster members are using ``ssl`` as their connection
 protocol.
@@ -256,14 +256,14 @@ This section contains some well known or expected issues that you can encounter.
 I'm getting ``failed to load certificates`` error
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you run commands like :command:`microovn.ovn-sbctl` and you get complaints
+If you run commands like :command:`ovn-sbctl` and you get complaints
 about missing certificates while the rest of the commands seem to work fine.
 
 Example:
 
 .. code-block:: none
 
-   microovn.ovn-sbctl show
+   ovn-sbctl show
 
 Example output:
 

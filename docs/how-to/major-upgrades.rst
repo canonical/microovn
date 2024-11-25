@@ -76,10 +76,10 @@ To check current values, run following commands:
 .. code-block:: none
 
    # Get OVN Northbound cluster status
-   sudo microovn.ovn-appctl -t /var/snap/microovn/common/run/ovn/ovnnb_db.ctl cluster/status OVN_Northbound
+   sudo ovn-appctl -t /var/snap/microovn/common/run/ovn/ovnnb_db.ctl cluster/status OVN_Northbound
 
    # Get OVN Southbound cluster status
-   sudo microovn.ovn-appctl -t /var/snap/microovn/common/run/ovn/ovnsb_db.ctl cluster/status OVN_Southbound
+   sudo ovn-appctl -t /var/snap/microovn/common/run/ovn/ovnsb_db.ctl cluster/status OVN_Southbound
 
 Look for ``Election timer:`` in the output of these commands. Value of this
 field is expressed in milliseconds.
@@ -104,10 +104,10 @@ with:
 .. code-block:: none
 
    # Command example for Northbound election timer increase
-   microovn.ovn-appctl -t /var/snap/microovn/common/run/ovn/ovnnb_db.ctl cluster/change-election-timer OVN_Northbound <new_value>
+   ovn-appctl -t /var/snap/microovn/common/run/ovn/ovnnb_db.ctl cluster/change-election-timer OVN_Northbound <new_value>
 
    # Command example for Southbound election timer increase
-   microovn.ovn-appctl -t /var/snap/microovn/common/run/ovn/ovnsb_db.ctl cluster/change-election-timer OVN_Southbound <new_value>
+   ovn-appctl -t /var/snap/microovn/common/run/ovn/ovnsb_db.ctl cluster/change-election-timer OVN_Southbound <new_value>
 
 ``OVN`` wont let you increase the timer by more than twice its current
 value, so you will have to proceed gradually.
