@@ -20,8 +20,8 @@ setup_file() {
 
         lxc_exec "$container" "microovn disable switch"
         lxc_exec "$container" "microovn enable switch"
+        wait_microovn_online "$container" 30
     done
-
 }
 
 teardown_file() {
