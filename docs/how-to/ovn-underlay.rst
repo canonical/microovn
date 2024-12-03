@@ -54,12 +54,12 @@ To verify that the underlay network is correctly configured, you can check the I
 
 .. code-block:: none
 
-   root@micro1:~# microovn.ovs-vsctl get Open_vSwitch . external_ids:ovn-encap-ip
+   root@micro1:~# ovs-vsctl get Open_vSwitch . external_ids:ovn-encap-ip
    "10.0.1.2"
 
-   root@micro2:~# microovn.ovs-vsctl get Open_vSwitch . external_ids:ovn-encap-ip
+   root@micro2:~# ovs-vsctl get Open_vSwitch . external_ids:ovn-encap-ip
    "10.0.1.3"
 
-   root@micro3:~# microovn.ovs-vsctl get Open_vSwitch . external_ids:ovn-encap-ip
+   root@micro3:~# ovs-vsctl get Open_vSwitch . external_ids:ovn-encap-ip
    "10.0.1.4"
 

@@ -51,21 +51,21 @@ The Open vSwitch (OVS) and Open Virtual Network (OVN) daemons have a rich set
 of debug features, one of which is the ability to specify log levels for
 individual modules at run time.
 
-A list of modules can be acquired through the ``microovn.ovs-appctl`` and
-``microovn.ovn-appctl`` commands.
+A list of modules can be acquired through the ``ovs-appctl`` and
+``ovn-appctl`` commands.
 
 This is how to enable debug logging for the Open vSwitch ``vswitchd`` module:
 
 .. code-block:: none
 
-   microovn.ovs-appctl vlog/set vswitchd:file:dbg
+   ovs-appctl vlog/set vswitchd:file:dbg
 
 This is how to enable debug logging for the Open Virtual Network ``reconnect``
 module:
 
 .. code-block:: none
 
-   microovn.ovn-appctl vlog/set reconnect:file:dbg
+   ovn-appctl vlog/set reconnect:file:dbg
 
 For more details on how to configure logging, see `ovs-appctl manpage`_.
 
