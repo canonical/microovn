@@ -92,6 +92,14 @@ linkcheck_anchors_ignore_for_url = [
 ]
 linkcheck_anchors_ignore_for_url.extend(custom_linkcheck_anchors_ignore_for_url)
 
+# this cisa.gov pages are so heavily refrenced the github CI for linkchecks is
+# being seen as a DDos, this is causing our linkcheck tests to fail so we have
+# to ignore it.
+linkcheck_ignore = [r'.*cisa\.gov.*']
+
+linkcheck_timeout = 120
+linkcheck_retries = 3
+
 # Tags cannot be added directly in custom_conf.py, so add them here
 for tag in custom_tags:
     tags.add(tag)
