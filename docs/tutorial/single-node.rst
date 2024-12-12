@@ -27,10 +27,9 @@ Initialise the cluster
 Manage the cluster
 ------------------
 
-You can interact with OVN using its native commands prefaced with the string
-``microovn.``. For example, to show the contents of the OVN Southbound
-database:
+You can interact with OVN using its native commands due to automatically created
+snap aliases, for example, to show the contents of the OVN Southbound database:
 
 .. code-block:: none
 
-   microovn.ovn-sbctl show
+   ovn-sbctl show
