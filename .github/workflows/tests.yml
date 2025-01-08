@@ -50,6 +50,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo snap refresh
+          sudo snap install lxd
           sudo snap set lxd daemon.group=adm
           sudo lxd init --auto
           test $POSSIBLE_TARGET_BRANCH = main && \
@@ -127,6 +128,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo snap refresh
+          sudo snap install lxd
           sudo snap set lxd daemon.group=adm
           sudo lxd init --auto
           snap list
