@@ -275,7 +275,9 @@ func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExt
 	lrName := getLrName(s)
 
 	_, err := ovnCmd.NBCtlCluster(ctx,
-		"set", "Logical_Router", lrName, fmt.Sprintf("options:requested-tnl-key=%s", tableID),
+		"set", "Logical_Router", lrName,
+		"options:dynamic-routing=true",
+		fmt.Sprintf("options:requested-tnl-key=%s", tableID),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create vrf for LR '%s': %v", lrName, err)
