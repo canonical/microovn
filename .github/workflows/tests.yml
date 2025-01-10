@@ -41,6 +41,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo snap refresh
+          sudo snap install lxd
           sudo snap set lxd daemon.group=adm
           sudo lxd init --auto
           sudo snap install snapcraft --classic
@@ -114,6 +115,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo snap refresh
+          sudo snap install lxd
           sudo snap set lxd daemon.group=adm
           sudo lxd init --auto
           snap list
