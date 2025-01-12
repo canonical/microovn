@@ -1,8 +1,10 @@
 name: Automatic documentation checks
 
 on:
-  - push
-  - pull_request
+  push:
+  pull_request:
+  schedule:
+    - cron: '14 3 * * 1'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
