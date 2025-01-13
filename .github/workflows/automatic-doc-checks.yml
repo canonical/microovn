@@ -1,9 +1,11 @@
 name: Main Documentation Checks
 
 on:
-  - push
-  - pull_request
-  - workflow_dispatch
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '14 3 * * 1'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
