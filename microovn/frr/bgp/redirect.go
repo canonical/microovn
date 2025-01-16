@@ -322,6 +322,14 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 			"add", "Logical_Router_Port", lrpName, "options", fmt.Sprintf("routing-protocol-redirect=%s", bgpLsp),
 			"--",
 			"add", "Logical_Router_Port", lrpName, "options", "routing-protocols=\"BGP,BFD\"",
+			"--",
+			"set", "Logical_Router_Port", lrpName, "ipv6_ra_configs:send_periodic=true",
+			"--",
+			"set", "Logical_Router_Port", lrpName, "ipv6_ra_configs:address_mode=slaac",
+			"--",
+			"set", "Logical_Router_Port", lrpName, "ipv6_ra_configs:max_interval=1",
+			"--",
+			"set", "Logical_Router_Port", lrpName, "ipv6_ra_configs:min_interval=1",
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create LSP for BGP redirect '%s': %v", bgpLsp, err)
