@@ -286,7 +286,7 @@ func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExt
 	for _, extConnection := range extConnections {
 		lrpName := getLrpName(s, extConnection.Iface)
 		_, err = ovnCmd.NBCtlCluster(ctx,
-			"lrp-set-options", lrpName, "maintain-vrf=true", "redistribute-nat=true", "redistribute-lb-vips=true",
+			"lrp-set-options", lrpName, "dynamic-routing-maintain-vrf=true", "dynamic-routing-redistribute=nat,lb",
 		)
 		if err != nil {
 			return fmt.Errorf("failed to enable vrf for LRP '%s': %v", lrpName, err)
@@ -322,6 +322,14 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 			"add", "Logical_Router_Port", lrpName, "options", fmt.Sprintf("routing-protocol-redirect=%s", bgpLsp),
 			"--",
 			"add", "Logical_Router_Port", lrpName, "options", "routing-protocols=\"BGP,BFD\"",
+			"--",
+			"set", "Logical_Router_Port", lrpName, "ipv6_ra_configs:send_periodic=true",
+			"--",
+			"set", "Logical_Router_Port", lrpName, "ipv6_ra_configs:address_mode=slaac",
+			"--",
+			"set", "Logical_Router_Port", lrpName, "ipv6_ra_configs:max_interval=4",
+			"--",
+			"set", "Logical_Router_Port", lrpName, "ipv6_ra_configs:min_interval=3",
 		)
 		if err != nil {
 			return fmt.Errorf("failed to create LSP for BGP redirect '%s': %v", bgpLsp, err)
