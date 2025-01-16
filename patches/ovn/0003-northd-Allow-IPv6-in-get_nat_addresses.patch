@@ -1,7 +1,8 @@
-From 204d1382171941c379620bccc939175798c5fb05 Mon Sep 17 00:00:00 2001
+From 98710cdf77be81660fd921a9c01052365e6fe54b Mon Sep 17 00:00:00 2001
 From: Frode Nordahl <fnordahl@ubuntu.com>
 Date: Thu, 25 Jul 2024 16:00:07 +0200
-Subject: [PATCH 5/7] northd: Allow IPv6 in get_nat_addresses().
+Subject: [Patch ovn 2/3] northd: Allow IPv6 in get_nat_addresses().
+To: dev@openvswitch.org
 
 While IPv6 and NAT does not ring particularly well together in my
 mind, it is a supported feature.
@@ -11,14 +12,14 @@ host route exchange for NAT addresses.
 
 Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
 ---
- northd/northd.c | 23 ++++++++++++++++++-----
- 1 file changed, 18 insertions(+), 5 deletions(-)
+ northd/northd.c | 22 +++++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
 
 diff --git a/northd/northd.c b/northd/northd.c
-index a267cd5f8..4478a245b 100644
+index 5bef7072f..23b0769fe 100644
 --- a/northd/northd.c
 +++ b/northd/northd.c
-@@ -1149,14 +1149,16 @@ destroy_routable_addresses(struct ovn_port_routable_addresses *ra)
+@@ -1141,7 +1141,8 @@ destroy_routable_addresses(struct ovn_port_routable_addresses *ra)
  
  static char **get_nat_addresses(const struct ovn_port *op, size_t *n,
                                  bool routable_only, bool include_lb_ips,
@@ -26,18 +27,18 @@ index a267cd5f8..4478a245b 100644
 +                                const struct lr_stateful_record *,
 +                                bool allow_ipv6);
  
- static struct ovn_port_routable_addresses
- get_op_routable_addresses(struct ovn_port *op,
-                           const struct lr_stateful_record *lr_stateful_rec)
+ struct ovn_port_routable_addresses
+ get_op_addresses(struct ovn_port *op,
+@@ -1150,7 +1151,7 @@ get_op_addresses(struct ovn_port *op,
  {
      size_t n;
--    char **nats = get_nat_addresses(op, &n, true, true, lr_stateful_rec);
-+    char **nats = get_nat_addresses(op, &n, true, true, lr_stateful_rec,
-+                                    false);
+     char **nats = get_nat_addresses(op, &n, routable_only, true,
+-                                    lr_stateful_rec);
++                                    lr_stateful_rec, false);
  
      if (!nats) {
          return (struct ovn_port_routable_addresses) {
-@@ -2511,7 +2513,8 @@ join_logical_ports(const struct sbrec_port_binding_table *sbrec_pb_table,
+@@ -2509,7 +2510,8 @@ join_logical_ports(const struct sbrec_port_binding_table *sbrec_pb_table,
  static char **
  get_nat_addresses(const struct ovn_port *op, size_t *n, bool routable_only,
                    bool include_lb_ips,
@@ -47,7 +48,7 @@ index a267cd5f8..4478a245b 100644
  {
      size_t n_nats = 0;
      struct eth_addr mac;
-@@ -2534,6 +2537,7 @@ get_nat_addresses(const struct ovn_port *op, size_t *n, bool routable_only,
+@@ -2532,6 +2534,7 @@ get_nat_addresses(const struct ovn_port *op, size_t *n, bool routable_only,
      for (size_t i = 0; i < op->od->nbr->n_nat; i++) {
          const struct nbrec_nat *nat = op->od->nbr->nat[i];
          ovs_be32 ip, mask;
@@ -55,7 +56,7 @@ index a267cd5f8..4478a245b 100644
  
          if (routable_only &&
              (!strcmp(nat->type, "snat") ||
-@@ -2544,7 +2548,15 @@ get_nat_addresses(const struct ovn_port *op, size_t *n, bool routable_only,
+@@ -2542,7 +2545,15 @@ get_nat_addresses(const struct ovn_port *op, size_t *n, bool routable_only,
          char *error = ip_parse_masked(nat->external_ip, &ip, &mask);
          if (error || mask != OVS_BE32_MAX) {
              free(error);
@@ -72,7 +73,7 @@ index a267cd5f8..4478a245b 100644
          }
  
          /* Not including external IP of NAT rules whose gateway_port is
-@@ -3888,7 +3900,8 @@ sync_pb_for_lsp(struct ovn_port *op,
+@@ -3898,7 +3909,8 @@ sync_pb_for_lsp(struct ovn_port *op,
                          lr_stateful_table, op->peer->od->index);
                  }
                  nats = get_nat_addresses(op->peer, &n_nats, false,

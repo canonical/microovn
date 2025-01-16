@@ -1,0 +1,3642 @@
+From patchwork Mon Jan 13 20:45:33 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033845
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=2605:bc80:3010::137; helo=smtp4.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp4.osuosl.org (smtp4.osuosl.org [IPv6:2605:bc80:3010::137])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX46J3jN3z1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:00 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp4.osuosl.org (Postfix) with ESMTP id EF37F403F7;
+	Mon, 13 Jan 2025 20:45:58 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp4.osuosl.org ([127.0.0.1])
+ by localhost (smtp4.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id yUTBdj4diaeX; Mon, 13 Jan 2025 20:45:58 +0000 (UTC)
+X-Comment: SPF check N/A for local connections - client-ip=140.211.9.56;
+ helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp4.osuosl.org 8FB9E4006D
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org [140.211.9.56])
+	by smtp4.osuosl.org (Postfix) with ESMTPS id 8FB9E4006D;
+	Mon, 13 Jan 2025 20:45:57 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id 330C8C08E5;
+	Mon, 13 Jan 2025 20:45:57 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp4.osuosl.org (smtp4.osuosl.org [140.211.166.137])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 71016C0612
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:45:55 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp4.osuosl.org (Postfix) with ESMTP id 5F6E7403E3
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:45:55 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp4.osuosl.org ([127.0.0.1])
+ by localhost (smtp4.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id amHOvahqS1J9 for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:45:54 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.218.52;
+ helo=mail-ej1-f52.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp4.osuosl.org 186E54006D
+Authentication-Results: smtp4.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp4.osuosl.org 186E54006D
+Received: from mail-ej1-f52.google.com (mail-ej1-f52.google.com
+ [209.85.218.52])
+ by smtp4.osuosl.org (Postfix) with ESMTPS id 186E54006D
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:45:53 +0000 (UTC)
+Received: by mail-ej1-f52.google.com with SMTP id
+ a640c23a62f3a-aa69107179cso884914066b.0
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:45:53 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801152; x=1737405952;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=jdMuy9F4nCik165F/nbbLxnXRwA7epcssWznax7AvJ4=;
+ b=QSF4oJ0yTMSuN8IqWFncPycYqNjqx7xcsTrKz75mB0LkgXjzypSLiFgR0YHaupXTij
+ dmgBgr8fdXrJQNhGqT7h9nMCesWa2XLTjpshInF1ugYeSaB8b3XQSsfL6TnCUPs4LmPy
+ YL9ou3RT8V81B41BfOSCLVWqJpEhw8+nAuyrWOy1Mkl2/zWjjeDy7n80tA5W8v9uc54t
+ vqEvfLikXtw48H2a/B9+8KfOHJM2xNwN8jIHdfDivfNqyl3vs7NT6yZC6Morv37VU0Ij
+ HyjPc/ddkyaMR6OmqL8v4NTB4LOGi2Qf0VU7c8+LchJnm7Fnoo4P5FMSV9E1rqDtYKan
+ pPeg==
+X-Gm-Message-State: AOJu0Yxrg9Pe6lYVFaBwI+U6T2WxJHkCCpemwQGQK4QXK8vKlRyd5+4N
+ rDxhi+Pp7mI0Wkn+yOt3iX2vWvErUS/drZvjqs2ArPfndd0x8UpMwAfqDQuD
+X-Gm-Gg: ASbGncurwNBlah1wS9ilN2AsTjSA0kEKCuvcKxShrSQ5miZTPG3XhLngq0vaE+TPZpI
+ rKXJ/Rg/GW++gfpOWp360hOeZ8AHcCT3/eeR4My8myWBpbjEPx73hVcyJMOmPwIzy3cYP/rBMm0
+ /Ey0JiL3+leaf8WqwEVXuQjQOHeeJX7lZIZpv1LmtSHeOCC0vXi+u+EH/d+8MPGYqBgGviY+A8j
+ D5YhV2ouPpyMKYkQhpJkPxA7Cuz77QUqnfJoLQcHYUDuqMmEGGnlzucixiyWLA=
+X-Google-Smtp-Source: 
+ AGHT+IGXCmFbvSJK60fFbMyI6X0vptUcbTcKTiwQqG3AlvYRkfhavvLbc+e4st/TOC5UuJoFzkfB6A==
+X-Received: by 2002:a17:907:930b:b0:ab2:dc73:34bd with SMTP id
+ a640c23a62f3a-ab2dc733505mr1543984866b.48.1736801151670;
+ Mon, 13 Jan 2025 12:45:51 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.45.50
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:45:50 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:33 +0100
+Message-ID: <20250113204548.97777-2-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 01/16] route-table: Store route table ID.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+Store the route table ID and move filtering to route_table_change
+so that other consumers may read this data if relevant to them.
+
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+---
+ lib/route-table.c | 29 ++++++++++++++++-------------
+ 1 file changed, 16 insertions(+), 13 deletions(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index c6cb21394..ed8d94a25 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -58,6 +58,7 @@ struct route_data {
+     struct in6_addr rta_gw;
+     char ifname[IFNAMSIZ]; /* Interface name. */
+     uint32_t mark;
++    uint32_t rta_table_id; /* 0 if missing. */
+ };
+ 
+ /* A digested version of a route message sent down by the kernel to indicate
+@@ -264,7 +265,6 @@ route_table_parse(struct ofpbuf *buf, void *change_)
+ 
+     if (parsed) {
+         const struct nlmsghdr *nlmsg;
+-        uint32_t table_id;
+         int rta_oif;      /* Output interface index. */
+ 
+         nlmsg = buf->data;
+@@ -281,16 +281,9 @@ route_table_parse(struct ofpbuf *buf, void *change_)
+             change->relevant = false;
+         }
+ 
+-        table_id = rtm->rtm_table;
++        change->rd.rta_table_id = rtm->rtm_table;
+         if (attrs[RTA_TABLE]) {
+-            table_id = nl_attr_get_u32(attrs[RTA_TABLE]);
+-        }
+-        /* Do not consider changes in non-standard routing tables. */
+-        if (table_id
+-            && table_id != RT_TABLE_DEFAULT
+-            && table_id != RT_TABLE_MAIN
+-            && table_id != RT_TABLE_LOCAL) {
+-            change->relevant = false;
++            change->rd.rta_table_id = nl_attr_get_u32(attrs[RTA_TABLE]);
+         }
+ 
+         change->nlmsg_type     = nlmsg->nlmsg_type;
+@@ -354,11 +347,21 @@ route_table_parse(struct ofpbuf *buf, void *change_)
+     return ipv4 ? RTNLGRP_IPV4_ROUTE : RTNLGRP_IPV6_ROUTE;
+ }
+ 
++static bool
++is_standard_table_id(uint32_t table_id)
++{
++    return !table_id
++           || table_id == RT_TABLE_DEFAULT
++           || table_id == RT_TABLE_MAIN
++           || table_id == RT_TABLE_LOCAL;
++}
++
+ static void
+-route_table_change(const struct route_table_msg *change OVS_UNUSED,
+-                   void *aux OVS_UNUSED)
++route_table_change(const struct route_table_msg *change, void *aux OVS_UNUSED)
+ {
+-    if (!change || change->relevant) {
++    if (!change
++        || (change->relevant
++            && is_standard_table_id(change->rd.rta_table_id))) {
+         route_table_valid = false;
+     }
+ }
+
+From patchwork Mon Jan 13 20:45:34 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033847
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=2605:bc80:3010::136; helo=smtp3.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp3.osuosl.org (smtp3.osuosl.org [IPv6:2605:bc80:3010::136])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX46N2JpRz1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:04 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp3.osuosl.org (Postfix) with ESMTP id E59A16083E;
+	Mon, 13 Jan 2025 20:46:01 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp3.osuosl.org ([127.0.0.1])
+ by localhost (smtp3.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id fXlIy4alLGcm; Mon, 13 Jan 2025 20:45:59 +0000 (UTC)
+X-Comment: SPF check N/A for local connections -
+ client-ip=2605:bc80:3010:104::8cd3:938; helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp3.osuosl.org 4E36660849
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org
+ [IPv6:2605:bc80:3010:104::8cd3:938])
+	by smtp3.osuosl.org (Postfix) with ESMTPS id 4E36660849;
+	Mon, 13 Jan 2025 20:45:59 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id 7BE50C08E5;
+	Mon, 13 Jan 2025 20:45:58 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp3.osuosl.org (smtp3.osuosl.org [IPv6:2605:bc80:3010::136])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 5AC37C0612
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:45:56 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp3.osuosl.org (Postfix) with ESMTP id 3806C6067D
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:45:56 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp3.osuosl.org ([127.0.0.1])
+ by localhost (smtp3.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id dMjLU034TBDH for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:45:55 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.218.45;
+ helo=mail-ej1-f45.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp3.osuosl.org 6CF9860812
+Authentication-Results: smtp3.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp3.osuosl.org 6CF9860812
+Received: from mail-ej1-f45.google.com (mail-ej1-f45.google.com
+ [209.85.218.45])
+ by smtp3.osuosl.org (Postfix) with ESMTPS id 6CF9860812
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:45:55 +0000 (UTC)
+Received: by mail-ej1-f45.google.com with SMTP id
+ a640c23a62f3a-aa6b4cc7270so693606266b.0
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:45:55 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801153; x=1737405953;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=oqtbdUeK0v1WFjSK2fhlz+l0wlxdhVFw6YXpfsyPVhg=;
+ b=cI8QsH/B77Q/clktGEX0yJREi7BfANrqTqA+0EDTuubUWRjETxOmXplHJ6KV93ymgq
+ dZjm2X697Z9Nwgyhbd7mLjv+CvNZ4H1E5cJt1j8IdXb10TE5598qhuL4m0XsQxllC165
+ CuRmZpW50cpRislg1MyQT+CsmI6mhchHixQfnNoXukay+v5tIhqw0NQ7+KCvIGXlDMPD
+ /y3HXKABQ/EhrQxE2ZvfA0bLQef3nNjXr2kYnlg2/vOe4mybzFRqB7BA7Fvc7nBcra+e
+ rKNu1lSpbOm/MOFlZyF5D0U3l65ZbUusruaM7Z8o65BD7eiVT3UUbIf/AzG0XVmj4e83
+ MfKA==
+X-Gm-Message-State: AOJu0YxjE4YnyNg5gvM08WWxWgM4pk9iNb0VT0JQJc44jxgS9dhO5zNc
+ cyF6+6u5AseTuot3NMSCBjOlvTncbNJPSHSrzaJAnluGcpDsVWpeHKhdxJZ/
+X-Gm-Gg: ASbGnct+2bOdeK5Hhu0Lkrh6zQCMeXdcEfnOVKVyy2Yz9oXXkKAuY1JQlCf/xiUEgO0
+ AEWMvyLJ2Pwxlz6oRcDRidMjx9zVQvRBSwPo2rCZlzJOKzAMDcQjNclxOnMBFeFL7SFmAkTnzJf
+ /Kf5jAVR0wvA0q3KcovRBPoadSHs7XAmV3HlKlFRgMm6pUs+jekHwJpIgPrPzQyb9ujzWQ7Mch3
+ 5ZwICEU1vbPOKewi79zz/rVhq+sQ9VFdMOvOV2Iob+6nxuGv+TU/FdIZYTKJxc=
+X-Google-Smtp-Source: 
+ AGHT+IGONG50hRfVTOHmp6AENJRWc1ZsxUtbWMahpxoyqUw8CJo+skds0pqlkAJzS0fx+7H+FC5gew==
+X-Received: by 2002:a05:6402:400a:b0:5d2:7199:ac2 with SMTP id
+ 4fb4d7f45d1cf-5d972e00032mr53170806a12.2.1736801152830;
+ Mon, 13 Jan 2025 12:45:52 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.45.51
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:45:52 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:34 +0100
+Message-ID: <20250113204548.97777-3-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 02/16] route-table: Store route priority.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+Store the route priority so that other consumers may read this
+data if relevant to them.
+
+Co-Authored-by: Felix Huettner <felix.huettner@stackit.cloud>
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+Acked-by: Eelco Chaudron <echaudro@redhat.com>
+---
+ lib/route-table.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index ed8d94a25..8524923c7 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -59,6 +59,7 @@ struct route_data {
+     char ifname[IFNAMSIZ]; /* Interface name. */
+     uint32_t mark;
+     uint32_t rta_table_id; /* 0 if missing. */
++    uint32_t rta_priority; /* 0 if missing. */
+ };
+ 
+ /* A digested version of a route message sent down by the kernel to indicate
+@@ -235,6 +236,7 @@ route_table_parse(struct ofpbuf *buf, void *change_)
+         [RTA_MARK] = { .type = NL_A_U32, .optional = true },
+         [RTA_PREFSRC] = { .type = NL_A_U32, .optional = true },
+         [RTA_TABLE] = { .type = NL_A_U32, .optional = true },
++        [RTA_PRIORITY] = { .type = NL_A_U32, .optional = true },
+     };
+ 
+     static const struct nl_policy policy6[] = {
+@@ -244,6 +246,7 @@ route_table_parse(struct ofpbuf *buf, void *change_)
+         [RTA_GATEWAY] = { .type = NL_A_IPV6, .optional = true },
+         [RTA_PREFSRC] = { .type = NL_A_IPV6, .optional = true },
+         [RTA_TABLE] = { .type = NL_A_U32, .optional = true },
++        [RTA_PRIORITY] = { .type = NL_A_U32, .optional = true },
+     };
+ 
+     struct nlattr *attrs[ARRAY_SIZE(policy)];
+@@ -338,6 +341,9 @@ route_table_parse(struct ofpbuf *buf, void *change_)
+         if (attrs[RTA_MARK]) {
+             change->rd.mark = nl_attr_get_u32(attrs[RTA_MARK]);
+         }
++        if (attrs[RTA_PRIORITY]) {
++            change->rd.rta_priority = nl_attr_get_u32(attrs[RTA_PRIORITY]);
++        }
+     } else {
+         VLOG_DBG_RL(&rl, "received unparseable rtnetlink route message");
+         return 0;
+
+From patchwork Mon Jan 13 20:45:35 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033846
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=2605:bc80:3010::138; helo=smtp1.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp1.osuosl.org (smtp1.osuosl.org [IPv6:2605:bc80:3010::138])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX46L5966z1yPY
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:02 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp1.osuosl.org (Postfix) with ESMTP id 3BC4881007;
+	Mon, 13 Jan 2025 20:46:01 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp1.osuosl.org ([127.0.0.1])
+ by localhost (smtp1.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id QP8lyinDtrv0; Mon, 13 Jan 2025 20:46:00 +0000 (UTC)
+X-Comment: SPF check N/A for local connections - client-ip=140.211.9.56;
+ helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp1.osuosl.org 3008F80FDE
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org [140.211.9.56])
+	by smtp1.osuosl.org (Postfix) with ESMTPS id 3008F80FDE;
+	Mon, 13 Jan 2025 20:46:00 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id BC2FEC08E8;
+	Mon, 13 Jan 2025 20:45:59 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp4.osuosl.org (smtp4.osuosl.org [IPv6:2605:bc80:3010::137])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 4B669C0612
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:45:58 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp4.osuosl.org (Postfix) with ESMTP id 1F6F2405AB
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:45:58 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp4.osuosl.org ([127.0.0.1])
+ by localhost (smtp4.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id g3ilhuj5iK0d for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:45:57 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.208.51;
+ helo=mail-ed1-f51.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp4.osuosl.org BCD2E40481
+Authentication-Results: smtp4.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp4.osuosl.org BCD2E40481
+Received: from mail-ed1-f51.google.com (mail-ed1-f51.google.com
+ [209.85.208.51])
+ by smtp4.osuosl.org (Postfix) with ESMTPS id BCD2E40481
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:45:56 +0000 (UTC)
+Received: by mail-ed1-f51.google.com with SMTP id
+ 4fb4d7f45d1cf-5d3f65844deso7786137a12.0
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:45:56 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801154; x=1737405954;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=Q4nkLuxsvpYq5fCxFIlR9S8kjBv6JhcS4FvIU650n1Y=;
+ b=CPKANcEqRJ1RfcPe6/1JeP2v49MoFMpPbiyYNevrlF8QMQHnlayJcebp+9jFPlO+Ht
+ 0dTJnmZQh3YVIEq99TOgMass89idGzcWCtO6ibWYhQi6hrSwlzw/r1EzH+7vwSWLMS8v
+ CvWtlikS2Cg5HXkbZCCr3wOhBoWPnT8M3ctYbISKO/lzdmSlvohlAMSk1Gm93kE2J6eC
+ B+7mx7hw2tFyili9IzsZwDbsBviVfxssHGr1ldm2D1OZ92YLmDRyA4+9//TTGnunrS6d
+ hSuY9Qw2ufLfRtjd8dYz63ivbdv0yKP8AwWcnjFviiwlkiYCAGc70jFpbjd/XhZ832FV
+ pUog==
+X-Gm-Message-State: AOJu0YybXNYwUk1zKXFgccHeEZWeDtbs8jmgSdLKlQQ4rESjR8h6atxB
+ PxC8Zsf8Pv3mHfUaPlhlk5948cDVTOEOYkRWEut2mMmMScyS3ydiezLJtWrM
+X-Gm-Gg: ASbGncv56yljXZH5ddPoThJLI10blNl53nDuDjdXx8y3tcFfD5Qn0r2b4O7PhO3fk6k
+ FZcE/KWZtLxQUTVPAZfr6PE7XPjcl1hCfXxULWhUpz4iXxSSDcIM+kKTAe6duJQTmCPq2p3XPLA
+ LDNuRoMg4PT46JvwDvvDJrQKAZYRrg5mhqPfRyy/bmiRWChMtu5PQwbxdIJnC3BF9LlD1IOsCNw
+ ifQ/PmT0wLy85V1HxlrUTxeh3KQzkCjDkH2/uChwBxOgSiwQX7DG0/4FkPY2zo=
+X-Google-Smtp-Source: 
+ AGHT+IF73NlrgjhOR2Eem0zlQL2BDE8zfSsHqnslJYgA05+jJUrRNZkqJG5bvZWbsYzkxqCLXFPwwQ==
+X-Received: by 2002:a17:907:3e17:b0:aaf:17d:803f with SMTP id
+ a640c23a62f3a-ab2abc9ed28mr2130892666b.51.1736801154125;
+ Mon, 13 Jan 2025 12:45:54 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.45.52
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:45:53 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:35 +0100
+Message-ID: <20250113204548.97777-4-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 03/16] route-table: Store route protocol.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+Store the route protocol so that other consumers may read this
+data if relevant to them.
+
+Co-Authored-by: Felix Huettner <felix.huettner@stackit.cloud>
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+Acked-by: Eelco Chaudron <echaudro@redhat.com>
+---
+ lib/route-table.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index 8524923c7..42b5cb036 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -50,6 +50,7 @@ COVERAGE_DEFINE(route_table_dump);
+ struct route_data {
+     /* Copied from struct rtmsg. */
+     unsigned char rtm_dst_len;
++    unsigned char rtm_protocol;
+     bool local;
+ 
+     /* Extracted from Netlink attributes. */
+@@ -291,6 +292,7 @@ route_table_parse(struct ofpbuf *buf, void *change_)
+ 
+         change->nlmsg_type     = nlmsg->nlmsg_type;
+         change->rd.rtm_dst_len = rtm->rtm_dst_len + (ipv4 ? 96 : 0);
++        change->rd.rtm_protocol = rtm->rtm_protocol;
+         change->rd.local = rtm->rtm_type == RTN_LOCAL;
+         if (attrs[RTA_OIF]) {
+             rta_oif = nl_attr_get_u32(attrs[RTA_OIF]);
+
+From patchwork Mon Jan 13 20:45:36 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033848
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=2605:bc80:3010::133; helo=smtp2.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp2.osuosl.org (smtp2.osuosl.org [IPv6:2605:bc80:3010::133])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX46Q4Y5Yz1yPY
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:06 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp2.osuosl.org (Postfix) with ESMTP id DD2DA40645;
+	Mon, 13 Jan 2025 20:46:05 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp2.osuosl.org ([127.0.0.1])
+ by localhost (smtp2.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id sNLAfoKhBqvw; Mon, 13 Jan 2025 20:46:03 +0000 (UTC)
+X-Comment: SPF check N/A for local connections -
+ client-ip=2605:bc80:3010:104::8cd3:938; helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp2.osuosl.org 30787405ED
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org
+ [IPv6:2605:bc80:3010:104::8cd3:938])
+	by smtp2.osuosl.org (Postfix) with ESMTPS id 30787405ED;
+	Mon, 13 Jan 2025 20:46:02 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id F2495C08E4;
+	Mon, 13 Jan 2025 20:46:01 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp2.osuosl.org (smtp2.osuosl.org [140.211.166.133])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 13AD0C08E5
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:00 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp2.osuosl.org (Postfix) with ESMTP id 9D682405F2
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:45:59 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp2.osuosl.org ([127.0.0.1])
+ by localhost (smtp2.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id g7lOVlt5tZpb for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:45:58 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.218.52;
+ helo=mail-ej1-f52.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp2.osuosl.org E82784058D
+Authentication-Results: smtp2.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp2.osuosl.org E82784058D
+Received: from mail-ej1-f52.google.com (mail-ej1-f52.google.com
+ [209.85.218.52])
+ by smtp2.osuosl.org (Postfix) with ESMTPS id E82784058D
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:45:57 +0000 (UTC)
+Received: by mail-ej1-f52.google.com with SMTP id
+ a640c23a62f3a-aa6a92f863cso896526266b.1
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:45:57 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801155; x=1737405955;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=uoT3gmJ5H+MtcSX9wVXoc9aD6XhwY0usRc1B8wNSEmU=;
+ b=wnMnq1w4NW7u23DsMOrEJpHH8NTEUUTdJ/zgT1SJfLehlWNP4jShTf1pmfpej9KY6L
+ ceVs2SYGxZ123/AEC5RDsGxlwABtCIFUhCY4xJ8ZXjjm7mt1mw85jO//uN0HWSwdAauD
+ IAPpT9HFPEyuY/dwr9BUMJCcyaprfCcuZXGXI6G/VUIaXTrDIFd5hhwFaG2f5eZ/gasU
+ 9z5qQJl4zB1GGkUyrpZtDD4T2TPQw6H88dMdTb6rWNLNUSLlikvbTAldv71YHNQfDiTf
+ Q3jgYudBIvOtDemQqyhJNee1AMqCX35jaurvXNNDFFu9zDkGlk8ncMKDGZfLPtM0XnDj
+ Mrhw==
+X-Gm-Message-State: AOJu0Yy2MpmvhmYMFIVC8wbTi0q1DespxdnAhjU0MvCAjfocflHnC3z3
+ 2yZdPc5ucnmIAF2yhnJh3DLqYSaYFa/DMYq9LAARwEMMZBdx76Dy6cR/M4f9
+X-Gm-Gg: ASbGnctnxYT2YAdaBgoVm91AfXycq9ScaZhFg4oRrHMPlaWnlZK9dSIOTmpLBvRQFgS
+ xAUXiQirHZu+WeQJWVaZo3RutIHjXFxwSvLDqzXwUlQU9VN0Gs24MOSzUGjoBVwjOMF+RqxyvwT
+ Uc5y4pEkEV15fj7drkOe6dZy6SZBKvt5hwmYrOZyGUCVzAiDSMIM9ck4tq22V3NPxglLjUpwyRP
+ F2mAMEHhFpH7xaH3ndzjGr7ANyVwiiLwtAfnGXqNe2OQQqnZ7Q3Mo6pw4/f/JM=
+X-Google-Smtp-Source: 
+ AGHT+IELjxhTMtW50ifgDBsocBja2oEhdtJ7CClxsW6kZsYebMTo45JglyF9ImlgvxcUNC9LlL90+Q==
+X-Received: by 2002:a17:907:9691:b0:aa6:873b:ed8a with SMTP id
+ a640c23a62f3a-ab2abc9240amr2015686866b.47.1736801155297;
+ Mon, 13 Jan 2025 12:45:55 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.45.54
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:45:54 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:36 +0100
+Message-ID: <20250113204548.97777-5-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 04/16] route-table: Split header and attribute
+ parsing.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+In a subsequent patch we will introduce support for handling the
+RTA_MULTIPATH attribute.
+
+The RTA_MULTIPATH attribute is a nested attribute containing
+another set of route attributes.  There is some overlap of netlink
+policy for parsing both sets of attributes.
+
+Consequently we would want to reuse the code for parsing these
+attributes, and splitting up the function allows us to do this in
+a subsequent patch.
+
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+Acked-by: Eelco Chaudron <echaudro@redhat.com>
+---
+ lib/route-table.c | 32 ++++++++++++++++++++------------
+ 1 file changed, 20 insertions(+), 12 deletions(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index 42b5cb036..8386996ec 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -225,9 +225,10 @@ route_table_reset(void)
+ /* Return RTNLGRP_IPV4_ROUTE or RTNLGRP_IPV6_ROUTE on success, 0 on parse
+  * error. */
+ static int
+-route_table_parse(struct ofpbuf *buf, void *change_)
++route_table_parse__(struct ofpbuf *buf, size_t ofs,
++                    const struct nlmsghdr *nlmsg,
++                    const struct rtmsg *rtm, struct route_table_msg *change)
+ {
+-    struct route_table_msg *change = change_;
+     bool parsed, ipv4 = false;
+ 
+     static const struct nl_policy policy[] = {
+@@ -251,28 +252,22 @@ route_table_parse(struct ofpbuf *buf, void *change_)
+     };
+ 
+     struct nlattr *attrs[ARRAY_SIZE(policy)];
+-    const struct rtmsg *rtm;
+-
+-    rtm = ofpbuf_at(buf, NLMSG_HDRLEN, sizeof *rtm);
+ 
+     if (rtm->rtm_family == AF_INET) {
+-        parsed = nl_policy_parse(buf, NLMSG_HDRLEN + sizeof(struct rtmsg),
+-                                 policy, attrs, ARRAY_SIZE(policy));
++        parsed = nl_policy_parse(buf, ofs, policy, attrs,
++                                 ARRAY_SIZE(policy));
+         ipv4 = true;
+     } else if (rtm->rtm_family == AF_INET6) {
+-        parsed = nl_policy_parse(buf, NLMSG_HDRLEN + sizeof(struct rtmsg),
+-                                 policy6, attrs, ARRAY_SIZE(policy6));
++        parsed = nl_policy_parse(buf, ofs, policy6, attrs,
++                                 ARRAY_SIZE(policy6));
+     } else {
+         VLOG_DBG_RL(&rl, "received non AF_INET rtnetlink route message");
+         return 0;
+     }
+ 
+     if (parsed) {
+-        const struct nlmsghdr *nlmsg;
+         int rta_oif;      /* Output interface index. */
+ 
+-        nlmsg = buf->data;
+-
+         memset(change, 0, sizeof *change);
+         change->relevant = true;
+ 
+@@ -355,6 +350,19 @@ route_table_parse(struct ofpbuf *buf, void *change_)
+     return ipv4 ? RTNLGRP_IPV4_ROUTE : RTNLGRP_IPV6_ROUTE;
+ }
+ 
++static int
++route_table_parse(struct ofpbuf *buf, void *change)
++{
++    struct nlmsghdr *nlmsg;
++    struct rtmsg *rtm;
++
++    nlmsg = ofpbuf_at(buf, 0, NLMSG_HDRLEN);
++    rtm = ofpbuf_at(buf, NLMSG_HDRLEN, sizeof *rtm);
++
++    return route_table_parse__(buf, NLMSG_HDRLEN + sizeof *rtm,
++                               nlmsg, rtm, change);
++}
++
+ static bool
+ is_standard_table_id(uint32_t table_id)
+ {
+
+From patchwork Mon Jan 13 20:45:37 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033849
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=2605:bc80:3010::137; helo=smtp4.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp4.osuosl.org (smtp4.osuosl.org [IPv6:2605:bc80:3010::137])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX46R6xzSz1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:07 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp4.osuosl.org (Postfix) with ESMTP id 0E78640B3D;
+	Mon, 13 Jan 2025 20:46:07 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp4.osuosl.org ([127.0.0.1])
+ by localhost (smtp4.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id KEKv1LBFG36y; Mon, 13 Jan 2025 20:46:05 +0000 (UTC)
+X-Comment: SPF check N/A for local connections -
+ client-ip=2605:bc80:3010:104::8cd3:938; helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp4.osuosl.org A87E44077D
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org
+ [IPv6:2605:bc80:3010:104::8cd3:938])
+	by smtp4.osuosl.org (Postfix) with ESMTPS id A87E44077D;
+	Mon, 13 Jan 2025 20:46:04 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id 16DA0C08EA;
+	Mon, 13 Jan 2025 20:46:04 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp3.osuosl.org (smtp3.osuosl.org [140.211.166.136])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 10820C08E5
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:01 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp3.osuosl.org (Postfix) with ESMTP id BAC0460863
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:00 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp3.osuosl.org ([127.0.0.1])
+ by localhost (smtp3.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id SBr0Wj0_Smrf for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:46:00 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.218.44;
+ helo=mail-ej1-f44.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp3.osuosl.org 59E3B6084C
+Authentication-Results: smtp3.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp3.osuosl.org 59E3B6084C
+Received: from mail-ej1-f44.google.com (mail-ej1-f44.google.com
+ [209.85.218.44])
+ by smtp3.osuosl.org (Postfix) with ESMTPS id 59E3B6084C
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:45:59 +0000 (UTC)
+Received: by mail-ej1-f44.google.com with SMTP id
+ a640c23a62f3a-aa6c0d1833eso199050866b.1
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:45:59 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801157; x=1737405957;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=viTCvLM+8qUK8ihKiMvOqfAvZFCZAD7GHOAX1gKSrxs=;
+ b=pkV/nVF974NyTrn43x09BH30IujjHW74scXwcQ4pW35EfceT5IcfAQkrg7HREE5VR5
+ kBtkGOlaSiUTIFC5S+xGvpykm89EsWHqCE/M22wT/dRkYhx42+39QOB6+S0K6rnhVIBY
+ 5y1Q854C8IzciOCb9AwQt8LBSbMGIRaASepnZqkk11f/lfJ9SOOhZ8+VF9VJhsyPHzr8
+ 0UPr7XYBfMy3F7I4e29DsvDERYEU4mLMaA4GIwo/ezK9AeDwUC/vjm2BXH4vkSip/UsO
+ zJATWec2hgv9ZXnpDvG5N6eJyYpHfixR1y76gko2Dl+TIE7jR+dvpLnDmfgz1St6sdoa
+ 8dyw==
+X-Gm-Message-State: AOJu0Yy3H8yNRpUw+N22STuBWtcB2uB2uTwYH+VnGmnCVtetgifNgmjw
+ eY6AaF6ZPqIwBmnf6k1Hh2wGdk8OYdmHpOd3JXv8M0/FrDMIW02l3LCr/bgD
+X-Gm-Gg: ASbGncsufH0JUVDgTJO1NncsG5mXFvDJqBlFmAblIwYpkjYJ8WPQNbG99E8QuQb7Zpz
+ QP6+JdQyj4fIBv8PKEMXEPD+ZS0aMO697gyQif/e5gzjhZphQcRgiesgF3c6DEKlsV/EY4PdBRr
+ dNrMAVcvk9G8I6Ebvg2+DngKx+mJvfs7egB9xINnVV94G9hPOxkwi2+aWOqUlIVtBQTfqNvadEF
+ 7FXQRqhVJxjwRIxxrBUhsv9YnrHwKH6f+8JsO3CY7R4RsEj6pmL4QkkceeIPJU=
+X-Google-Smtp-Source: 
+ AGHT+IEA8XCDbBlC9Q6n5xKwgK3BNhRzP0/jF9PuxKvgJCkaoRP+vZFmMTXVutRk5S8avbDmqWgrbg==
+X-Received: by 2002:a17:907:7ea1:b0:ab2:e76a:a51a with SMTP id
+ a640c23a62f3a-ab2e76aaedbmr1401622366b.31.1736801156496;
+ Mon, 13 Jan 2025 12:45:56 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.45.55
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:45:55 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:37 +0100
+Message-ID: <20250113204548.97777-6-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 05/16] route-table: Rename static nln callback
+ buffer.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+The use of the variable name rtmsg for the global netlink notifier
+callback buffer is confusing.
+
+It coincides both with the kernel uapi struct rtmsg and as an
+abbreviation of the route-table module struct route_table_msg.
+
+One could be lead to believe that this buffer is used as storage
+for all handling of route messages for the module, which is not
+the case.
+
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+---
+ lib/route-table.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index 8386996ec..8697d79c7 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -79,7 +79,7 @@ static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
+ static uint64_t rt_change_seq;
+ 
+ static struct nln *nln = NULL;
+-static struct route_table_msg rtmsg;
++static struct route_table_msg nln_rtmsg_change;
+ static struct nln_notifier *route_notifier = NULL;
+ static struct nln_notifier *route6_notifier = NULL;
+ static struct nln_notifier *name_notifier = NULL;
+@@ -113,7 +113,7 @@ route_table_init(void)
+     ovs_assert(!route6_notifier);
+ 
+     ovs_router_init();
+-    nln = nln_create(NETLINK_ROUTE, route_table_parse, &rtmsg);
++    nln = nln_create(NETLINK_ROUTE, route_table_parse, &nln_rtmsg_change);
+ 
+     route_notifier =
+         nln_notifier_create(nln, RTNLGRP_IPV4_ROUTE,
+
+From patchwork Mon Jan 13 20:45:38 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033850
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=140.211.166.138; helo=smtp1.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp1.osuosl.org (smtp1.osuosl.org [140.211.166.138])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX46W2XVBz1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:11 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp1.osuosl.org (Postfix) with ESMTP id 63C0481314;
+	Mon, 13 Jan 2025 20:46:10 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp1.osuosl.org ([127.0.0.1])
+ by localhost (smtp1.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id 1afwK4PW-7pt; Mon, 13 Jan 2025 20:46:08 +0000 (UTC)
+X-Comment: SPF check N/A for local connections -
+ client-ip=2605:bc80:3010:104::8cd3:938; helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp1.osuosl.org 5853D81151
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org
+ [IPv6:2605:bc80:3010:104::8cd3:938])
+	by smtp1.osuosl.org (Postfix) with ESMTPS id 5853D81151;
+	Mon, 13 Jan 2025 20:46:06 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id DFCA8C08E5;
+	Mon, 13 Jan 2025 20:46:05 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp3.osuosl.org (smtp3.osuosl.org [140.211.166.136])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 1E785C08E6
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:03 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp3.osuosl.org (Postfix) with ESMTP id 876386087B
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:01 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp3.osuosl.org ([127.0.0.1])
+ by localhost (smtp3.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id mit9sMeoLRnE for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:46:01 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.208.48;
+ helo=mail-ed1-f48.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp3.osuosl.org 75B3B60847
+Authentication-Results: smtp3.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp3.osuosl.org 75B3B60847
+Received: from mail-ed1-f48.google.com (mail-ed1-f48.google.com
+ [209.85.208.48])
+ by smtp3.osuosl.org (Postfix) with ESMTPS id 75B3B60847
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:00 +0000 (UTC)
+Received: by mail-ed1-f48.google.com with SMTP id
+ 4fb4d7f45d1cf-5d7e527becaso7868169a12.3
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:46:00 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801158; x=1737405958;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=v0UCVTr3iHKJ0WL7+yPOyPUMO+Amgz2S9HT1k7V9R7A=;
+ b=EtFIKUydbfOfOsO1KOWB5ngjLzbNIqRsxigc9vQD5s1WC4nxEBldtS2JCvDjmOMdHf
+ SaiWy0mlMg3SBfiqLMpSVn1+p8YuE3VHuJAb4jP+qMHIudo9nlZ6KTPYcMF8Sev91dw/
+ 0TBjk+eiqAN46TFcfq/Z2k7a/Y1xGIS5Bts6yW07e5oexhsp3Vi2QlfeBe93SYOQu6ES
+ FhT37HPE/iYRpAzFdmLmk8+07mU3JNYlx0A+7FDgDh8K0Ml7MAXDOiZyyEBsOqw6tnI+
+ UJhmpadcyrcEIUQGGhhCvPYX0Ooo53w7vIk5VpHj0OLKW2fdXDHk47MkKd/UiQK30xir
+ kzVA==
+X-Gm-Message-State: AOJu0YwNPKTE0/lWVHuxDdBlN90wcPVM9o6Sm1m/5F2/IHtfPwKdzbyE
+ cc4US1oNXsOOl1/pv4xzFhL6rKrWjDMQQLZCGvDV8xIhfXUiVzRuOu8iwjnI
+X-Gm-Gg: ASbGncseynrwXle51jhjAs2U+I/Izm3fqn5m3RVr66+pWuIweMV3YV+EfA4UBlfqXkT
+ Fg0ck2Z9aZ5gqjhTvdqBN9O4CCrz494KTuFQ18FBcFyOfObp6LKQbu3IcfocNxtcrziNz3QyktJ
+ P/ZxqcCFL+Lrvb5F4+eL817/gePwI+7F8oQYoMfrsEo4wI1D95ewhrGq5YaiUDd8be27VHy2uQz
+ B00rqPJ9RpGf4zPFgKjQ5wHlDM5qmbBrNjMMJ9mGc8i5QkufqB+88utCDOKwM8=
+X-Google-Smtp-Source: 
+ AGHT+IHnu7TvkC4DsFf7O7YDL9hbseTurwFF8Zf/hq9BAFeqTL+392GCg9emYS/sC4FoHWJ9NMztGw==
+X-Received: by 2002:a05:6402:34c2:b0:5d3:ba42:e9fa with SMTP id
+ 4fb4d7f45d1cf-5d972e1c568mr55282825a12.16.1736801157901;
+ Mon, 13 Jan 2025 12:45:57 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.45.56
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:45:56 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:38 +0100
+Message-ID: <20250113204548.97777-7-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 06/16] route-table: Harmonize log msgs with
+ code base.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+Log messages should not start with capital letter.
+
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+---
+ lib/route-table.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index 8697d79c7..31a719cd3 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -295,7 +295,7 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+             if (!if_indextoname(rta_oif, change->rd.ifname)) {
+                 int error = errno;
+ 
+-                VLOG_DBG_RL(&rl, "Could not find interface name[%u]: %s",
++                VLOG_DBG_RL(&rl, "could not find interface name[%u]: %s",
+                             rta_oif, ovs_strerror(error));
+                 if (error == ENXIO) {
+                     change->relevant = false;
+
+From patchwork Mon Jan 13 20:45:39 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033851
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=2605:bc80:3010::136; helo=smtp3.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp3.osuosl.org (smtp3.osuosl.org [IPv6:2605:bc80:3010::136])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX46h2CM8z1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:20 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp3.osuosl.org (Postfix) with ESMTP id 4011E61178;
+	Mon, 13 Jan 2025 20:46:19 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp3.osuosl.org ([127.0.0.1])
+ by localhost (smtp3.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id TxMjXW2QEFne; Mon, 13 Jan 2025 20:46:16 +0000 (UTC)
+X-Comment: SPF check N/A for local connections - client-ip=140.211.9.56;
+ helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp3.osuosl.org C968861084
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org [140.211.9.56])
+	by smtp3.osuosl.org (Postfix) with ESMTPS id C968861084;
+	Mon, 13 Jan 2025 20:46:09 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id 02A65C08E5;
+	Mon, 13 Jan 2025 20:46:09 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp1.osuosl.org (smtp1.osuosl.org [140.211.166.138])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 0B269C08E5
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:08 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp1.osuosl.org (Postfix) with ESMTP id 2E3C38111B
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:05 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp1.osuosl.org ([127.0.0.1])
+ by localhost (smtp1.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id uqq_lEOTLUco for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:46:03 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.208.44;
+ helo=mail-ed1-f44.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp1.osuosl.org B0B4480F63
+Authentication-Results: smtp1.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp1.osuosl.org B0B4480F63
+Received: from mail-ed1-f44.google.com (mail-ed1-f44.google.com
+ [209.85.208.44])
+ by smtp1.osuosl.org (Postfix) with ESMTPS id B0B4480F63
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:02 +0000 (UTC)
+Received: by mail-ed1-f44.google.com with SMTP id
+ 4fb4d7f45d1cf-5d9f0a6adb4so1196582a12.1
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:46:01 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801159; x=1737405959;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=B91XjBVgo9EMv8ISML28155hnp0DnZedb+4B4c3s2Xk=;
+ b=oShGni6LHIZ62cryNwDFazv1uWYQVriM3M0uPU+BCxPbq+uOKzH0o4cwBjJLaSGTeh
+ FWXm1Af18o9Xq9XAtPV5QVbFHrk3hLXQm8aBM5+Bx47gma4m6BttRTPWL6oEXGl6GeGg
+ siHcqCrkYk0yRrwCwGEfUTl8TGNGAH9WBcLB6YpoXY5TZeoSQWSAcxoUiNOAz4Xy0qkc
+ ln2iJ21Mj/7jw6zeSePYnzWO3bB4zwPDtNcn5ZBC0baYAMj3zNdRAQ7TibN20DlAhSmP
+ jCHk9g+fKrcj00DcjhiTwYNMBOtOU0NDYOE9KNjjm94LQgz4RPEOtth2dcHT+oC4PTHJ
+ nA0g==
+X-Gm-Message-State: AOJu0Yz6pWYc6w2VvKJNmOILWFQWBReM4BnkVnVfFUZdoyZ+xG4GcXng
+ EGU7SsIC1Z0U5YbsejgqOYmTS9TqwMqIB82jBFBWqv5J8IPUl3tPI1QbL8Ux
+X-Gm-Gg: ASbGncvdCgb7qzhJ5LdG+QinXJUpQJ/+47/B1SEv2f8KKtzkpaVYubsRmd1I8ckBnsR
+ A4QyjPgDvTdnQP+bdWsPJOAChZTTSQ0q5j8zKM29gFutYZZ/rZvWxSOhpz25tj7R5Tl/BkpF2yP
+ sxcfgWIW2EdxjlbGLrM8YzjYeDhk8svuonFQygn1yN+4gjqbKJEbk2RjxSRy1rqSOcXK4t07329
+ jfyeqQ2788G6PrQ0SeYUYZWZo7R7/yGe3RSyJs054sH9NyYhM6fzfTYyAgvBmU=
+X-Google-Smtp-Source: 
+ AGHT+IHVvToUOJmhN4nDBI3Zah9cittLSQjjdpf0NOJEmTxTf8lsOzldiaqUB32jqm+z4zwhy1vFtQ==
+X-Received: by 2002:a17:907:7f08:b0:aaf:c19b:728b with SMTP id
+ a640c23a62f3a-ab2ab708d2cmr2132397166b.51.1736801159179;
+ Mon, 13 Jan 2025 12:45:59 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.45.58
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:45:58 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:39 +0100
+Message-ID: <20250113204548.97777-8-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 07/16] route-table: Store nexthops in linked
+ list.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+In preparation for adding support for parsing routes with multiple
+next hops per destination, we need dynamic storage for them.
+
+Storage for the primary next hop is set aside in struct route_data
+to avoid unnecessary memory allocations for the common case of one
+next hop.
+
+The ovs-router module does not support storing multiple next hop
+information, and the existing parser does not understand them, so
+we retain this behavior by only passing single next hop routes for
+storage in ovs-router.
+
+This patch makes this change in isolation so that it is easier to
+review subsequent patches.
+
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+---
+ lib/route-table.c | 94 ++++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 81 insertions(+), 13 deletions(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index 31a719cd3..183d300c6 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -32,6 +32,7 @@
+ #include "netlink.h"
+ #include "netlink-notifier.h"
+ #include "netlink-socket.h"
++#include "openvswitch/list.h"
+ #include "openvswitch/ofpbuf.h"
+ #include "ovs-router.h"
+ #include "packets.h"
+@@ -47,7 +48,34 @@ VLOG_DEFINE_THIS_MODULE(route_table);
+ 
+ COVERAGE_DEFINE(route_table_dump);
+ 
++struct route_data_nexthop {
++    struct ovs_list nexthop_node;
++
++    struct in6_addr addr;
++    char ifname[IFNAMSIZ]; /* Interface name. */
++};
++
+ struct route_data {
++    /* Routes can have multiple next hops per destination.
++     *
++     * Each next hop has its own set of attributes such as address family,
++     * interface and IP address.
++     *
++     * When retrieving information about a route from the kernel, in the case
++     * of multiple next hops, information is provided as nested attributes.
++     *
++     * A linked list with struct route_data_nexthop entries is used to store
++     * this information as we parse each attribute.
++     *
++     * For the common case of one next hop, the nexthops list will contain a
++     * single entry pointing to the struct route_data _primary_next_hop
++     * element.
++     *
++     * Any dynamically allocated list elements MUST be freed with a call to the
++     * route_data_destroy function. */
++    struct ovs_list nexthops;
++    struct route_data_nexthop _primary_next_hop;
++
+     /* Copied from struct rtmsg. */
+     unsigned char rtm_dst_len;
+     unsigned char rtm_protocol;
+@@ -56,8 +84,6 @@ struct route_data {
+     /* Extracted from Netlink attributes. */
+     struct in6_addr rta_dst; /* 0 if missing. */
+     struct in6_addr rta_prefsrc; /* 0 if missing. */
+-    struct in6_addr rta_gw;
+-    char ifname[IFNAMSIZ]; /* Interface name. */
+     uint32_t mark;
+     uint32_t rta_table_id; /* 0 if missing. */
+     uint32_t rta_priority; /* 0 if missing. */
+@@ -89,12 +115,24 @@ static bool route_table_valid = false;
+ static void route_table_reset(void);
+ static void route_table_handle_msg(const struct route_table_msg *);
+ static int route_table_parse(struct ofpbuf *, void *change);
+-static void route_table_change(const struct route_table_msg *, void *);
++static void route_table_change(struct route_table_msg *, void *aux);
+ static void route_map_clear(void);
+ 
+ static void name_table_init(void);
+ static void name_table_change(const struct rtnetlink_change *, void *);
+ 
++static void
++route_data_destroy(struct route_data *rd)
++{
++    struct route_data_nexthop *rdnh;
++
++    LIST_FOR_EACH_POP (rdnh, nexthop_node, &rd->nexthops) {
++        if (rdnh && rdnh != &rd->_primary_next_hop) {
++            free(rdnh);
++        }
++    }
++}
++
+ uint64_t
+ route_table_get_change_seq(void)
+ {
+@@ -190,6 +228,7 @@ route_table_dump_one_table(unsigned char id)
+                 filtered = false;
+             }
+             route_table_handle_msg(&msg);
++            route_data_destroy(&msg.rd);
+         }
+     }
+     ofpbuf_uninit(&buf);
+@@ -222,8 +261,6 @@ route_table_reset(void)
+     }
+ }
+ 
+-/* Return RTNLGRP_IPV4_ROUTE or RTNLGRP_IPV6_ROUTE on success, 0 on parse
+- * error. */
+ static int
+ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+                     const struct nlmsghdr *nlmsg,
+@@ -266,9 +303,15 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+     }
+ 
+     if (parsed) {
++        struct route_data_nexthop *rdnh = NULL;
+         int rta_oif;      /* Output interface index. */
+ 
+         memset(change, 0, sizeof *change);
++
++        ovs_list_init(&change->rd.nexthops);
++        rdnh = &change->rd._primary_next_hop;
++        ovs_list_insert(&change->rd.nexthops, &rdnh->nexthop_node);
++
+         change->relevant = true;
+ 
+         if (rtm->rtm_scope == RT_SCOPE_NOWHERE) {
+@@ -292,7 +335,7 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+         if (attrs[RTA_OIF]) {
+             rta_oif = nl_attr_get_u32(attrs[RTA_OIF]);
+ 
+-            if (!if_indextoname(rta_oif, change->rd.ifname)) {
++            if (!if_indextoname(rta_oif, rdnh->ifname)) {
+                 int error = errno;
+ 
+                 VLOG_DBG_RL(&rl, "could not find interface name[%u]: %s",
+@@ -300,7 +343,7 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+                 if (error == ENXIO) {
+                     change->relevant = false;
+                 } else {
+-                    return 0;
++                    goto error_out;
+                 }
+             }
+         }
+@@ -330,9 +373,9 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+             if (ipv4) {
+                 ovs_be32 gw;
+                 gw = nl_attr_get_be32(attrs[RTA_GATEWAY]);
+-                in6_addr_set_mapped_ipv4(&change->rd.rta_gw, gw);
++                in6_addr_set_mapped_ipv4(&rdnh->addr, gw);
+             } else {
+-                change->rd.rta_gw = nl_attr_get_in6_addr(attrs[RTA_GATEWAY]);
++                rdnh->addr = nl_attr_get_in6_addr(attrs[RTA_GATEWAY]);
+             }
+         }
+         if (attrs[RTA_MARK]) {
+@@ -343,13 +386,27 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+         }
+     } else {
+         VLOG_DBG_RL(&rl, "received unparseable rtnetlink route message");
+-        return 0;
++        goto error_out;
+     }
+ 
+     /* Success. */
+     return ipv4 ? RTNLGRP_IPV4_ROUTE : RTNLGRP_IPV6_ROUTE;
++
++error_out:
++    route_data_destroy(&change->rd);
++    return 0;
+ }
+ 
++/* Parse Netlink message in buf, which is expected to contain a UAPI rtmsg
++ * header and associated route attributes.
++ *
++ * Return RTNLGRP_IPV4_ROUTE or RTNLGRP_IPV6_ROUTE on success, and 0 on a parse
++ * error.
++ *
++ * On success, memory may have been allocated, and it is the caller's
++ * responsibility to free it with a call to route_data_destroy().
++ *
++ * In case of error, any allocated memory will be freed before returning. */
+ static int
+ route_table_parse(struct ofpbuf *buf, void *change)
+ {
+@@ -373,23 +430,34 @@ is_standard_table_id(uint32_t table_id)
+ }
+ 
+ static void
+-route_table_change(const struct route_table_msg *change, void *aux OVS_UNUSED)
++route_table_change(struct route_table_msg *change, void *aux OVS_UNUSED)
+ {
+     if (!change
+         || (change->relevant
+             && is_standard_table_id(change->rd.rta_table_id))) {
+         route_table_valid = false;
+     }
++    if (change) {
++        route_data_destroy(&change->rd);
++    }
+ }
+ 
+ static void
+ route_table_handle_msg(const struct route_table_msg *change)
+ {
+-    if (change->relevant && change->nlmsg_type == RTM_NEWROUTE) {
++    if (change->relevant && change->nlmsg_type == RTM_NEWROUTE
++            && !ovs_list_is_empty(&change->rd.nexthops)) {
+         const struct route_data *rd = &change->rd;
++        const struct route_data_nexthop *rdnh;
++
++        /* The ovs-router module currently does not implement lookup or
++         * storage for routes with multiple next hops. For backwards
++         * compatibility, we use the first next hop. */
++        rdnh = CONTAINER_OF(ovs_list_front(&change->rd.nexthops),
++                            const struct route_data_nexthop, nexthop_node);
+ 
+         ovs_router_insert(rd->mark, &rd->rta_dst, rd->rtm_dst_len,
+-                          rd->local, rd->ifname, &rd->rta_gw,
++                          rd->local, rdnh->ifname, &rdnh->addr,
+                           &rd->rta_prefsrc);
+     }
+ }
+
+From patchwork Mon Jan 13 20:45:40 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033852
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=2605:bc80:3010::133; helo=smtp2.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp2.osuosl.org (smtp2.osuosl.org [IPv6:2605:bc80:3010::133])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX46j6Z2Mz1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:21 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp2.osuosl.org (Postfix) with ESMTP id 385614064E;
+	Mon, 13 Jan 2025 20:46:21 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp2.osuosl.org ([127.0.0.1])
+ by localhost (smtp2.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id sITPRnVEV6zr; Mon, 13 Jan 2025 20:46:19 +0000 (UTC)
+X-Comment: SPF check N/A for local connections -
+ client-ip=2605:bc80:3010:104::8cd3:938; helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp2.osuosl.org EDA7740BC4
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org
+ [IPv6:2605:bc80:3010:104::8cd3:938])
+	by smtp2.osuosl.org (Postfix) with ESMTPS id EDA7740BC4;
+	Mon, 13 Jan 2025 20:46:15 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id B10FDC087D;
+	Mon, 13 Jan 2025 20:46:15 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp1.osuosl.org (smtp1.osuosl.org [140.211.166.138])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 06FCAC087D
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:15 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp1.osuosl.org (Postfix) with ESMTP id 7C570811E4
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:07 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp1.osuosl.org ([127.0.0.1])
+ by localhost (smtp1.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id ILQHY7VYFHD9 for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:46:04 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.218.52;
+ helo=mail-ej1-f52.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp1.osuosl.org 4B32C810C8
+Authentication-Results: smtp1.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp1.osuosl.org 4B32C810C8
+Received: from mail-ej1-f52.google.com (mail-ej1-f52.google.com
+ [209.85.218.52])
+ by smtp1.osuosl.org (Postfix) with ESMTPS id 4B32C810C8
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:03 +0000 (UTC)
+Received: by mail-ej1-f52.google.com with SMTP id
+ a640c23a62f3a-aaedd529ba1so673446966b.1
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:46:03 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801161; x=1737405961;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=31YEC7vUVV1PF/QDvsx00aau5oFdFf2kKf3M4JvMIRA=;
+ b=GbTCl47NXE8ux7KyHzOPLcJQOQ51vmjL8O3oFkq0uJ55/nCs2TwXTUq7HutJunwiOZ
+ ZJWZrxe14lKloBKi92l8lJZ9boHrAKrB0pOfRXT7X6dRZ1iB0UEvQ4bxQHASq7Qc5oFz
+ ZOZSP0dXbH1zuGAqpF094gJsJK4TPLsayJ2aWS+YWYeoo6j7xvejQHQyuEjSa61ZNkGO
+ wCTnS+/NbHrand0r664HjN7g/ZjYZrZtYFPzc+eTc3G9dtnwxsiMqU+cY3G5gsxBTTKp
+ ytmiNudyAlwCwoqEWd+OEQ/G2lkLdetlEgudlj2fn4gsGaOjYsAiMspJwk65y4k+RxJ6
+ 3MxA==
+X-Gm-Message-State: AOJu0YxloBcgWH++qqnQJGOcZUprNoVhJI1wC9YvaXFx1OrrVPDFLrap
+ a6PBtmENTBTGFC51/E5iHHGhMdVx54PSmsc605pqVuPXwStXurtu3L+iSPNJ
+X-Gm-Gg: ASbGncspC0GI4GuvMqVtFTnlp9cuvmNDt6tSiN4ufwrmEXrjvF5xuXqVNBtHy+xmoJI
+ 5NKeR6nbVrTuzLY6whLXtumuYwIEKcDO1BL8xer/WbTfYqF9v/iPvZKjzvOW2p3QMQg3eJkqSyV
+ B1m9N1vdH6mjn3U1Aa1SvB+Bz2J4pBRlNwV0HwtxWzLHjPARAcNPzZzuwo6TKI5k1Wyr2XMpBNS
+ JppWlH6HGDaJqvp90S6EQ95wZxxLZiL4H35/X/iXxYCphbLGVKQ0ai9x1ob3Ys=
+X-Google-Smtp-Source: 
+ AGHT+IEb8AZFAhKtaYmOJAFKTztuCPjEWpTEJiIQYDm9fFrWxJOhShAyse1VTscJEchv/PQHO8F6aw==
+X-Received: by 2002:a05:6402:1eca:b0:5d6:688d:b683 with SMTP id
+ 4fb4d7f45d1cf-5d972e0b18bmr51507297a12.9.1736801160664;
+ Mon, 13 Jan 2025 12:46:00 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.45.59
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:45:59 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:40 +0100
+Message-ID: <20250113204548.97777-9-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 08/16] route-table: Support parsing RTA_VIA
+ attribute.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+It is possible to add routes for IPv4 destinations using an IPv6
+address for next hop.
+
+In such configurations the next hop information is provided in the
+RTA_VIA attribute instead of the RTA_GATEWAY attribute.
+
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+---
+ lib/netlink.c         | 12 +++++++++++
+ lib/netlink.h         |  1 +
+ lib/route-table.c     | 47 +++++++++++++++++++++++++++++++++++++++++++
+ tests/system-route.at | 20 ++++++++++++++++++
+ 4 files changed, 80 insertions(+)
+
+diff --git a/lib/netlink.c b/lib/netlink.c
+index 1e8d5a8ec..446a0679e 100644
+--- a/lib/netlink.c
++++ b/lib/netlink.c
+@@ -29,6 +29,16 @@
+ #include "openvswitch/vlog.h"
+ #include "util.h"
+ 
++#ifdef HAVE_NETLINK
++#include <linux/rtnetlink.h>
++#else
++/* RTA_VIA */
++struct rtvia {
++    sa_family_t    rtvia_family;
++    uint8_t        rtvia_addr[];
++};
++#endif
++
+ VLOG_DEFINE_THIS_MODULE(netlink);
+ 
+ /* A single (bad) Netlink message can in theory dump out many, many log
+@@ -819,6 +829,7 @@ min_attr_len(enum nl_attr_type type)
+     case NL_A_IPV6: return 16;
+     case NL_A_NESTED: return 0;
+     case NL_A_LL_ADDR: return 6; /* ETH_ALEN */
++    case NL_A_RTA_VIA: return sizeof(struct rtvia) + sizeof(struct in_addr);
+     case N_NL_ATTR_TYPES: default: OVS_NOT_REACHED();
+     }
+ }
+@@ -840,6 +851,7 @@ max_attr_len(enum nl_attr_type type)
+     case NL_A_IPV6: return 16;
+     case NL_A_NESTED: return SIZE_MAX;
+     case NL_A_LL_ADDR: return 20; /* INFINIBAND_ALEN */
++    case NL_A_RTA_VIA: return sizeof(struct rtvia) + sizeof(struct in6_addr);
+     case N_NL_ATTR_TYPES: default: OVS_NOT_REACHED();
+     }
+ }
+diff --git a/lib/netlink.h b/lib/netlink.h
+index 008604aa6..d98ef3a98 100644
+--- a/lib/netlink.h
++++ b/lib/netlink.h
+@@ -152,6 +152,7 @@ enum nl_attr_type
+     NL_A_IPV6,
+     NL_A_NESTED,
+     NL_A_LL_ADDR,
++    NL_A_RTA_VIA,
+     N_NL_ATTR_TYPES
+ };
+ 
+diff --git a/lib/route-table.c b/lib/route-table.c
+index 183d300c6..1703b69b4 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -51,6 +51,7 @@ COVERAGE_DEFINE(route_table_dump);
+ struct route_data_nexthop {
+     struct ovs_list nexthop_node;
+ 
++    sa_family_t family;
+     struct in6_addr addr;
+     char ifname[IFNAMSIZ]; /* Interface name. */
+ };
+@@ -276,6 +277,7 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+         [RTA_PREFSRC] = { .type = NL_A_U32, .optional = true },
+         [RTA_TABLE] = { .type = NL_A_U32, .optional = true },
+         [RTA_PRIORITY] = { .type = NL_A_U32, .optional = true },
++        [RTA_VIA] = { .type = NL_A_RTA_VIA, .optional = true },
+     };
+ 
+     static const struct nl_policy policy6[] = {
+@@ -286,6 +288,7 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+         [RTA_PREFSRC] = { .type = NL_A_IPV6, .optional = true },
+         [RTA_TABLE] = { .type = NL_A_U32, .optional = true },
+         [RTA_PRIORITY] = { .type = NL_A_U32, .optional = true },
++        [RTA_VIA] = { .type = NL_A_RTA_VIA, .optional = true },
+     };
+ 
+     struct nlattr *attrs[ARRAY_SIZE(policy)];
+@@ -310,6 +313,7 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+ 
+         ovs_list_init(&change->rd.nexthops);
+         rdnh = &change->rd._primary_next_hop;
++        rdnh->family = rtm->rtm_family;
+         ovs_list_insert(&change->rd.nexthops, &rdnh->nexthop_node);
+ 
+         change->relevant = true;
+@@ -384,6 +388,49 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+         if (attrs[RTA_PRIORITY]) {
+             change->rd.rta_priority = nl_attr_get_u32(attrs[RTA_PRIORITY]);
+         }
++        if (attrs[RTA_VIA]) {
++            const struct rtvia *rtvia = nl_attr_get(attrs[RTA_VIA]);
++            ovs_be32 addr;
++
++            if (attrs[RTA_GATEWAY]) {
++                VLOG_DBG_RL(&rl, "route message can not contain both "
++                            "RTA_GATEWAY and RTA_VIA");
++                goto error_out;
++            }
++
++            rdnh->family = rtvia->rtvia_family;
++
++            switch (rdnh->family) {
++            case AF_INET:
++                if (nl_attr_get_size(attrs[RTA_VIA])
++                        - sizeof *rtvia < sizeof addr) {
++                    VLOG_DBG_RL(&rl, "got short message while parsing RTA_VIA "
++                                "attribute for family AF_INET");
++                    goto error_out;
++                }
++                memcpy(&addr, rtvia->rtvia_addr, sizeof addr);
++                in6_addr_set_mapped_ipv4(&rdnh->addr, addr);
++                break;
++            case AF_INET6:
++                if (nl_attr_get_size(attrs[RTA_VIA])
++                        - sizeof *rtvia < sizeof rdnh->addr) {
++                    VLOG_DBG_RL(&rl, "got short message while parsing RTA_VIA "
++                                "attribute for family AF_INET6");
++                    goto error_out;
++                }
++                memcpy(&rdnh->addr, rtvia->rtvia_addr, sizeof rdnh->addr);
++                break;
++            default:
++                VLOG_DBG_RL(&rl, "unsupported address family, %d, "
++                            "in via attribute", rdnh->family);
++                goto error_out;
++            }
++        }
++        if (!attrs[RTA_OIF] && !attrs[RTA_GATEWAY] && !attrs[RTA_VIA]) {
++            VLOG_DBG_RL(&rl, "route message needs an RTA_OIF, RTA_GATEWAY or "
++                        "RTA_VIA attribute");
++            goto error_out;
++        }
+     } else {
+         VLOG_DBG_RL(&rl, "received unparseable rtnetlink route message");
+         goto error_out;
+diff --git a/tests/system-route.at b/tests/system-route.at
+index c0ecad6cf..010a3412a 100644
+--- a/tests/system-route.at
++++ b/tests/system-route.at
+@@ -65,6 +65,26 @@ Cached: fc00:db8:beef::13/128 dev br0 GW fc00:db8:cafe::1 SRC fc00:db8:cafe::2])
+ OVS_TRAFFIC_VSWITCHD_STOP
+ AT_CLEANUP
+ 
++AT_SETUP([ovs-route - add system route - ipv4 via ipv6 nexthop])
++AT_KEYWORDS([route])
++OVS_TRAFFIC_VSWITCHD_START()
++AT_CHECK([ovs-vsctl set bridge br0 other-config:hwaddr=00:53:00:00:00:42])
++AT_CHECK([ip link set br0 up])
++
++AT_CHECK([ip addr add 192.168.9.2/24 dev br0], [0], [stdout])
++
++AT_CHECK([ip route add 192.168.10.12/32 \
++          via inet6 fe80::253:ff:fe00:51 dev br0], [0], [stdout])
++
++AT_CHECK([ovs-appctl revalidator/wait])
++
++OVS_WAIT_UNTIL_EQUAL([ovs-appctl ovs/route/show | \
++                      grep -E '192.168.10.12/32' | sort], [dnl
++Cached: 192.168.10.12/32 dev br0 GW fe80::253:ff:fe00:51 SRC fe80::253:ff:fe00:42])
++
++OVS_TRAFFIC_VSWITCHD_STOP
++AT_CLEANUP
++
+ dnl Checks that OVS doesn't use routes from non-standard tables.
+ AT_SETUP([ovs-route - route tables])
+ AT_KEYWORDS([route])
+
+From patchwork Mon Jan 13 20:45:41 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033855
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=140.211.166.138; helo=smtp1.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp1.osuosl.org (smtp1.osuosl.org [140.211.166.138])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX4755qK8z1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:41 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp1.osuosl.org (Postfix) with ESMTP id 45071812F3;
+	Mon, 13 Jan 2025 20:46:41 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp1.osuosl.org ([127.0.0.1])
+ by localhost (smtp1.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id wMKO9d6mWiTB; Mon, 13 Jan 2025 20:46:36 +0000 (UTC)
+X-Comment: SPF check N/A for local connections - client-ip=140.211.9.56;
+ helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp1.osuosl.org 9F8EE83926
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org [140.211.9.56])
+	by smtp1.osuosl.org (Postfix) with ESMTPS id 9F8EE83926;
+	Mon, 13 Jan 2025 20:46:28 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id 7C6CCC087D;
+	Mon, 13 Jan 2025 20:46:28 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp3.osuosl.org (smtp3.osuosl.org [140.211.166.136])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 11FCEC0612
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:27 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp3.osuosl.org (Postfix) with ESMTP id 4DC6A60E5B
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:09 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp3.osuosl.org ([127.0.0.1])
+ by localhost (smtp3.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id a0eZIo2M6s_P for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:46:05 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.218.45;
+ helo=mail-ej1-f45.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp3.osuosl.org 4873860896
+Authentication-Results: smtp3.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp3.osuosl.org 4873860896
+Received: from mail-ej1-f45.google.com (mail-ej1-f45.google.com
+ [209.85.218.45])
+ by smtp3.osuosl.org (Postfix) with ESMTPS id 4873860896
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:04 +0000 (UTC)
+Received: by mail-ej1-f45.google.com with SMTP id
+ a640c23a62f3a-aaf57c2e0beso973749166b.3
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:46:04 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801162; x=1737405962;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=VMw6Z7Al1vMtb/A7GozQZDE1TmIeyagsBxZjCBNqMSQ=;
+ b=fXioF7O1bdsO9sLRSFBUDx+v7lVJn8jUFoMV7ne9KM8fgLYCy23P5kPhiTz82j6qsz
+ SOngcnjqNPcYAEy+KireDT5mkWddWq/WpCedW7azmgMlmh5IcCCqEnsLJKSB2W8HnsIS
+ lOkC2qLrsd97HBKMMn+w44HnHQ4PmtpN0Z2IC2RJHj1KP9kYvC0o4MFU4++1YOvMcaee
+ 0o2PaNjHrva64NpoGcunJuJVAbUfQ7LTyRM90S6m79wxJgy+Ju9jm3o41YlgTjEZ1RFJ
+ Nra14/Jr8xbYaWnPaW9ubou99IgGYLTzv1qhD2XO1zXOUn6Hp5n/CA4JPkk5yk/55Aqx
+ TfUA==
+X-Gm-Message-State: AOJu0YzoZIFlMXthklUMGjvQtFoYLCeJd17cQhvFQ+TZI04Qn6o78TK7
+ m1R16+YWeh7hpLlA+GA9hVlio0/P/VF1Gwz2SXHrPkxX8fUnmyyXxynsTkey
+X-Gm-Gg: ASbGncv6m6Pb8vXkdAFgLhwm6p4hzHNrZnLve+sWHAfr/TcNXy2FOW7A6dNEcE8nCWd
+ 3z7QRul9aaci+dvz+qYBA6bQLR7JgpooKWL2Y21jzBYkMdGQhVRYyo4xdYD/RM3uB5oP2YiRbWU
+ Uh12RniFNqfVDSlMYtu7yOHKc445HCZQToF+wsKLbwtefehL0tOcZT6voIwRQWOQGMhx/WBFoNf
+ 1QzB2xghttBh14YS3b7wGyppPw90pMdvirvhN7I3oKNcwn6uTwM7CSKVAgFhwo=
+X-Google-Smtp-Source: 
+ AGHT+IFA0+tqpwbNg64ZSctBymRL2UvlnPQ0muD4r93j9nFSKx3jtNVGsSOI0TcCvT6YdaL0LdGCnQ==
+X-Received: by 2002:a17:907:971e:b0:aac:832:9bf7 with SMTP id
+ a640c23a62f3a-ab2ab70a69cmr1492208566b.24.1736801161808;
+ Mon, 13 Jan 2025 12:46:01 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.46.00
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:46:01 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:41 +0100
+Message-ID: <20250113204548.97777-10-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 09/16] route-table: Use RTA_TABLE for route
+ table filter.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+The rtnetlink rtmsg rtm_table variable can hold route table IDs no
+higher than UCHAR_MAX.
+
+Use the rtnetlink RTA_TABLE route attribute for table IDs larger
+than UCHAR_MAX, which can represent a 32 bit integer worth of
+route tables.
+
+While RTA_TABLE support was added to the kernel in commit [0] and
+has been supported since 2006 starting from v2.6.19, we retain
+a backward compatible approach for consistency with the existing
+code for reading route table back from the kernel [1].
+
+0: https://github.com/torvalds/linux/commit/9e762a4a89b302cb3b26a1f9bb33eff459eaeca9
+1: https://github.com/openvswitch/ovs/blob/8b7f1eb8db1aa99ccf7b542662129450caff65e0/lib/route-table.c#L284-L287
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+---
+ lib/route-table.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index 1703b69b4..180da1632 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -198,7 +198,7 @@ route_table_wait(void)
+ }
+ 
+ static bool
+-route_table_dump_one_table(unsigned char id)
++route_table_dump_one_table(uint32_t id)
+ {
+     uint64_t reply_stub[NL_DUMP_BUFSIZE / 8];
+     struct ofpbuf request, reply, buf;
+@@ -212,7 +212,13 @@ route_table_dump_one_table(unsigned char id)
+ 
+     rq_msg = ofpbuf_put_zeros(&request, sizeof *rq_msg);
+     rq_msg->rtm_family = AF_UNSPEC;
+-    rq_msg->rtm_table = id;
++
++    if (id > UCHAR_MAX) {
++        rq_msg->rtm_table = RT_TABLE_UNSPEC;
++        nl_msg_put_u32(&request, RTA_TABLE, id);
++    } else {
++        rq_msg->rtm_table = id;
++    }
+ 
+     nl_dump_start(&dump, NETLINK_ROUTE, &request);
+     ofpbuf_uninit(&request);
+@@ -241,7 +247,7 @@ route_table_dump_one_table(unsigned char id)
+ static void
+ route_table_reset(void)
+ {
+-    unsigned char tables[] = {
++    uint32_t tables[] = {
+         RT_TABLE_DEFAULT,
+         RT_TABLE_MAIN,
+         RT_TABLE_LOCAL,
+
+From patchwork Mon Jan 13 20:45:42 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033853
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=2605:bc80:3010::137; helo=smtp4.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp4.osuosl.org (smtp4.osuosl.org [IPv6:2605:bc80:3010::137])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX46n6Lkkz1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:25 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp4.osuosl.org (Postfix) with ESMTP id 4E4F7412A6;
+	Mon, 13 Jan 2025 20:46:25 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp4.osuosl.org ([127.0.0.1])
+ by localhost (smtp4.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id Xz0G9VuvQdKy; Mon, 13 Jan 2025 20:46:23 +0000 (UTC)
+X-Comment: SPF check N/A for local connections - client-ip=140.211.9.56;
+ helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp4.osuosl.org 751AA4086C
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org [140.211.9.56])
+	by smtp4.osuosl.org (Postfix) with ESMTPS id 751AA4086C;
+	Mon, 13 Jan 2025 20:46:23 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id 52637C087D;
+	Mon, 13 Jan 2025 20:46:23 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp4.osuosl.org (smtp4.osuosl.org [IPv6:2605:bc80:3010::137])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 1D4A0C08E5
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:22 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp4.osuosl.org (Postfix) with ESMTP id 37F3440B6F
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:07 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp4.osuosl.org ([127.0.0.1])
+ by localhost (smtp4.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id SuLdnRGru0BM for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:46:06 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.208.42;
+ helo=mail-ed1-f42.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp4.osuosl.org 68BBA4055E
+Authentication-Results: smtp4.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp4.osuosl.org 68BBA4055E
+Received: from mail-ed1-f42.google.com (mail-ed1-f42.google.com
+ [209.85.208.42])
+ by smtp4.osuosl.org (Postfix) with ESMTPS id 68BBA4055E
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:05 +0000 (UTC)
+Received: by mail-ed1-f42.google.com with SMTP id
+ 4fb4d7f45d1cf-5d8c1950da7so8183867a12.3
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:46:05 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801163; x=1737405963;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=c8SORLzhBiWYtdP1aRkI8YeLsluAreHWmv0IGB9gF5I=;
+ b=MUk7GqNc0QrWEQHTswC2dhvXN516s+O6ELSGYFXq0ouaxkNxU3YdcjjEloRxmGJVmG
+ ksqs7xhdm7lfaMfkukxSYdx+nWXM8N4QgaU2Eb16qzIaUCW+OfUgW9WSaBOpHQDdJlxX
+ J67PBJwDlGcZJBHq/EoO7ae1vfOPDjBzZLWNzk6NCv3dGSCNYPRDJkVAO6P1az3JXjtF
+ 3u0QMvvlEw+0gAW5uPQbYiN8jw8VJ968s1TepucA01DsSwbcc0RymIYahyWpbBUFbcoB
+ SAe34u9Z1RjOrAyBWA9fFpbHaeExBZ1QSpmmu/heuQM/UOEBs5P53ZB4W0Y1JxJ/dLIJ
+ eHBg==
+X-Gm-Message-State: AOJu0YwtdYrnVkFAs7j3qlsvHUMZkk3Gn2oUo1EZ4Gaxx0/iXbML3JyO
+ kbvtTNoagAC8uAgWnSl+2k+cDRJfnbkQJKpAdLo5zyQZr57I9DtHoHpmaHY/
+X-Gm-Gg: ASbGnctk5kRbYxvB+8YB9E3Zqhw+x7KrAeRE4FXiu1PDdySisd8FN/BHLTzRBe1Dl2a
+ Mk+hvtav6VE8wqiQ+C3XEQ8HRVm/LX1pYPc1X5i1Cq2T4wSkGKbJCmx3AGSGqTxZUyHtxCDTcw4
+ W6YQhYxauMqKYtdX3PqLnh4oUAg+hacHLN3Pz7j74Sm1rdBXdqbTLW6tf6mJrsur2VrHXpAqCyw
+ ZCU6QsgxMonS4MpNx3SoQ+bVa5TJhbkaR3iBUMEarvlhEeMls4QeiF5BnUGHe8=
+X-Google-Smtp-Source: 
+ AGHT+IEhAImK1mPhzUxz6IPX20rUdYUewKXBp785u2Ds+JcesOVfNeI8o+dVLH1EwkS/OiY21WAa0A==
+X-Received: by 2002:a17:906:f582:b0:aab:7507:7a94 with SMTP id
+ a640c23a62f3a-ab2ab55970fmr2012850466b.16.1736801162974;
+ Mon, 13 Jan 2025 12:46:02 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.46.01
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:46:02 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:42 +0100
+Message-ID: <20250113204548.97777-11-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 10/16] route-table: Use callback for handling
+ route msgs.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+This allows external callers to provide their own function for
+handling route messages processed by the route-table module.
+
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+Acked-by: Eelco Chaudron <echaudro@redhat.com>
+---
+ lib/route-table.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index 180da1632..3539ac11f 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -114,7 +114,7 @@ static struct nln_notifier *name_notifier = NULL;
+ static bool route_table_valid = false;
+ 
+ static void route_table_reset(void);
+-static void route_table_handle_msg(const struct route_table_msg *);
++static void route_table_handle_msg(const struct route_table_msg *, void *aux);
+ static int route_table_parse(struct ofpbuf *, void *change);
+ static void route_table_change(struct route_table_msg *, void *aux);
+ static void route_map_clear(void);
+@@ -197,8 +197,13 @@ route_table_wait(void)
+     ovs_mutex_unlock(&route_table_mutex);
+ }
+ 
++typedef void route_table_handle_msg_callback(const struct route_table_msg *,
++                                             void *aux);
++
+ static bool
+-route_table_dump_one_table(uint32_t id)
++route_table_dump_one_table(uint32_t id,
++                           route_table_handle_msg_callback *handle_msg_cb,
++                           void *aux)
+ {
+     uint64_t reply_stub[NL_DUMP_BUFSIZE / 8];
+     struct ofpbuf request, reply, buf;
+@@ -234,7 +239,7 @@ route_table_dump_one_table(uint32_t id)
+             if (!(nlmsghdr->nlmsg_flags & NLM_F_DUMP_FILTERED)) {
+                 filtered = false;
+             }
+-            route_table_handle_msg(&msg);
++            handle_msg_cb(&msg, aux);
+             route_data_destroy(&msg.rd);
+         }
+     }
+@@ -261,7 +266,8 @@ route_table_reset(void)
+     COVERAGE_INC(route_table_dump);
+ 
+     for (size_t i = 0; i < ARRAY_SIZE(tables); i++) {
+-        if (!route_table_dump_one_table(tables[i])) {
++        if (!route_table_dump_one_table(tables[i],
++                                        route_table_handle_msg, NULL)) {
+             /* Got unfiltered reply, no need to dump further. */
+             break;
+         }
+@@ -496,7 +502,8 @@ route_table_change(struct route_table_msg *change, void *aux OVS_UNUSED)
+ }
+ 
+ static void
+-route_table_handle_msg(const struct route_table_msg *change)
++route_table_handle_msg(const struct route_table_msg *change,
++                       void *aux OVS_UNUSED)
+ {
+     if (change->relevant && change->nlmsg_type == RTM_NEWROUTE
+             && !ovs_list_is_empty(&change->rd.nexthops)) {
+
+From patchwork Mon Jan 13 20:45:43 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033856
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=2605:bc80:3010::133; helo=smtp2.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp2.osuosl.org (smtp2.osuosl.org [IPv6:2605:bc80:3010::133])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX47J6QLnz1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:52 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp2.osuosl.org (Postfix) with ESMTP id 553BB40BB8;
+	Mon, 13 Jan 2025 20:46:52 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp2.osuosl.org ([127.0.0.1])
+ by localhost (smtp2.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id VES6Ck3sor0c; Mon, 13 Jan 2025 20:46:51 +0000 (UTC)
+X-Comment: SPF check N/A for local connections - client-ip=140.211.9.56;
+ helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp2.osuosl.org 9294040FB6
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org [140.211.9.56])
+	by smtp2.osuosl.org (Postfix) with ESMTPS id 9294040FB6;
+	Mon, 13 Jan 2025 20:46:49 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id 5D73EC08E5;
+	Mon, 13 Jan 2025 20:46:49 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp2.osuosl.org (smtp2.osuosl.org [140.211.166.133])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 17E67C08E4
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:47 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp2.osuosl.org (Postfix) with ESMTP id E9E6B40B94
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:13 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp2.osuosl.org ([127.0.0.1])
+ by localhost (smtp2.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id ku95vuyHpmrx for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:46:11 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.218.50;
+ helo=mail-ej1-f50.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp2.osuosl.org 2937A40A51
+Authentication-Results: smtp2.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp2.osuosl.org 2937A40A51
+Received: from mail-ej1-f50.google.com (mail-ej1-f50.google.com
+ [209.85.218.50])
+ by smtp2.osuosl.org (Postfix) with ESMTPS id 2937A40A51
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:07 +0000 (UTC)
+Received: by mail-ej1-f50.google.com with SMTP id
+ a640c23a62f3a-aaee0b309adso785200166b.3
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:46:07 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801164; x=1737405964;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=C5ucCe807UNDa4+u6N72c7kFKVCSdsE4wc2+eZm7eYg=;
+ b=WVtmbhtQHfqyIEIyeYT5BxQvQnw2i4NfoYOJr8I7ec5/ASC1CJS3UHjYJIQFocS42Z
+ oAMATJyw9fS6hMO1QJY8ox9ruEVLy8L6RlKVu0cRfXZqW2HF4AkNh2MvWoxv4ofdw0AW
+ tDJI7CZPLzeTU/U0y9i2Y8BGyp+KM4X3iIaxnoYKR5vz2VTzhkX7KXrQsyU52S/aGjsU
+ bhVdhXvsfAtxFCFdf0k0GJO688W8Q24sgUWVAHZD+jJqTKtsaxRX2tyYI2gBGYTallAv
+ WOG7IuuDnCgVwTl/bRCNwXw/TDxpJmNIEJ4odqzbN9+9Q7Q5ztwy51aGiJujc9ngPEtr
+ h6cA==
+X-Gm-Message-State: AOJu0YwRAG1G9z5iWFs79hJyAw3FN+0a8/L0Hv6CVO6Dog6FbzJvnYyw
+ 0Z0yGXc9eoSXf5LFZ945capTeJLqiVu5tSIFjJDwIvkTXBOcUGpIUzZZ+YBV
+X-Gm-Gg: ASbGncsgYvN4XxeislWbLPVSSrHBDtslX3rfW0Lh93J2aSybGJr7TKNH+9svswlGTld
+ O6uHMsB/hC3XDYRFkkG3bDvidEZoJyjobHzJjl75K1xX3aA91uylUlmd0CxTx35kr5UfkAwzZum
+ Tf6KeMiLaiuew53YuYK+612ocdJmLupxToUCD3v0bkpiv+SoyebXgoY3a7YWKn756Noi8rumPOA
+ ctgHmpWGUAYN64GbYVdVLDijjBxHYV6Ti0qlZ1hzqVat1XJHE1g/V01Z9QqXwE=
+X-Google-Smtp-Source: 
+ AGHT+IF4De54Ah8Vyi3AtOMWJG9qMkO5A6VwpI9W7B8XCQMXK0Kjkjs47ckro8urajXIxakMJ8/Uag==
+X-Received: by 2002:a17:906:4fcb:b0:ab2:fefe:7156 with SMTP id
+ a640c23a62f3a-ab2fefe94f8mr858086566b.43.1736801164143;
+ Mon, 13 Jan 2025 12:46:04 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.46.03
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:46:03 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:43 +0100
+Message-ID: <20250113204548.97777-12-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 11/16] route-table: Store orignal value for
+ rtm_dst_len.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+Before this change the struct route_data rtm_dst_len element was
+stored as a value that could be fed directly into ipv6_create_mask.
+
+As we prepare for external consumption of this structure this comes
+across as unexpected, as anyone interacting with this code would
+expect the element to behave like the well known kernel rtmsg UAPI.
+
+Delay conversion of IPv4 prefix length until passing this value to
+ovs_router_insert().
+
+Suggested-by: Felix Huettner <felix.huettner@stackit.cloud>
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+Acked-by: Eelco Chaudron <echaudro@redhat.com>
+---
+ lib/route-table.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index 3539ac11f..ca56a2f82 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -345,7 +345,7 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+         }
+ 
+         change->nlmsg_type     = nlmsg->nlmsg_type;
+-        change->rd.rtm_dst_len = rtm->rtm_dst_len + (ipv4 ? 96 : 0);
++        change->rd.rtm_dst_len = rtm->rtm_dst_len;
+         change->rd.rtm_protocol = rtm->rtm_protocol;
+         change->rd.local = rtm->rtm_type == RTN_LOCAL;
+         if (attrs[RTA_OIF]) {
+@@ -516,7 +516,9 @@ route_table_handle_msg(const struct route_table_msg *change,
+         rdnh = CONTAINER_OF(ovs_list_front(&change->rd.nexthops),
+                             const struct route_data_nexthop, nexthop_node);
+ 
+-        ovs_router_insert(rd->mark, &rd->rta_dst, rd->rtm_dst_len,
++        ovs_router_insert(rd->mark, &rd->rta_dst,
++                          IN6_IS_ADDR_V4MAPPED(&rd->rta_dst)
++                          ? rd->rtm_dst_len + 96 : rd->rtm_dst_len,
+                           rd->local, rdnh->ifname, &rdnh->addr,
+                           &rd->rta_prefsrc);
+     }
+
+From patchwork Mon Jan 13 20:45:44 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033858
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=140.211.166.136; helo=smtp3.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp3.osuosl.org (smtp3.osuosl.org [140.211.166.136])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX47N3Dymz1yPY
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:56 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp3.osuosl.org (Postfix) with ESMTP id D068C61232;
+	Mon, 13 Jan 2025 20:46:55 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp3.osuosl.org ([127.0.0.1])
+ by localhost (smtp3.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id Ibg77Gub0Xel; Mon, 13 Jan 2025 20:46:44 +0000 (UTC)
+X-Comment: SPF check N/A for local connections - client-ip=140.211.9.56;
+ helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp3.osuosl.org 03CEB61151
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org [140.211.9.56])
+	by smtp3.osuosl.org (Postfix) with ESMTPS id 03CEB61151;
+	Mon, 13 Jan 2025 20:46:38 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id B21DAC087D;
+	Mon, 13 Jan 2025 20:46:37 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp4.osuosl.org (smtp4.osuosl.org [IPv6:2605:bc80:3010::137])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 0E8C2C08E6
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:36 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp4.osuosl.org (Postfix) with ESMTP id F188340879
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:09 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp4.osuosl.org ([127.0.0.1])
+ by localhost (smtp4.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id lLyUp9_5qlK1 for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:46:08 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.218.52;
+ helo=mail-ej1-f52.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp4.osuosl.org 23D6240798
+Authentication-Results: smtp4.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp4.osuosl.org 23D6240798
+Received: from mail-ej1-f52.google.com (mail-ej1-f52.google.com
+ [209.85.218.52])
+ by smtp4.osuosl.org (Postfix) with ESMTPS id 23D6240798
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:07 +0000 (UTC)
+Received: by mail-ej1-f52.google.com with SMTP id
+ a640c23a62f3a-aaf60d85238so890376766b.0
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:46:07 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801166; x=1737405966;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=fQ1HXChG9Mf+lCmQraurkGWb4hAgi7Ebx/y0a3yXTiU=;
+ b=Cey6nmEtm4ulnRB9l6nmGaZy2AVESCqPUQeO4pveUQ2s9N1axDC2da3qTS/aH7pcOm
+ TwITSoQbqGD3gXI/3MeUsuIZfHQdigIZKpNIlodCkNZ2THGIZ2ZJzKhOL6GSC8WvWrFm
+ uZ9hvt6QxCXhF6BjrYzbXwJ0OGaGZtnKV4Fh9wt5MJDO8zTW6wQ9MYpAvBwRJ2EEs/sV
+ deClCAbpm+PB5PKSm6wioWyddqvu6Kaj0JbOyNoSgQWBmtudxW/sGJw4t9hptiZKnQPD
+ mxcl5xi4CHWBLdTeMGhXJLaUKW0jPSmbGSGmMSf8Yy9/i+FzrnVjzDfSakfSCTGUjzPJ
+ dv8Q==
+X-Gm-Message-State: AOJu0YyCFRs2g7nLRLWlOPUofVKenygzp3yIjf5rzyQuPYHmtzAb2ScW
+ EOaYI7/Q2p/KcZqx8/JWfltJopokFDM4Jf6SFJe851nAe1E9Y6+2nHO9HoHD
+X-Gm-Gg: ASbGnct8WpFYEJ5sGGGmjeOwkfm8Nf1MvcdhFvFpLaR1wP10eBe7uepxLPHrKi7M3em
+ cvGjZc7LQSiRq2i3MMTJmi3reIhXz17DGEXYFWgR9bWGqoQnxEIP3AUMlc94kK0NGwpo8CwwL7R
+ 2rIw9YSzfdwR1UZhNZD61OI1dKE182BZa9g4FioLlWCSuZVKr7NW+2kS/hnTEZOgDmio7nY7kbD
+ RvMAkqnNq0Aksqs+cp4is9mj43Ej9C+5QVB0Td7MlZ5TUlY4/2whKbU96KmaCU=
+X-Google-Smtp-Source: 
+ AGHT+IElXlmWILDJ3BNR724FcGY1flpXBawL3hm8wZK0v8aq0nn83JDb52L4nS/UOsj1CcPRkksUgw==
+X-Received: by 2002:a17:906:fd87:b0:aab:cce0:f8b4 with SMTP id
+ a640c23a62f3a-ab2abc9ed6cmr2028117366b.52.1736801165556;
+ Mon, 13 Jan 2025 12:46:05 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.46.04
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:46:04 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:44 +0100
+Message-ID: <20250113204548.97777-13-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 12/16] route-table: Rename route_data local to
+ rtn_local.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+Make it more clear what this element represents.
+
+Suggested-by: Eelco Chaudron <echaudro@redhat.com>
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+Acked-by: Eelco Chaudron <echaudro@redhat.com>
+---
+ lib/route-table.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index ca56a2f82..7377f4846 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -80,7 +80,7 @@ struct route_data {
+     /* Copied from struct rtmsg. */
+     unsigned char rtm_dst_len;
+     unsigned char rtm_protocol;
+-    bool local;
++    bool rtn_local;
+ 
+     /* Extracted from Netlink attributes. */
+     struct in6_addr rta_dst; /* 0 if missing. */
+@@ -347,7 +347,7 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+         change->nlmsg_type     = nlmsg->nlmsg_type;
+         change->rd.rtm_dst_len = rtm->rtm_dst_len;
+         change->rd.rtm_protocol = rtm->rtm_protocol;
+-        change->rd.local = rtm->rtm_type == RTN_LOCAL;
++        change->rd.rtn_local = rtm->rtm_type == RTN_LOCAL;
+         if (attrs[RTA_OIF]) {
+             rta_oif = nl_attr_get_u32(attrs[RTA_OIF]);
+ 
+@@ -519,7 +519,7 @@ route_table_handle_msg(const struct route_table_msg *change,
+         ovs_router_insert(rd->mark, &rd->rta_dst,
+                           IN6_IS_ADDR_V4MAPPED(&rd->rta_dst)
+                           ? rd->rtm_dst_len + 96 : rd->rtm_dst_len,
+-                          rd->local, rdnh->ifname, &rdnh->addr,
++                          rd->rtn_local, rdnh->ifname, &rdnh->addr,
+                           &rd->rta_prefsrc);
+     }
+ }
+
+From patchwork Mon Jan 13 20:45:45 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033857
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=2605:bc80:3010::137; helo=smtp4.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp4.osuosl.org (smtp4.osuosl.org [IPv6:2605:bc80:3010::137])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX47M6C4Kz1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:55 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp4.osuosl.org (Postfix) with ESMTP id 4C34F4131F;
+	Mon, 13 Jan 2025 20:46:55 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp4.osuosl.org ([127.0.0.1])
+ by localhost (smtp4.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id VXzlxuAUizHN; Mon, 13 Jan 2025 20:46:54 +0000 (UTC)
+X-Comment: SPF check N/A for local connections -
+ client-ip=2605:bc80:3010:104::8cd3:938; helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp4.osuosl.org 4F00F41351
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org
+ [IPv6:2605:bc80:3010:104::8cd3:938])
+	by smtp4.osuosl.org (Postfix) with ESMTPS id 4F00F41351;
+	Mon, 13 Jan 2025 20:46:54 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id 2DCC8C0612;
+	Mon, 13 Jan 2025 20:46:54 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp3.osuosl.org (smtp3.osuosl.org [140.211.166.136])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 2CAAAC08E5
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:53 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp3.osuosl.org (Postfix) with ESMTP id B849A6111D
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:14 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp3.osuosl.org ([127.0.0.1])
+ by localhost (smtp3.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id luXB9_w05oz3 for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:46:14 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.218.54;
+ helo=mail-ej1-f54.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp3.osuosl.org 506AA60E81
+Authentication-Results: smtp3.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp3.osuosl.org 506AA60E81
+Received: from mail-ej1-f54.google.com (mail-ej1-f54.google.com
+ [209.85.218.54])
+ by smtp3.osuosl.org (Postfix) with ESMTPS id 506AA60E81
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:09 +0000 (UTC)
+Received: by mail-ej1-f54.google.com with SMTP id
+ a640c23a62f3a-aa6c0dbce1fso681950466b.2
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:46:09 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801167; x=1737405967;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=0DmppMO/QxaFZBx+RwNtSNUg5XId52bdyRr1eXLLtS8=;
+ b=G9+tRdrXHw0EICVKA/B8iWobXD352nxzFDiv8M4y+unSJIWnNzqoXEeeR57IMx9Zsk
+ h/wq5WmxxyucpYc+WmERd/riFK1hU+Mu7Kc2+aFrvvAqyzLqOXXcA+KXkRgWk7suit4P
+ hbIwW/lfzn7rTeXE8QDRe+NVywBpjwZbLiDIdXl3dOXC4evYybUa1QdVUCm21RPbpIvY
+ 0onRfvhGjqLb1Vp43CwqmHIbXHviH5hjLI9Krfr79XdjIbiGBe6IV/CSqT3Mb6yLMNcN
+ mwOvDq8WoazLjbPIEKviNQiRJcapxISc7sDCh91q/lIkuAQ9ycUuF0rFKdOtTXUT+c1U
+ mb0g==
+X-Gm-Message-State: AOJu0Ywms9FbfR8P5R6HAB/vM7VnHdhftqpITYFSVukc5zXBpVS9ba+g
+ 5iOWof75mmPNYNctg5lxFjbaPw6xPlwWHcK607/EGM+8XVBNglLuplVlQXgD
+X-Gm-Gg: ASbGncu48ET2iSdNQCvORICKk+weCgvOILsSasqO4GDEOt+Es+7ey/axzkmtqT30aUx
+ 5GvLEUSl8f57ZBNqaLFLmpZxK8yYmcn4qvibif+yKO/fDB/LKWVzGdodwIf8QZYLib2LYu+GhKu
+ oSPF3mtZBgjRHtxYowU/2pCeq6K4i1pnxoTdKP413iottKkgh4U7MIxmKZ5IUY7eGgNN1IFVW3C
+ UlNpy4O6rYjxI1IUP/o2c2wAQ0qt6+7UR19ZMxRtJ3EvEpUfbYP2LuMcsDfzCA=
+X-Google-Smtp-Source: 
+ AGHT+IFRC3Tq8q+vABnJkGCZJHaqW+BEVHb1/wwGq3fudHH4RfYSVjJdd1c3JS2KfX++DtDuwCMqeQ==
+X-Received: by 2002:a05:6402:34c2:b0:5d3:ba42:e9fa with SMTP id
+ 4fb4d7f45d1cf-5d972e1c568mr55283769a12.16.1736801166742;
+ Mon, 13 Jan 2025 12:46:06 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.46.05
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:46:06 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:45 +0100
+Message-ID: <20250113204548.97777-14-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 13/16] route-table: Rename route_data mark to
+ rta_mark.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+Make it consistent with other attributes in the same category,
+and also more clear.
+
+Suggested-by: Eelco Chaudron <echaudro@redhat.com>
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+Acked-by: Eelco Chaudron <echaudro@redhat.com>
+---
+ lib/route-table.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index 7377f4846..d7cadd56c 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -83,11 +83,11 @@ struct route_data {
+     bool rtn_local;
+ 
+     /* Extracted from Netlink attributes. */
+-    struct in6_addr rta_dst; /* 0 if missing. */
++    struct in6_addr rta_dst;     /* 0 if missing. */
+     struct in6_addr rta_prefsrc; /* 0 if missing. */
+-    uint32_t mark;
+-    uint32_t rta_table_id; /* 0 if missing. */
+-    uint32_t rta_priority; /* 0 if missing. */
++    uint32_t rta_mark;           /* 0 if missing. */
++    uint32_t rta_table_id;       /* 0 if missing. */
++    uint32_t rta_priority;       /* 0 if missing. */
+ };
+ 
+ /* A digested version of a route message sent down by the kernel to indicate
+@@ -395,7 +395,7 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+             }
+         }
+         if (attrs[RTA_MARK]) {
+-            change->rd.mark = nl_attr_get_u32(attrs[RTA_MARK]);
++            change->rd.rta_mark = nl_attr_get_u32(attrs[RTA_MARK]);
+         }
+         if (attrs[RTA_PRIORITY]) {
+             change->rd.rta_priority = nl_attr_get_u32(attrs[RTA_PRIORITY]);
+@@ -516,7 +516,7 @@ route_table_handle_msg(const struct route_table_msg *change,
+         rdnh = CONTAINER_OF(ovs_list_front(&change->rd.nexthops),
+                             const struct route_data_nexthop, nexthop_node);
+ 
+-        ovs_router_insert(rd->mark, &rd->rta_dst,
++        ovs_router_insert(rd->rta_mark, &rd->rta_dst,
+                           IN6_IS_ADDR_V4MAPPED(&rd->rta_dst)
+                           ? rd->rtm_dst_len + 96 : rd->rtm_dst_len,
+                           rd->rtn_local, rdnh->ifname, &rdnh->addr,
+
+From patchwork Mon Jan 13 20:45:46 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033854
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=140.211.166.137; helo=smtp4.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp4.osuosl.org (smtp4.osuosl.org [140.211.166.137])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX4724PjKz1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:46:38 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp4.osuosl.org (Postfix) with ESMTP id 1779440578;
+	Mon, 13 Jan 2025 20:46:38 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp4.osuosl.org ([127.0.0.1])
+ by localhost (smtp4.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id IdKAlOljPgep; Mon, 13 Jan 2025 20:46:35 +0000 (UTC)
+X-Comment: SPF check N/A for local connections - client-ip=140.211.9.56;
+ helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp4.osuosl.org 9DE4E4126D
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org [140.211.9.56])
+	by smtp4.osuosl.org (Postfix) with ESMTPS id 9DE4E4126D;
+	Mon, 13 Jan 2025 20:46:35 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id 7B9A9C087D;
+	Mon, 13 Jan 2025 20:46:35 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp1.osuosl.org (smtp1.osuosl.org [140.211.166.138])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 208F4C08E4
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:34 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp1.osuosl.org (Postfix) with ESMTP id 7E17681089
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:13 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp1.osuosl.org ([127.0.0.1])
+ by localhost (smtp1.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id JUF2Aq31NdKN for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:46:12 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.208.47;
+ helo=mail-ed1-f47.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp1.osuosl.org 60DBB811EE
+Authentication-Results: smtp1.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp1.osuosl.org 60DBB811EE
+Received: from mail-ed1-f47.google.com (mail-ed1-f47.google.com
+ [209.85.208.47])
+ by smtp1.osuosl.org (Postfix) with ESMTPS id 60DBB811EE
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:10 +0000 (UTC)
+Received: by mail-ed1-f47.google.com with SMTP id
+ 4fb4d7f45d1cf-5d932eac638so9157427a12.1
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:46:10 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801168; x=1737405968;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=10iDJT1D8mRSuHKtR46Idcx10oGvBWSVxlVoyGmAQFw=;
+ b=pmTEX+cP64HJPJlPObMLWzDLkq13+8QRyG6XvBi6G5J2RgTU2YwG6GBZKNPcNeovun
+ l/STdZKePNrWr808iKxhCjpO0CjMaskx1sE2iR9oMrN6ua4YamISMOeG5QAE17gamo3t
+ LX31mQ27GI8GZ/SEPQ7y/hoElFBGvhfclHtKJTdBAIPqegqUXpeL9Dzbc9nqHY+9kNNT
+ RV31+2keqwHsN5mAWfwpXwcEkLDvFcnd16hcSYRIgkzq+LliXIkSqp75zsZPNJTQMn+H
+ MPSdQLwgUJu5ZtTLstP/O7kSY+0QxuT0HVmRxiUjB3nOVmknaFTj9iw0+nyPd7qapZVu
+ 6YhQ==
+X-Gm-Message-State: AOJu0Yx8tdeYQl6a1yMPY9BvRByykyJEM+M+e/evLYCmhsFxWRdHM78V
+ lxqV6hUsxP5IhogGHURfx1LMMGU4M0wXWL0J9nPMH89G9FRD7doFl+y2WxbM
+X-Gm-Gg: ASbGnctNduS6VxPobiJm9CmgqMoNsnow9tTSwQw7SY9Y/R3ANVG5gUGFdScy1T1ZTj8
+ 6AR6We4Ys1Ais6LJWJonL2aBbz29gNikEhNJFbiuMwst7F+6+g8DoyKb7FFwBm5pxiVwnPhbXtY
+ wtYPCoiu5OmZ/3q4tN+jW4tw+1tqAr+Npf4m05NX5IUZI10QIIDbN5eePut3PYgLMCpboqRcePL
+ oCwmcOsJx2xYtxKhkX2dPEgfqfOjofMnKR9FacNxLQK1a54KqKUWm4YjqZXbNk=
+X-Google-Smtp-Source: 
+ AGHT+IGzQ5BG1SkrGT0y/VgVrakMgBxFH7aFbJVt+iUyAYsEGKna2+k0ZulnAAuw6zRMji58Oyusnw==
+X-Received: by 2002:a17:907:2d8f:b0:aae:82b4:4691 with SMTP id
+ a640c23a62f3a-ab2ab73b32amr1799696266b.25.1736801167753;
+ Mon, 13 Jan 2025 12:46:07 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.46.06
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:46:07 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:46 +0100
+Message-ID: <20250113204548.97777-15-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 14/16] route-table: Use correct type for
+ nlmsg_type.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+The nlmsg_type element comes from a unit16_t value defined in
+lib/netlink-protocol.h.
+
+Suggested-by: Eelco Chaudron <echaudro@redhat.com>
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+Acked-by: Eelco Chaudron <echaudro@redhat.com>
+---
+ lib/route-table.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index d7cadd56c..7086fd2bd 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -94,7 +94,7 @@ struct route_data {
+  * that a route has changed. */
+ struct route_table_msg {
+     bool relevant;        /* Should this message be processed? */
+-    int nlmsg_type;       /* e.g. RTM_NEWROUTE, RTM_DELROUTE. */
++    uint16_t nlmsg_type;  /* e.g. RTM_NEWROUTE, RTM_DELROUTE. */
+     struct route_data rd; /* Data parsed from this message. */
+ };
+ 
+
+From patchwork Mon Jan 13 20:45:47 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033860
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=2605:bc80:3010::138; helo=smtp1.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp1.osuosl.org (smtp1.osuosl.org [IPv6:2605:bc80:3010::138])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX48847ywz1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:47:36 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp1.osuosl.org (Postfix) with ESMTP id 151BB80CD7;
+	Mon, 13 Jan 2025 20:47:36 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp1.osuosl.org ([127.0.0.1])
+ by localhost (smtp1.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id yeRYgcZ432TX; Mon, 13 Jan 2025 20:47:33 +0000 (UTC)
+X-Comment: SPF check N/A for local connections - client-ip=140.211.9.56;
+ helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp1.osuosl.org C15FF80C6D
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org [140.211.9.56])
+	by smtp1.osuosl.org (Postfix) with ESMTPS id C15FF80C6D;
+	Mon, 13 Jan 2025 20:47:33 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id 96EAFC087D;
+	Mon, 13 Jan 2025 20:47:33 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp3.osuosl.org (smtp3.osuosl.org [140.211.166.136])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 2B54AC087D
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:47:32 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp3.osuosl.org (Postfix) with ESMTP id 2990161197
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:25 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp3.osuosl.org ([127.0.0.1])
+ by localhost (smtp3.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id NBe17b17meSL for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:46:19 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.218.54;
+ helo=mail-ej1-f54.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp3.osuosl.org B33B8610D7
+Authentication-Results: smtp3.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp3.osuosl.org B33B8610D7
+Received: from mail-ej1-f54.google.com (mail-ej1-f54.google.com
+ [209.85.218.54])
+ by smtp3.osuosl.org (Postfix) with ESMTPS id B33B8610D7
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:12 +0000 (UTC)
+Received: by mail-ej1-f54.google.com with SMTP id
+ a640c23a62f3a-aaec61d0f65so930892566b.1
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:46:12 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801170; x=1737405970;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=B62IquJjZ+AqWV01pr49ZDFSzfJhC4oUnP/fajwUnEY=;
+ b=eVot0d/s2sOjvixb5oZUTMIiLvDBclJAYBBnZI55n9Jo0WswN7HNLidA0jAWBp+4yM
+ z/6An6lobxBIwPMRlVnuuZwuxUPlKQ+AcVFD+D96kVhHiB9MU4QwuEokFjOmOKDIh5Ox
+ S3m2wwXN2XPChq8DuvfL0jo5kL82Rs1gK+/g45aAYLxZzSI93haF3XC+g0kzCylFSWI1
+ 0ef2BixgJVwWJubalnrcCMpOJAjMtM3WOnf6hCX8dxAdMTQaeEINCd6V4gt4fxKOWWOt
+ 6NOnR6QTuFdUbrZPClvXe4iwqASda8EYsmm8uvgLlSJFhpfKaCmRbTSX6k/22idlTlTz
+ WJLw==
+X-Gm-Message-State: AOJu0YyRKqDLZjK/e+hrI2d3nxqx88dvbjsqG2Cv0ll+zpD+ZT1wWwsd
+ bm9B/uMdemmUEsOEATo98utZ1OtPK0tF8t1Y1GQmUMC0EcuxsPutt17SGST2
+X-Gm-Gg: ASbGncvTIg6MCAwieK4ZcCuNM0FmJ1UL3nfWNwjCeOIT8NWpcbVxNS8hG0VysZZw9tM
+ DcBdoWSAhyd+aAX6CD0tiV3FVoilKEiIzwpwJ+OG+l6VibfVHHXVrS3KpD/H1KFRFTGVVjIZhN9
+ i78dzLLGnCQvOwqaufSI+F5QPGVQEIBje4gCRmgsz4jEI8hRXzylHvEG16nbsYr89cpvMmqLieP
+ kdgyhy38E9648kiZXQoy4/KyEWYMb1IE8uEYNvgwsEWIHTyopfcv2eI86lX2Cc=
+X-Google-Smtp-Source: 
+ AGHT+IH1siKH9gAKVpI2vL1bLLZjhF1lyodWgVVm3aTyg5+daScCUxIpKvsJM3uDObZlBLdbWk8Cvg==
+X-Received: by 2002:a17:907:7ba8:b0:ab2:f5e9:9a39 with SMTP id
+ a640c23a62f3a-ab2f5e99bb6mr1008012766b.23.1736801169752;
+ Mon, 13 Jan 2025 12:46:09 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.46.07
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:46:09 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:47 +0100
+Message-ID: <20250113204548.97777-16-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 15/16] route-table: Export route table sync
+ functions.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+Along with dependent data structures these functions are useful
+for programs that build against OVS private library sources,
+allowing them to make use of functionality provided by the
+route-table module.
+
+A test program to be run as part of the system tests that
+exercise the exported interfaces will be added in a subsequent
+patch.
+
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+---
+ lib/route-table.c |  60 ++-------------------
+ lib/route-table.h | 134 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 137 insertions(+), 57 deletions(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index 7086fd2bd..56f7dd167 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -48,56 +48,6 @@ VLOG_DEFINE_THIS_MODULE(route_table);
+ 
+ COVERAGE_DEFINE(route_table_dump);
+ 
+-struct route_data_nexthop {
+-    struct ovs_list nexthop_node;
+-
+-    sa_family_t family;
+-    struct in6_addr addr;
+-    char ifname[IFNAMSIZ]; /* Interface name. */
+-};
+-
+-struct route_data {
+-    /* Routes can have multiple next hops per destination.
+-     *
+-     * Each next hop has its own set of attributes such as address family,
+-     * interface and IP address.
+-     *
+-     * When retrieving information about a route from the kernel, in the case
+-     * of multiple next hops, information is provided as nested attributes.
+-     *
+-     * A linked list with struct route_data_nexthop entries is used to store
+-     * this information as we parse each attribute.
+-     *
+-     * For the common case of one next hop, the nexthops list will contain a
+-     * single entry pointing to the struct route_data _primary_next_hop
+-     * element.
+-     *
+-     * Any dynamically allocated list elements MUST be freed with a call to the
+-     * route_data_destroy function. */
+-    struct ovs_list nexthops;
+-    struct route_data_nexthop _primary_next_hop;
+-
+-    /* Copied from struct rtmsg. */
+-    unsigned char rtm_dst_len;
+-    unsigned char rtm_protocol;
+-    bool rtn_local;
+-
+-    /* Extracted from Netlink attributes. */
+-    struct in6_addr rta_dst;     /* 0 if missing. */
+-    struct in6_addr rta_prefsrc; /* 0 if missing. */
+-    uint32_t rta_mark;           /* 0 if missing. */
+-    uint32_t rta_table_id;       /* 0 if missing. */
+-    uint32_t rta_priority;       /* 0 if missing. */
+-};
+-
+-/* A digested version of a route message sent down by the kernel to indicate
+- * that a route has changed. */
+-struct route_table_msg {
+-    bool relevant;        /* Should this message be processed? */
+-    uint16_t nlmsg_type;  /* e.g. RTM_NEWROUTE, RTM_DELROUTE. */
+-    struct route_data rd; /* Data parsed from this message. */
+-};
+-
+ static struct ovs_mutex route_table_mutex = OVS_MUTEX_INITIALIZER;
+ static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
+ 
+@@ -115,14 +65,13 @@ static bool route_table_valid = false;
+ 
+ static void route_table_reset(void);
+ static void route_table_handle_msg(const struct route_table_msg *, void *aux);
+-static int route_table_parse(struct ofpbuf *, void *change);
+ static void route_table_change(struct route_table_msg *, void *aux);
+ static void route_map_clear(void);
+ 
+ static void name_table_init(void);
+ static void name_table_change(const struct rtnetlink_change *, void *);
+ 
+-static void
++void
+ route_data_destroy(struct route_data *rd)
+ {
+     struct route_data_nexthop *rdnh;
+@@ -197,10 +146,7 @@ route_table_wait(void)
+     ovs_mutex_unlock(&route_table_mutex);
+ }
+ 
+-typedef void route_table_handle_msg_callback(const struct route_table_msg *,
+-                                             void *aux);
+-
+-static bool
++bool
+ route_table_dump_one_table(uint32_t id,
+                            route_table_handle_msg_callback *handle_msg_cb,
+                            void *aux)
+@@ -466,7 +412,7 @@ error_out:
+  * responsibility to free it with a call to route_data_destroy().
+  *
+  * In case of error, any allocated memory will be freed before returning. */
+-static int
++int
+ route_table_parse(struct ofpbuf *buf, void *change)
+ {
+     struct nlmsghdr *nlmsg;
+diff --git a/lib/route-table.h b/lib/route-table.h
+index 3a02d737a..ae28b6af1 100644
+--- a/lib/route-table.h
++++ b/lib/route-table.h
+@@ -24,8 +24,133 @@
+ #include <stdbool.h>
+ #include <stdint.h>
+ 
++#include "openvswitch/list.h"
++#include "openvswitch/ofpbuf.h"
+ #include "openvswitch/types.h"
+ 
++/*
++ * route-table, system route table synchronization for Open vSwitch.
++ *
++ * Overview
++ * ========
++ *
++ * The route-table module has two use cases:
++ *
++ * 1) Internal use by Open vSwitch which together with the ovs-router module
++ *    implement route lookup for features such as flow based tunneling,
++ *    userspace tunneling, and sFlow.
++ *
++ * 2) External use by projects such as Open Virtual Network (OVN), that use
++ *    Open vSwitch as a compile time library.
++ *
++ * Typical External Usage
++ * ======================
++ *
++ * static void
++ * my_handle_msg(const struct route_table_msg *change, void *data)
++ * {
++ *     struct my_data *aux = data;
++ *
++ *     if (data) {
++ *         aux->rta_dst = change->rd.rta_dst;
++ *     }
++ * }
++ *
++ * static void
++ * my_route_table_dump(void)
++ * {
++ *     struct my_data *aux;
++ *
++ *     route_table_dump_one_table(RT_TABLE_MAIN, my_handle_msg, aux);
++ * }
++ *
++ * static void
++ * my_route_table_change(struct route_table_msg *change, void *aux OVS_UNUSED);
++ * {
++ *     my_handle_msg(change, NULL);
++ *     route_data_destroy(&change->rd);
++ * }
++ *
++ * static void
++ * my_init(void)
++ * {
++ *     static struct nln_notifier *route6_notifier = NULL;
++ *     static struct nln_notifier *route_notifier = NULL;
++ *     static struct route_table_msg nln_change;
++ *     static struct nln *nln = NULL;
++ *
++ *     nln = nln_create(NETLINK_ROUTE, route_table_parse, NULL);
++ *
++ *     route6_notifier =
++ *        nln_notifier_create(nln, RTNLGRP_IPV6_ROUTE,
++ *                            (nln_notify_func *) test_lib_route_table_change,
++ *                            NULL);
++ *
++ *     route_notifier =
++ *        nln_notifier_create(nln, RTNLGRP_IPV4_ROUTE,
++ *                            (nln_notify_func *) test_lib_route_table_change,
++ *                            NULL);
++ * }
++ *
++ * Thread-safety
++ * =============
++ *
++ * Assuming thread safe initialization of dependencies such as netlink socket,
++ * netlink notifier and so on, the functions in this module are thread safe.
++ */
++
++/* Information about a next hop stored in a linked list with base in struct
++ * route_data.  Please refer to comment in struct route_data for details. */
++struct route_data_nexthop {
++    struct ovs_list nexthop_node;
++
++    sa_family_t family;
++    struct in6_addr addr;
++    char ifname[IFNAMSIZ]; /* Interface name. */
++};
++
++struct route_data {
++    /* Routes can have multiple next hops per destination.
++     *
++     * Each next hop has its own set of attributes such as address family,
++     * interface and IP address.
++     *
++     * When retrieving information about a route from the kernel, in the case
++     * of multiple next hops, information is provided as nested attributes.
++     *
++     * A linked list with struct route_data_nexthop entries is used to store
++     * this information as we parse each attribute.
++     *
++     * For the common case of one next hop, the nexthops list will contain a
++     * single entry pointing to the struct route_data _primary_next_hop
++     * element.
++     *
++     * Any dynamically allocated list elements MUST be freed with a call to the
++     * route_data_destroy function. */
++    struct ovs_list nexthops;
++    struct route_data_nexthop _primary_next_hop;
++
++    /* Copied from struct rtmsg. */
++    unsigned char rtm_dst_len;
++    unsigned char rtm_protocol;
++    bool rtn_local;
++
++    /* Extracted from Netlink attributes. */
++    struct in6_addr rta_dst;     /* 0 if missing. */
++    struct in6_addr rta_prefsrc; /* 0 if missing. */
++    uint32_t rta_mark;           /* 0 if missing. */
++    uint32_t rta_table_id;       /* 0 if missing. */
++    uint32_t rta_priority;       /* 0 if missing. */
++};
++
++/* A digested version of a route message sent down by the kernel to indicate
++ * that a route has changed. */
++struct route_table_msg {
++    bool relevant;        /* Should this message be processed? */
++    uint16_t nlmsg_type;  /* e.g. RTM_NEWROUTE, RTM_DELROUTE. */
++    struct route_data rd; /* Data parsed from this message. */
++};
++
+ uint64_t route_table_get_change_seq(void);
+ void route_table_init(void);
+ void route_table_run(void);
+@@ -33,4 +158,13 @@ void route_table_wait(void);
+ bool route_table_fallback_lookup(const struct in6_addr *ip6_dst,
+                                  char name[],
+                                  struct in6_addr *gw6);
++
++typedef void route_table_handle_msg_callback(const struct route_table_msg *,
++                                             void *aux);
++
++bool route_table_dump_one_table(uint32_t id,
++                                route_table_handle_msg_callback *,
++                                void *aux);
++int route_table_parse(struct ofpbuf *buf, void *change);
++void route_data_destroy(struct route_data *rd);
+ #endif /* route-table.h */
+
+From patchwork Mon Jan 13 20:45:48 2025
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Frode Nordahl <fnordahl@ubuntu.com>
+X-Patchwork-Id: 2033859
+Return-Path: <ovs-dev-bounces@openvswitch.org>
+X-Original-To: incoming@patchwork.ozlabs.org
+Delivered-To: patchwork-incoming@legolas.ozlabs.org
+Authentication-Results: legolas.ozlabs.org;
+ spf=pass (sender SPF authorized) smtp.mailfrom=openvswitch.org
+ (client-ip=140.211.166.137; helo=smtp4.osuosl.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=patchwork.ozlabs.org)
+Received: from smtp4.osuosl.org (smtp4.osuosl.org [140.211.166.137])
+	(using TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits)
+	 key-exchange X25519 server-signature ECDSA (secp384r1) server-digest SHA384)
+	(No client certificate requested)
+	by legolas.ozlabs.org (Postfix) with ESMTPS id 4YX47r1GFNz1yPC
+	for <incoming@patchwork.ozlabs.org>; Tue, 14 Jan 2025 07:47:20 +1100 (AEDT)
+Received: from localhost (localhost [127.0.0.1])
+	by smtp4.osuosl.org (Postfix) with ESMTP id 972E8411C6;
+	Mon, 13 Jan 2025 20:47:19 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp4.osuosl.org ([127.0.0.1])
+ by localhost (smtp4.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id fVW0Mcct6rxr; Mon, 13 Jan 2025 20:47:17 +0000 (UTC)
+X-Comment: SPF check N/A for local connections - client-ip=140.211.9.56;
+ helo=lists.linuxfoundation.org;
+ envelope-from=ovs-dev-bounces@openvswitch.org; receiver=<UNKNOWN>
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp4.osuosl.org 3FD9340E17
+Received: from lists.linuxfoundation.org (lf-lists.osuosl.org [140.211.9.56])
+	by smtp4.osuosl.org (Postfix) with ESMTPS id 3FD9340E17;
+	Mon, 13 Jan 2025 20:47:17 +0000 (UTC)
+Received: from lf-lists.osuosl.org (localhost [127.0.0.1])
+	by lists.linuxfoundation.org (Postfix) with ESMTP id 12B12C087D;
+	Mon, 13 Jan 2025 20:47:17 +0000 (UTC)
+X-Original-To: dev@openvswitch.org
+Delivered-To: ovs-dev@lists.linuxfoundation.org
+Received: from smtp4.osuosl.org (smtp4.osuosl.org [IPv6:2605:bc80:3010::137])
+ by lists.linuxfoundation.org (Postfix) with ESMTP id 2D467C087D
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:47:16 +0000 (UTC)
+Received: from localhost (localhost [127.0.0.1])
+ by smtp4.osuosl.org (Postfix) with ESMTP id 1B20140E17
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:16 +0000 (UTC)
+X-Virus-Scanned: amavis at osuosl.org
+Received: from smtp4.osuosl.org ([127.0.0.1])
+ by localhost (smtp4.osuosl.org [127.0.0.1]) (amavis, port 10024) with ESMTP
+ id sTrhIyb4js-y for <dev@openvswitch.org>;
+ Mon, 13 Jan 2025 20:46:14 +0000 (UTC)
+Received-SPF: Pass (mailfrom) identity=mailfrom; client-ip=209.85.218.46;
+ helo=mail-ej1-f46.google.com; envelope-from=frode.nordahl@gmail.com;
+ receiver=<UNKNOWN>
+DMARC-Filter: OpenDMARC Filter v1.4.2 smtp4.osuosl.org CC86D411D0
+Authentication-Results: smtp4.osuosl.org;
+ dmarc=fail (p=none dis=none) header.from=ubuntu.com
+DKIM-Filter: OpenDKIM Filter v2.11.0 smtp4.osuosl.org CC86D411D0
+Received: from mail-ej1-f46.google.com (mail-ej1-f46.google.com
+ [209.85.218.46])
+ by smtp4.osuosl.org (Postfix) with ESMTPS id CC86D411D0
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 20:46:13 +0000 (UTC)
+Received: by mail-ej1-f46.google.com with SMTP id
+ a640c23a62f3a-ab2e308a99bso45502966b.1
+ for <dev@openvswitch.org>; Mon, 13 Jan 2025 12:46:13 -0800 (PST)
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=1e100.net; s=20230601; t=1736801171; x=1737405971;
+ h=content-transfer-encoding:mime-version:references:in-reply-to
+ :message-id:date:subject:cc:to:from:x-gm-message-state:from:to:cc
+ :subject:date:message-id:reply-to;
+ bh=W1B7QHU6A3CX1Z+kr/QqElLIRIY9/u+NIcKp9LZ8d6Q=;
+ b=vLy8aJykFep1i5ZvRhs+vvZe7LNtzkyiPFTdNkRPtYxNpPv5NSqwt2ENHhFNJaJhMp
+ zB3LENceSqUdBNN6S4u5qCllsQoZC9uEMDLel2pGBZ0S5wTmwTLkqKQFamG8z8ey4HB6
+ TugazGnbvyWGSSKA+bYf0MgmsccEhhNUCHL8fGG/pDEHBtIakqQQQVnNqbF88bhr5Qsi
+ AX/vzMFtU19i6VkG60V1JEK7nMwoUg9L3azVtMGL44b0kXqYrvy3tGyafyw9d5QID5Hz
+ 5Iz1UpU7SolgAC1I/zINM0RicP1LmmaEdBP34D7u2Yn/dGXAmSCE64LsLlZrquXZ8w4P
+ E0XQ==
+X-Gm-Message-State: AOJu0YzpCEh2CzsfIhu6iy6p15lE5Lcr4DYGgOnkq6ilgOxYTf7gUPBN
+ w7Rb/Xt9zAH/cztsBVwG39X8QrfNqe1tG+4mFleR2NOc5wskBqN8CJR3dOSh
+X-Gm-Gg: ASbGnctYGscXJqrqjCVqgPSQBtzO2ufICxnoI3JvbHS5VAs/tGozzbL5poyXh5jsltT
+ /0HMP3PuYBsWpYC6l5pliQbVYwZsMeJG+R1fcpXfqq3dACm0+P3jmMI+2oz0I9HFpdgZhPKIzyU
+ VY5P3Kqw1iWr9m4ocVIDJNkj1EGPoidlyX0hGrFKi0gNbwJyTdnXHHdcEPZVqXB4e+SIAf6dqM+
+ xOt5FfJEBe9ELbQRFKZM4n8bomhqPPLwEyE3IK/TU03+Ov3Q+Xgd7Z3CafawQA=
+X-Google-Smtp-Source: 
+ AGHT+IH2fl2fBYKpynuDQMs/PVCfZLXSUFmyziWWts1k9p1iu5boevMSr6+umCWH1CXCGbOfXP+MIw==
+X-Received: by 2002:a17:906:7307:b0:aaf:ab78:34f0 with SMTP id
+ a640c23a62f3a-ab2c3d3d7eamr1878011166b.30.1736801171149;
+ Mon, 13 Jan 2025 12:46:11 -0800 (PST)
+Received: from frode-730QED.lan ([2001:4643:d087:0:5872:59c1:af9e:ebac])
+ by smtp.gmail.com with ESMTPSA id
+ a640c23a62f3a-ab2c9136297sm553081166b.91.2025.01.13.12.46.09
+ (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+ Mon, 13 Jan 2025 12:46:10 -0800 (PST)
+From: Frode Nordahl <fnordahl@ubuntu.com>
+To: dev@openvswitch.org
+Date: Mon, 13 Jan 2025 21:45:48 +0100
+Message-ID: <20250113204548.97777-17-fnordahl@ubuntu.com>
+X-Mailer: git-send-email 2.47.1
+In-Reply-To: <20250113204548.97777-1-fnordahl@ubuntu.com>
+References: <20250113204548.97777-1-fnordahl@ubuntu.com>
+MIME-Version: 1.0
+Subject: [ovs-dev] [PATCH v6 16/16] route-table: Support parsing multipath
+ routes.
+X-BeenThere: ovs-dev@openvswitch.org
+X-Mailman-Version: 2.1.30
+Precedence: list
+List-Id: <ovs-dev.openvswitch.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev@openvswitch.org>
+List-Help: <mailto:ovs-dev-request@openvswitch.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+ <mailto:ovs-dev-request@openvswitch.org?subject=subscribe>
+Errors-To: ovs-dev-bounces@openvswitch.org
+Sender: "dev" <ovs-dev-bounces@openvswitch.org>
+
+Note that the internal handling of routes in the ovs-route module
+does currently not support multipath routes, so when presented
+with one the first occurrence will be stored.  This is not a
+regression as these routes were previously not considered at all.
+
+Storing the information in the route-table module data structure
+will allow external to OVS projects make use of this data.
+
+A test program run as part of the system tests that exercise the
+route table API is added in this patch.
+
+Co-Authored-by: Felix Huettner <felix.huettner@stackit.cloud>
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+---
+ Makefile.am                  |   5 +-
+ lib/route-table.c            |  61 ++++++++++--
+ tests/automake.mk            |   1 +
+ tests/system-route.at        | 184 +++++++++++++++++++++++++++++++++++
+ tests/test-lib-route-table.c | 149 ++++++++++++++++++++++++++++
+ 5 files changed, 389 insertions(+), 11 deletions(-)
+ create mode 100644 tests/test-lib-route-table.c
+
+diff --git a/Makefile.am b/Makefile.am
+index dc5c34a6a..a61a1cadf 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -339,6 +339,8 @@ check-tabs:
+ 	fi
+ .PHONY: check-tabs
+ 
++# NOTE: test-lib-route-table.c excluded due to use of system() to execute
++#       ip route commands provided as arguments by test suite.
+ ALL_LOCAL += thread-safety-check
+ thread-safety-check:
+ 	@cd $(srcdir); \
+@@ -346,7 +348,8 @@ thread-safety-check:
+ 	  grep -n -f build-aux/thread-safety-forbidden \
+ 	    `git ls-files | grep '\.[ch]$$' \
+ 	      | $(EGREP) -v '^datapath-windows|^lib/sflow|^third-party'` /dev/null \
+-	      | $(EGREP) -v ':[ 	]*/?\*'; \
++	      | $(EGREP) -v ':[ 	]*/?\*' \
++	      | $(EGREP) -v '^tests/test-lib-route-table.c'; \
+ 	then \
+ 	  echo "See above for list of calls to functions that are"; \
+ 	  echo "forbidden due to thread safety issues"; \
+diff --git a/lib/route-table.c b/lib/route-table.c
+index 56f7dd167..c9f1c241f 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -223,7 +223,9 @@ route_table_reset(void)
+ static int
+ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+                     const struct nlmsghdr *nlmsg,
+-                    const struct rtmsg *rtm, struct route_table_msg *change)
++                    const struct rtmsg *rtm,
++                    const struct rtnexthop *rtnh,
++                    struct route_table_msg *change)
+ {
+     bool parsed, ipv4 = false;
+ 
+@@ -236,6 +238,7 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+         [RTA_TABLE] = { .type = NL_A_U32, .optional = true },
+         [RTA_PRIORITY] = { .type = NL_A_U32, .optional = true },
+         [RTA_VIA] = { .type = NL_A_RTA_VIA, .optional = true },
++        [RTA_MULTIPATH] = { .type = NL_A_NESTED, .optional = true },
+     };
+ 
+     static const struct nl_policy policy6[] = {
+@@ -247,6 +250,7 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+         [RTA_TABLE] = { .type = NL_A_U32, .optional = true },
+         [RTA_PRIORITY] = { .type = NL_A_U32, .optional = true },
+         [RTA_VIA] = { .type = NL_A_RTA_VIA, .optional = true },
++        [RTA_MULTIPATH] = { .type = NL_A_NESTED, .optional = true },
+     };
+ 
+     struct nlattr *attrs[ARRAY_SIZE(policy)];
+@@ -270,9 +274,12 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+         memset(change, 0, sizeof *change);
+ 
+         ovs_list_init(&change->rd.nexthops);
+-        rdnh = &change->rd._primary_next_hop;
+-        rdnh->family = rtm->rtm_family;
+-        ovs_list_insert(&change->rd.nexthops, &rdnh->nexthop_node);
++        rdnh = rtnh ? xzalloc(sizeof *rdnh) : &change->rd._primary_next_hop;
++
++        if (!attrs[RTA_MULTIPATH]) {
++            rdnh->family = rtm->rtm_family;
++            ovs_list_insert(&change->rd.nexthops, &rdnh->nexthop_node);
++        }
+ 
+         change->relevant = true;
+ 
+@@ -294,8 +301,9 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+         change->rd.rtm_dst_len = rtm->rtm_dst_len;
+         change->rd.rtm_protocol = rtm->rtm_protocol;
+         change->rd.rtn_local = rtm->rtm_type == RTN_LOCAL;
+-        if (attrs[RTA_OIF]) {
+-            rta_oif = nl_attr_get_u32(attrs[RTA_OIF]);
++        if (attrs[RTA_OIF] || rtnh) {
++            rta_oif = rtnh
++                ? rtnh->rtnh_ifindex : nl_attr_get_u32(attrs[RTA_OIF]);
+ 
+             if (!if_indextoname(rta_oif, rdnh->ifname)) {
+                 int error = errno;
+@@ -384,11 +392,44 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+                 goto error_out;
+             }
+         }
+-        if (!attrs[RTA_OIF] && !attrs[RTA_GATEWAY] && !attrs[RTA_VIA]) {
+-            VLOG_DBG_RL(&rl, "route message needs an RTA_OIF, RTA_GATEWAY or "
+-                        "RTA_VIA attribute");
++        if (attrs[RTA_MULTIPATH]) {
++            const struct nlattr *nla;
++            size_t left;
++
++            if (rtnh) {
++                VLOG_DBG_RL(&rl, "unexpected nested RTA_MULTIPATH attribute");
++                goto error_out;
++            }
++
++            NL_NESTED_FOR_EACH (nla, left, attrs[RTA_MULTIPATH]) {
++                struct route_table_msg mp_change;
++                struct rtnexthop *mp_rtnh;
++                struct ofpbuf mp_buf;
++
++                ofpbuf_use_data(&mp_buf, nla, nla->nla_len);
++                mp_rtnh = ofpbuf_try_pull(&mp_buf, sizeof *mp_rtnh);
++
++                if (!mp_rtnh) {
++                    VLOG_DBG_RL(&rl, "got short message while parsing "
++                                "multipath attribute");
++                    goto error_out;
++                }
++
++                if (!route_table_parse__(&mp_buf, 0, nlmsg, rtm, mp_rtnh,
++                                         &mp_change)) {
++                    goto error_out;
++                }
++                ovs_list_push_back_all(&change->rd.nexthops,
++                                       &mp_change.rd.nexthops);
++            }
++        }
++        if (!attrs[RTA_OIF] && !attrs[RTA_GATEWAY]
++                && !attrs[RTA_VIA] && !attrs[RTA_MULTIPATH]) {
++            VLOG_DBG_RL(&rl, "route message needs an RTA_OIF, RTA_GATEWAY, "
++                        "RTA_VIA or RTA_MULTIPATH attribute");
+             goto error_out;
+         }
++        /* Add any additional RTA attribute processing before RTA_MULTIPATH. */
+     } else {
+         VLOG_DBG_RL(&rl, "received unparseable rtnetlink route message");
+         goto error_out;
+@@ -422,7 +463,7 @@ route_table_parse(struct ofpbuf *buf, void *change)
+     rtm = ofpbuf_at(buf, NLMSG_HDRLEN, sizeof *rtm);
+ 
+     return route_table_parse__(buf, NLMSG_HDRLEN + sizeof *rtm,
+-                               nlmsg, rtm, change);
++                               nlmsg, rtm, NULL, change);
+ }
+ 
+ static bool
+diff --git a/tests/automake.mk b/tests/automake.mk
+index edfc2cb33..59f538761 100644
+--- a/tests/automake.mk
++++ b/tests/automake.mk
+@@ -498,6 +498,7 @@ endif
+ 
+ if LINUX
+ tests_ovstest_SOURCES += \
++	tests/test-lib-route-table.c \
+ 	tests/test-netlink-conntrack.c \
+ 	tests/test-netlink-policy.c \
+ 	tests/test-psample.c
+diff --git a/tests/system-route.at b/tests/system-route.at
+index 010a3412a..66bfd0e8e 100644
+--- a/tests/system-route.at
++++ b/tests/system-route.at
+@@ -111,8 +111,13 @@ Cached: 10.0.0.0/24 dev p1-route SRC 10.0.0.17
+ Cached: 10.0.0.17/32 dev p1-route SRC 10.0.0.17 local
+ Cached: 10.0.0.18/32 dev p1-route SRC 10.0.0.17])
+ 
++dnl Negative check for custom routing table using route-table library.
++AT_CHECK([ovstest test-lib-route-table-dump | grep rta_table_id:\ 42], [1])
++AT_CHECK([ovstest test-lib-route-table-dump | grep rta_table_id:\ 1042], [1])
++
+ dnl Add a route to a custom routing table and check that OVS doesn't cache it.
+ AT_CHECK([ip route add 10.0.0.19/32 dev p1-route table 42])
++AT_CHECK([ip route add 10.0.0.20/32 dev p1-route table 1042])
+ AT_CHECK([ip route show table 42 | grep 'p1-route' | grep -q '10.0.0.19'])
+ dnl Give the main thread a chance to act.
+ AT_CHECK([ovs-appctl revalidator/wait])
+@@ -122,6 +127,11 @@ Cached: 10.0.0.0/24 dev p1-route SRC 10.0.0.17
+ Cached: 10.0.0.17/32 dev p1-route SRC 10.0.0.17 local
+ Cached: 10.0.0.18/32 dev p1-route SRC 10.0.0.17
+ ])
++AT_CHECK([ovstest test-lib-route-table-dump | \
++          awk '/rta_table_id:.*42/{print$1" "$15" "$16}' | sort], [0], [dnl
++10.0.0.19/32 rta_table_id: 42
++10.0.0.20/32 rta_table_id: 1042
++])
+ 
+ dnl Delete a route from the main table and check that OVS removes the route
+ dnl from the cache.
+@@ -148,3 +158,177 @@ OVS_WAIT_UNTIL([test $(ovs-appctl ovs/route/show | grep -c 'p1-route') -eq 0 ])
+ 
+ OVS_TRAFFIC_VSWITCHD_STOP
+ AT_CLEANUP
++
++AT_SETUP([ovs-route - add system route with multiple nexthop - ipv4])
++AT_KEYWORDS([route])
++OVS_TRAFFIC_VSWITCHD_START()
++
++dnl Create tap ports.
++AT_CHECK([ip tuntap add name p1-route mode tap])
++AT_CHECK([ip link set p1-route up])
++on_exit 'ip link del p1-route'
++AT_CHECK([ip tuntap add name p2-route mode tap])
++AT_CHECK([ip link set p2-route up])
++on_exit 'ip link del p2-route'
++
++AT_CHECK([ip addr add 192.168.42.10/24 dev p1-route], [0], [stdout])
++AT_CHECK([ip addr add 192.168.51.10/24 dev p2-route], [0], [stdout])
++AT_CHECK([ip route add 172.16.42.0/24 nexthop via 192.168.42.1 \
++          dev p1-route nexthop via 192.168.51.1 dev p2-route], [0], [stdout])
++
++dnl NOTE: At the time of this writing, it is expected that only the first route
++dnl       will be stored in ovs-router.
++OVS_WAIT_UNTIL_EQUAL([ovs-appctl ovs/route/show | grep -E '172.16.42.0/24' | \
++                      sort], [dnl
++Cached: 172.16.42.0/24 dev p1-route GW 192.168.42.1 SRC 192.168.42.10])
++
++dnl Confirm that both nexthops are available when using the route-table library
++dnl directly.
++AT_CHECK([ovstest test-lib-route-table-dump | grep 172.16.42.0.*nexthop | sort],
++         [0], [dnl
++    172.16.42.0/24 nexthop family: AF_INET addr: 192.168.42.1 ifname: p1-route
++    172.16.42.0/24 nexthop family: AF_INET addr: 192.168.51.1 ifname: p2-route
++])
++
++OVS_TRAFFIC_VSWITCHD_STOP
++AT_CLEANUP
++
++AT_SETUP([ovs-route - add system route - ipv4 via multiple ipv6 nexthop])
++AT_KEYWORDS([route])
++OVS_TRAFFIC_VSWITCHD_START()
++
++dnl Create tap ports.
++AT_CHECK([ip tuntap add name p1-route mode tap])
++AT_CHECK([ip link set p1-route up])
++on_exit 'ip link del p1-route'
++AT_CHECK([ip tuntap add name p2-route mode tap])
++AT_CHECK([ip link set p2-route up])
++on_exit 'ip link del p2-route'
++
++AT_CHECK([ip -6 addr add fc00:db8:dead::10/64 dev p1-route], [0], [stdout])
++AT_CHECK([ip -6 addr add fc00:db8:beef::10/64 dev p2-route], [0], [stdout])
++AT_CHECK([ip route add 172.16.42.0/24 nexthop via inet6 fc00:db8:dead::1 \
++          dev p1-route nexthop via inet6 fc00:db8:beef::1 dev p2-route],
++          [0], [stdout])
++
++dnl NOTE: At the time of this writing, it is expected that only the first route
++dnl       will be stored in ovs-router.
++OVS_WAIT_UNTIL_EQUAL([ovs-appctl ovs/route/show | grep -E '172.16.42.0/24' | \
++                      sort], [dnl
++Cached: 172.16.42.0/24 dev p1-route GW fc00:db8:dead::1 SRC fc00:db8:dead::10])
++
++dnl Confirm that both nexthops are available when using the route-table library
++dnl directly.
++AT_CHECK([ovstest test-lib-route-table-dump | grep 172.16.42.0.*nexthop | sort],
++         [0], [dnl
++    172.16.42.0/24 nexthop family: AF_INET6 addr: fc00:db8:beef::1 ifname: p2-route
++    172.16.42.0/24 nexthop family: AF_INET6 addr: fc00:db8:dead::1 ifname: p1-route
++])
++
++OVS_TRAFFIC_VSWITCHD_STOP
++AT_CLEANUP
++
++AT_SETUP([ovs-route - add system route with multiple nexthop - ipv6])
++AT_KEYWORDS([route])
++OVS_TRAFFIC_VSWITCHD_START()
++
++dnl Create tap ports.
++AT_CHECK([ip tuntap add name p1-route mode tap])
++AT_CHECK([ip link set p1-route up])
++on_exit 'ip link del p1-route'
++AT_CHECK([ip tuntap add name p2-route mode tap])
++AT_CHECK([ip link set p2-route up])
++on_exit 'ip link del p2-route'
++
++AT_CHECK([ip -6 addr add fc00:db8:dead::10/64 dev p1-route], [0], [stdout])
++AT_CHECK([ip -6 addr add fc00:db8:beef::10/64 dev p2-route], [0], [stdout])
++AT_CHECK([ip -6 route add fc00:db8:cafe::/64 nexthop via fc00:db8:dead::1 \
++          dev p1-route nexthop via fc00:db8:beef::1 dev p2-route],
++         [0], [stdout])
++
++dnl NOTE: At the time of this writing, it is expected that only the first route
++dnl       will be stored in ovs-router.
++OVS_WAIT_UNTIL_EQUAL([ovs-appctl ovs/route/show | \
++                      grep -E 'fc00:db8:cafe::/64' | sort], [dnl
++Cached: fc00:db8:cafe::/64 dev p1-route GW fc00:db8:dead::1 SRC fc00:db8:dead::10])
++
++dnl Confirm that both nexthops are available when using the route-table library
++dnl directly.
++AT_CHECK([ovstest test-lib-route-table-dump | grep fc00:db8:cafe::.*nexthop | \
++          sort], [0], [dnl
++    fc00:db8:cafe::/64 nexthop family: AF_INET6 addr: fc00:db8:beef::1 ifname: p2-route
++    fc00:db8:cafe::/64 nexthop family: AF_INET6 addr: fc00:db8:dead::1 ifname: p1-route
++])
++
++OVS_TRAFFIC_VSWITCHD_STOP
++AT_CLEANUP
++
++AT_SETUP([route-table - exported functions work for netlink-notifier])
++AT_KEYWORDS([route])
++
++dnl Create tap ports.
++AT_CHECK([ip tuntap add name p1-route mode tap])
++AT_CHECK([ip link set p1-route up])
++on_exit 'ip link del p1-route'
++AT_CHECK([ip tuntap add name p2-route mode tap])
++AT_CHECK([ip link set p2-route up])
++on_exit 'ip link del p2-route'
++
++AT_CHECK([ip -6 addr add fc00:db8:dead::10/64 dev p1-route], [0], [stdout])
++AT_CHECK([ip -6 addr add fc00:db8:beef::10/64 dev p2-route], [0], [stdout])
++
++AT_CHECK([ovstest test-lib-route-table-monitor 'ip route add 172.16.42.0/24 \
++          nexthop via inet6 fc00:db8:dead::1 dev p1-route \
++          nexthop via inet6 fc00:db8:beef::1 dev p2-route' | \
++          grep 172.16.42.0.*nexthop | sort], [0], [dnl
++    172.16.42.0/24 nexthop family: AF_INET6 addr: fc00:db8:beef::1 ifname: p2-route
++    172.16.42.0/24 nexthop family: AF_INET6 addr: fc00:db8:dead::1 ifname: p1-route
++])
++
++AT_CLEANUP
++
++AT_SETUP([route-table - route attributes])
++AT_KEYWORDS([route])
++
++dnl Create tap ports.
++AT_CHECK([ip tuntap add name p1-route mode tap])
++AT_CHECK([ip link set p1-route up])
++on_exit 'ip link del p1-route'
++
++
++dnl Add ip address.
++AT_CHECK([ip addr add 10.0.0.17/24 dev p1-route], [0], [stdout])
++AT_CHECK([ovstest test-lib-route-table-dump | \
++          awk '/^10.0.0.17/{print$1" "$6" "$7}'], [0], [dnl
++10.0.0.17/32 rtm_protocol: RTPROT_KERNEL
++])
++
++dnl Add route.
++AT_CHECK([ip route add 192.168.10.12/32 dev p1-route via 10.0.0.18], [0],
++         [stdout])
++AT_CHECK([ovstest test-lib-route-table-dump | \
++          awk '/^192.168.10.12/{print$1" "$17" "$18}'], [0], [dnl
++192.168.10.12/32 rta_priority: 0
++])
++AT_CHECK([ovstest test-lib-route-table-dump | \
++          awk '/^192.168.10.12/{print$1" "$6" "$7}'], [0], [dnl
++192.168.10.12/32 rtm_protocol: RTPROT_BOOT
++])
++
++dnl Delete route.
++AT_CHECK([ip route del 192.168.10.12/32 dev p1-route via 10.0.0.18], [0],
++         [stdout])
++
++dnl Add route with priority.
++AT_CHECK([ip route add 192.168.10.12/32 dev p1-route via 10.0.0.18 metric 42],
++         [0], [stdout])
++AT_CHECK([ovstest test-lib-route-table-dump | \
++          awk '/^192.168.10.12/{print$1" "$17" "$18}'], [0], [dnl
++192.168.10.12/32 rta_priority: 42
++])
++AT_CHECK([ovstest test-lib-route-table-dump | \
++          awk '/^192.168.10.12/{print$1" "$6" "$7}'], [0], [dnl
++192.168.10.12/32 rtm_protocol: RTPROT_BOOT
++])
++
++AT_CLEANUP
+diff --git a/tests/test-lib-route-table.c b/tests/test-lib-route-table.c
+new file mode 100644
+index 000000000..61d97e06f
+--- /dev/null
++++ b/tests/test-lib-route-table.c
+@@ -0,0 +1,149 @@
++/*
++ * Copyright (c) 2024 Canonical Ltd.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at:
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <config.h>
++
++#undef NDEBUG
++
++#include <linux/rtnetlink.h>
++#include <stdio.h>
++#include <stdlib.h>
++
++#include "netlink-notifier.h"
++#include "ovstest.h"
++#include "packets.h"
++#include "route-table.h"
++
++static char *
++rt_prot_name(unsigned char p)
++{
++    /* We concentrate on the most used protocols, as they are the ones most
++     * likely to be defined in the build environment. */
++    return p == RTPROT_UNSPEC     ? "RTPROT_UNSPEC"     :
++           p == RTPROT_REDIRECT   ? "RTPROT_REDIRECT"   :
++           p == RTPROT_KERNEL     ? "RTPROT_KERNEL"     :
++           p == RTPROT_BOOT       ? "RTPROT_BOOT"       :
++           p == RTPROT_STATIC     ? "RTPROT_STATIC"     :
++           p == RTPROT_RA         ? "RTPROT_RA"         :
++           p == RTPROT_DHCP       ? "RTPROT_DHCP"       :
++           p == RTPROT_BGP        ? "RTPROT_BGP"        :
++           "UNKNOWN";
++}
++
++static char *
++rt_table_name(uint32_t id)
++{
++    static char tid[11] = "";
++
++    snprintf(tid, sizeof tid, "%"PRIu32, id);
++
++    return id == RT_TABLE_UNSPEC  ? "RT_TABLE_UNSPEC"  :
++           id == RT_TABLE_COMPAT  ? "RT_TABLE_COMPAT"  :
++           id == RT_TABLE_DEFAULT ? "RT_TABLE_DEFAULT" :
++           id == RT_TABLE_MAIN    ? "RT_TABLE_MAIN"    :
++           id == RT_TABLE_LOCAL   ? "RT_TABLE_LOCAL"   :
++           tid;
++}
++
++static void
++test_lib_route_table_handle_msg(const struct route_table_msg *change,
++                                void *data OVS_UNUSED)
++{
++    struct ds nexthop_addr = DS_EMPTY_INITIALIZER;
++    struct ds rta_prefsrc = DS_EMPTY_INITIALIZER;
++    const struct route_data *rd = &change->rd;
++    struct ds rta_dst = DS_EMPTY_INITIALIZER;
++    const struct route_data_nexthop *rdnh;
++
++    ipv6_format_mapped(&change->rd.rta_prefsrc, &rta_prefsrc);
++    ipv6_format_mapped(&change->rd.rta_dst, &rta_dst);
++
++    printf("%s/%u relevant: %d nlmsg_type: %d rtm_protocol: %s (%u) "
++           "rtn_local: %d rta_prefsrc: %s rta_mark: %"PRIu32" "
++           "rta_table_id: %s rta_priority: %"PRIu32"\n",
++           ds_cstr(&rta_dst), rd->rtm_dst_len, change->relevant,
++           change->nlmsg_type, rt_prot_name(rd->rtm_protocol),
++           rd->rtm_protocol, rd->rtn_local, ds_cstr(&rta_prefsrc),
++           rd->rta_mark, rt_table_name(rd->rta_table_id), rd->rta_priority);
++
++    LIST_FOR_EACH (rdnh, nexthop_node, &rd->nexthops) {
++        ds_clear(&nexthop_addr);
++        ipv6_format_mapped(&rdnh->addr, &nexthop_addr);
++        printf("    %s/%u nexthop family: %s addr: %s ifname: %s\n",
++               ds_cstr(&rta_dst), rd->rtm_dst_len,
++               rdnh->family == AF_INET ? "AF_INET" :
++               rdnh->family == AF_INET6 ? "AF_INET6" :
++               "UNKNOWN",
++               ds_cstr(&nexthop_addr),
++               rdnh->ifname);
++    }
++
++    ds_destroy(&nexthop_addr);
++    ds_destroy(&rta_prefsrc);
++    ds_destroy(&rta_dst);
++}
++
++static void
++test_lib_route_table_dump(int argc OVS_UNUSED, char *argv[] OVS_UNUSED)
++{
++    route_table_dump_one_table(RT_TABLE_UNSPEC,
++                               test_lib_route_table_handle_msg,
++                               NULL);
++}
++
++static void
++test_lib_route_table_change(struct route_table_msg *change,
++                            void *aux OVS_UNUSED)
++{
++    test_lib_route_table_handle_msg(change, NULL);
++    route_data_destroy(&change->rd);
++}
++
++static void
++test_lib_route_table_monitor(int argc, char *argv[])
++{
++    static struct nln_notifier *route6_notifier OVS_UNUSED;
++    static struct nln_notifier *route_notifier OVS_UNUSED;
++    static struct route_table_msg rtmsg;
++    static struct nln *nln OVS_UNUSED;
++    const char *cmd = argv[1];
++
++    if (argc != 2) {
++        printf("usage: ovstest %s 'ip route add ...'\n", argv[0]);
++        exit(EXIT_FAILURE);
++    }
++
++    nln = nln_create(NETLINK_ROUTE, route_table_parse, &rtmsg);
++
++    route_notifier =
++        nln_notifier_create(nln, RTNLGRP_IPV4_ROUTE,
++                            (nln_notify_func *) test_lib_route_table_change,
++                            NULL);
++    route6_notifier =
++        nln_notifier_create(nln, RTNLGRP_IPV6_ROUTE,
++                            (nln_notify_func *) test_lib_route_table_change,
++                            NULL);
++    nln_run(nln);
++    nln_wait(nln);
++    int rc = system(cmd);
++    if (rc) {
++        exit(rc);
++    }
++    nln_run(nln);
++}
++
++OVSTEST_REGISTER("test-lib-route-table-monitor", test_lib_route_table_monitor);
++OVSTEST_REGISTER("test-lib-route-table-dump", test_lib_route_table_dump);
