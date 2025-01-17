@@ -52,7 +52,7 @@ teardown() {
     done
 }
 
-tls_cluster_register_test_functions() {
+bgp_control_plane_register_test_functions() {
     bats_test_function \
         --description "OVN with multiple BGP peers (Automatic BGP config)" \
         -- bgp_unnumbered_peering yes yes
@@ -110,8 +110,6 @@ bgp_unnumbered_peering() {
     local host_asn=4210000000
     local i=0
     for container in $TEST_CONTAINERS; do
-        local BGP_NET_1_IP="10.$i.10.1/24"
-        local BGP_NET_2_IP="10.$i.20.1/24"
         local vrf="$((i + 1))0"
         local bgp_iface_1="$OVN_CONTAINER_NET_1_IFACE-bgp"
         local bgp_iface_2="$OVN_CONTAINER_NET_2_IFACE-bgp"
@@ -120,9 +118,9 @@ bgp_unnumbered_peering() {
 
         # Set up external connection string, used to configure MicroOVN BGP, based on number of upstream
         # links
-        local external_connections="$OVN_CONTAINER_NET_1_IFACE:$BGP_NET_1_IP"
+        local external_connections="$OVN_CONTAINER_NET_1_IFACE"
         if [ "$multi_link" == "yes" ]; then
-            external_connections="$external_connections,$OVN_CONTAINER_NET_2_IFACE:$BGP_NET_2_IP"
+            external_connections="$external_connections,$OVN_CONTAINER_NET_2_IFACE"
         fi
 
         # Configure FRR on the OVN chassis either automatically (by supplying ASN) or manually
@@ -202,4 +200,4 @@ bgp_no_config() {
     # teardown method verifies that it can be properly disabled
 }
 
-tls_cluster_register_test_functions
+bgp_control_plane_register_test_functions

@@ -32,10 +32,9 @@ function ping_ovn_int_network_over_bgp_router() {
 
     # Enable BGP redirection and start BGP daemon in OVN chassis
     local host_asn=4210000000
-    local BGP_NET_IP="172.16.10.1/24"
     local vrf="10"
     local vrf_device="ovnvrf$vrf"
-    local external_connections="$OVN_CONTAINER_INT_IFACE:$BGP_NET_IP"
+    local external_connections="$OVN_CONTAINER_INT_IFACE"
 
     echo "# Enabling MicroOVN BGP in $TEST_CONTAINER and configuring BGP (ASN $host_asn)" >&3
     lxc_exec "$TEST_CONTAINER" "microovn enable bgp \

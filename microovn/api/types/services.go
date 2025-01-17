@@ -4,7 +4,6 @@ package types
 import (
 	"fmt"
 	"log"
-	"net"
 	"strconv"
 	"strings"
 )
@@ -136,10 +135,6 @@ type ExtraBgpConfig struct {
 type BgpExternalConnection struct {
 	// Iface is a name of the physical interface that provides external connectivity
 	Iface string
-	// IPAddress is an IP that is assigned to the Logical Router Port connected to the external network
-	IPAddress net.IP
-	// IPMask is network mask assigned to the Logical Router Port connected to the external network
-	IPMask net.IPMask
 }
 
 // FromMap initializes ExtraBgpConfig structure from the provided map of string keys and string values.
@@ -197,19 +192,8 @@ func (bgpConf *ExtraBgpConfig) Validate() error {
 func (bgpConf *ExtraBgpConfig) ParseExternalConnection() ([]BgpExternalConnection, error) {
 	parsedConnections := make([]BgpExternalConnection, 0)
 	for _, extConn := range strings.Split(bgpConf.ExternalConnection, ",") {
-		ifaceName, cidr, found := strings.Cut(extConn, ":")
-		if !found {
-			return nil, fmt.Errorf("connection string requires format '<interface_name>:<ipv4_cidr>': %s", extConn)
-		}
-
-		ipAddr, ipNet, err := net.ParseCIDR(cidr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid IPv4 CIDR notation: %s", cidr)
-		}
 		parsedConnections = append(parsedConnections, BgpExternalConnection{
-			Iface:     ifaceName,
-			IPAddress: ipAddr,
-			IPMask:    ipNet.Mask,
+			Iface: extConn,
 		})
 	}
 
