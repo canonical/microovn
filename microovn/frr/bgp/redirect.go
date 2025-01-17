@@ -30,12 +30,6 @@ const BgpManagedTag = "microovn-bgp-managed"
 // ports be assigned
 const BgpVrfTable = "microovn-bgp-vrf"
 
-// BgpIfaceIP - a key used in "external_ids" table of OVS ports used for
-// BGP redirecting. It keeps track of the IPv4 address that should be
-// assigned to the port, to match IPv4 address of the Logical Router Port
-// from which the traffic is redirected
-const BgpIfaceIP = "microovn-bgp-ip"
-
 // BgpBridgeMapping - a key used in "external_ids" of Open_vSwitch table, to
 // keep track of "ovn-bridge-mappings" managed by MicroOVN.
 const BgpBridgeMapping = "microovn-bgp-bridge-mapping"
@@ -86,19 +80,6 @@ func getLrpName(s state.State, iface string) string {
 	return fmt.Sprintf("lrp-%s-%s", s.Name(), iface)
 }
 
-// getExternalConnectionCidr returns CIDR IPv4 notation for the IPv4 address and network mask defined in
-// types.BgpExternalConnection.
-// Example:
-//
-//	types.BgpExternalConnection.IPAddress: 192.0.2.1
-//	types.BgpExternalConnection.IPMask:    255.255.255.0
-//
-// Result: "192.0.2.1/24"
-func getExternalConnectionCidr(extConn types.BgpExternalConnection) string {
-	lrpIP4Mask, _ := extConn.IPMask.Size()
-	return fmt.Sprintf("%s/%d", extConn.IPAddress, lrpIP4Mask)
-}
-
 // generateLrpMac returns a local unicast MAC address based on an interface name. The returned
 // address will always be same for given interface name.
 // Warning: There is no guarantee that the address won't conflict with other MAC addresses
@@ -110,6 +91,19 @@ func generateLrpMac(ifaceName string) string {
 		macAddr += fmt.Sprintf("%02x:", nameHash[i])
 	}
 	return strings.TrimRight(macAddr, ":")
+}
+
+// generateBGPRouterID returns a router-id address based on a string. The returned
+// router-id will always be same for given interface name.
+// Warning: There is no guarantee that the address won't conflict with other
+// router-ids present in the AS.
+func generateBGPRouterID(s string) string {
+	routerID := ""
+	hash := md5.Sum([]byte(s))
+	for i := 0; i < 4; i++ {
+		routerID += fmt.Sprintf("%d.", hash[i])
+	}
+	return strings.TrimRight(routerID, ".")
 }
 
 // vsctlGetIfExists runs 'ovs-vsctl' get to retrieve record [column [key]] from the
@@ -230,12 +224,11 @@ func createExternalNetworks(ctx context.Context, s state.State, extConnections [
 
 		lrpName := getLrpName(s, extConnection.Iface)
 		lrpMac := generateLrpMac(lrpName)
-		lrpIP4 := getExternalConnectionCidr(extConnection)
 
 		_, err = ovnCmd.NBCtlCluster(ctx,
 			"--",
 			// Create Logical Router Port
-			"lrp-add", lrName, lrpName, lrpMac, lrpIP4,
+			"lrp-add", lrName, lrpName, lrpMac,
 			"--",
 			// Create Logical Switch and connect it to the Logical Router Port
 			"ls-add", lsName,
@@ -310,7 +303,6 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 		bgpIface := getBgpRedirectIfaceName(extConnection.Iface)
 		bgpLsp := fmt.Sprintf("lsp-%s-%s-bgp", s.Name(), extConnection.Iface)
 		mac := generateLrpMac(lrpName)
-		bgpIfaceIP4 := getExternalConnectionCidr(extConnection)
 
 		// Create Logical Switch Port to which the BGP+BFD traffic will be redirected
 		_, err := ovnCmd.NBCtlCluster(ctx,
@@ -341,7 +333,7 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 			"add-port", intBr, bgpIface,
 			"--",
 			"set", "Port", bgpIface, fmt.Sprintf("external-ids:%s=true", BgpManagedTag),
-			fmt.Sprintf("external-ids:%s=%s", BgpVrfTable, vrfName), fmt.Sprintf("external-ids:%s=%s", BgpIfaceIP, bgpIfaceIP4),
+			fmt.Sprintf("external-ids:%s=%s", BgpVrfTable, vrfName),
 			"--",
 			"set", "Interface", bgpIface, "type=internal", fmt.Sprintf("external_ids:iface-id=%s", bgpLsp),
 			fmt.Sprintf("mac=\"%s\"", mac),
@@ -350,7 +342,7 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 			return fmt.Errorf("failed to create port for BGP redirect '%s': %v", bgpIface, err)
 		}
 
-		err = moveInterfaceToVrf(ctx, bgpIface, bgpIfaceIP4, vrfName)
+		err = moveInterfaceToVrf(ctx, bgpIface, vrfName)
 		if err != nil {
 			return err
 		}
@@ -361,7 +353,7 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 // startBgpUnnumbered configures BGP process for each external connection. A BGP daemon is started on each interface
 // in extConnections, using provided ASN and configured to use "BGP Unnumbered" (auto-discovery mechanism).
 // Resulting running configuration is then saved to the startup config.
-func startBgpUnnumbered(_ context.Context, extConnections []types.BgpExternalConnection, tableID string, asn string) error {
+func startBgpUnnumbered(_ context.Context, s state.State, extConnections []types.BgpExternalConnection, tableID string, asn string) error {
 	vrfName := getVrfName(tableID)
 
 	var confBuilder strings.Builder
@@ -374,9 +366,10 @@ ip prefix-list no-default seq 10 permit 0.0.0.0/0 le 32
 ipv6 prefix-list no-default seq 5 deny ::/0
 ipv6 prefix-list no-default seq 10 permit ::/0 le 128
 `)
-
 	fmt.Fprintf(&confBuilder, "router bgp %s vrf %s\n", asn, vrfName)
 	for _, connection := range extConnections {
+		routerID := generateBGPRouterID(getLrpName(s, connection.Iface))
+		fmt.Fprintf(&confBuilder, "bgp router-id %s\n", routerID)
 		fmt.Fprintf(&confBuilder,
 			"neighbor %s interface remote-as external\n",
 			getBgpRedirectIfaceName(connection.Iface),
@@ -430,7 +423,7 @@ ipv6 prefix-list no-default seq 10 permit ::/0 le 128
 	return err
 }
 
-func moveInterfaceToVrf(ctx context.Context, iface string, ipv4Cidr string, vrf string) error {
+func moveInterfaceToVrf(ctx context.Context, iface string, vrf string) error {
 	// Move the port to the VRF, set its IP and MAC address, and bring it UP
 	_, err := shared.RunCommandContext(ctx, "ip", "link", "set", "dev", iface, "master", vrf)
 	if err != nil {
@@ -440,11 +433,6 @@ func moveInterfaceToVrf(ctx context.Context, iface string, ipv4Cidr string, vrf 
 	_, err = shared.RunCommandContext(ctx, "ip", "link", "set", "dev", iface, "up")
 	if err != nil {
 		return fmt.Errorf("failed bring interface '%s' UP: %v", iface, err)
-	}
-
-	_, err = shared.RunCommandContext(ctx, "ip", "address", "add", ipv4Cidr, "dev", iface)
-	if err != nil {
-		return fmt.Errorf("failed to set IPv4 on interface '%s': %v", iface, err)
 	}
 	return nil
 }

@@ -47,6 +47,17 @@ function frr_start_bgp_unnumbered() {
 EOF
 }
 
+# generate_router_id STRING
+#
+# generates a random router id in the range 10.0.0.1 - 10.255.255.254 using
+# the string as a hash
+function generate_router_id() {
+    local name="$1"
+    local hash
+    hash=$(echo -n "$name" | sha256sum | awk '{print $1}')
+    echo "10.$(( 0x${hash:0:2} % 256 )).$(( 0x${hash:2:2} % 256 )).$(( 0x${hash:4:2} % 254 + 1 ))"
+}
+
 # microovn_start_bgp_unnumbered CONTAINER INTERFACE ASN VRF
 #
 # configure FRR bundled with MicroOVN in the CONTAINER, to
@@ -65,6 +76,7 @@ function microovn_start_bgp_unnumbered() {
         ip prefix-list no-default seq 10 permit 0.0.0.0/0 le 32
         !
         router bgp $asn vrf $vrf
+        bgp router-id $(generate_router_id $container-$interface)
         neighbor $interface interface remote-as external
         !
         address-family ipv4 unicast
