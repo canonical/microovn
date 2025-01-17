@@ -194,18 +194,24 @@ func (bgpConf *ExtraBgpConfig) ParseExternalConnection() ([]BgpExternalConnectio
 	for _, extConn := range strings.Split(bgpConf.ExternalConnection, ",") {
 		ifaceName, cidr, found := strings.Cut(extConn, ":")
 		if !found {
-			return nil, fmt.Errorf("connection string requires format '<interface_name>:<ipv4_cidr>': %s", extConn)
+			//log that its interpreting it as iface
+			parsedConnections = append(parsedConnections, BgpExternalConnection{
+				Iface:     extConn,
+				IPAddress: nil,
+				IPMask:    nil,
+			})
+		} else {
+			ipAddr, ipNet, err := net.ParseCIDR(cidr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid IPv4 CIDR notation: %s", cidr)
+			}
+			parsedConnections = append(parsedConnections, BgpExternalConnection{
+				Iface:     ifaceName,
+				IPAddress: ipAddr,
+				IPMask:    ipNet.Mask,
+			})
 		}
 
-		ipAddr, ipNet, err := net.ParseCIDR(cidr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid IPv4 CIDR notation: %s", cidr)
-		}
-		parsedConnections = append(parsedConnections, BgpExternalConnection{
-			Iface:     ifaceName,
-			IPAddress: ipAddr,
-			IPMask:    ipNet.Mask,
-		})
 	}
 
 	return parsedConnections, nil

@@ -112,6 +112,19 @@ func generateLrpMac(ifaceName string) string {
 	return strings.TrimRight(macAddr, ":")
 }
 
+// generateRouterID returns a router-id address based on a string. The returned
+// router-id will always be same for given interface name.
+// Warning: There is no guarantee that the address won't conflict with other
+// router-ids present in the AS.
+func generateRouterID(s string) string {
+	routerID := ""
+	hash := md5.Sum([]byte(s))
+	for i := 0; i < 4; i++ {
+		routerID += fmt.Sprintf("%d.", hash[i])
+	}
+	return strings.TrimRight(routerID, ".")
+}
+
 // vsctlGetIfExists runs 'ovs-vsctl' get to retrieve record [column [key]] from the
 // specified table. Returned string has whitespace and quotations trimmed.
 // If the 'ovs-vsctl' command failed due to the "key" not being found in "column",
@@ -230,12 +243,15 @@ func createExternalNetworks(ctx context.Context, s state.State, extConnections [
 
 		lrpName := getLrpName(s, extConnection.Iface)
 		lrpMac := generateLrpMac(lrpName)
-		lrpIP4 := getExternalConnectionCidr(extConnection)
+		// var lrpIP4 = ""
+		// if extConnection.IPMask != nil {
+		// 	lrpIP4 = getExternalConnectionCidr(extConnection)
+		// }
 
 		_, err = ovnCmd.NBCtlCluster(ctx,
 			"--",
 			// Create Logical Router Port
-			"lrp-add", lrName, lrpName, lrpMac, lrpIP4,
+			"lrp-add", lrName, lrpName, lrpMac,
 			"--",
 			// Create Logical Switch and connect it to the Logical Router Port
 			"ls-add", lsName,
@@ -319,7 +335,10 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 		bgpIface := getBgpRedirectIfaceName(extConnection.Iface)
 		bgpLsp := fmt.Sprintf("lsp-%s-%s-bgp", s.Name(), extConnection.Iface)
 		mac := generateLrpMac(lrpName)
-		bgpIfaceIP4 := getExternalConnectionCidr(extConnection)
+		var bgpIfaceIP4 = ""
+		if extConnection.IPMask != nil {
+			bgpIfaceIP4 = getExternalConnectionCidr(extConnection)
+		}
 
 		// Create Logical Switch Port to which the BGP+BFD traffic will be redirected
 		_, err := ovnCmd.NBCtlCluster(ctx,
@@ -336,15 +355,19 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 			return fmt.Errorf("failed to create LSP for BGP redirect '%s': %v", bgpLsp, err)
 		}
 
+		// var connectIP = ""
+		// if extConnection.IPMask != nil {
+		// 	connectIP = fmt.Sprintf("external-ids:%s=%s", BgpIfaceIP, bgpIfaceIP4)
+		// }
 		// Create OVS port and associate it with the LSP
 		_, err = ovnCmd.VSCtl(ctx, s,
 			"--",
 			"add-port", intBr, bgpIface,
 			"--",
 			"set", "Port", bgpIface, fmt.Sprintf("external-ids:%s=true", BgpManagedTag),
-			fmt.Sprintf("external-ids:%s=%s", BgpVrfTable, vrfName), fmt.Sprintf("external-ids:%s=%s", BgpIfaceIP, bgpIfaceIP4),
+			fmt.Sprintf("external-ids:%s=%s", BgpVrfTable, vrfName),
 			"--",
-			"set", "Interface", bgpIface, "type=internal", fmt.Sprintf("external_ids:iface-id=%s", bgpLsp),
+			"set", "Interface", bgpIface, "type=internal", fmt.Sprintf("external-ids:iface-id=%s", bgpLsp),
 			fmt.Sprintf("mac=\"%s\"", mac),
 		)
 		if err != nil {
@@ -362,7 +385,7 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 // startBgpUnnumbered configures BGP process for each external connection. A BGP daemon is started on each interface
 // in extConnections, using provided ASN and configured to use "BGP Unnumbered" (auto-discovery mechanism).
 // Resulting running configuration is then saved to the startup config.
-func startBgpUnnumbered(_ context.Context, extConnections []types.BgpExternalConnection, tableID string, asn string) error {
+func startBgpUnnumbered(_ context.Context, s state.State, extConnections []types.BgpExternalConnection, tableID string, asn string) error {
 	vrfName := getVrfName(tableID)
 
 	var confBuilder strings.Builder
@@ -375,9 +398,10 @@ ip prefix-list no-default seq 10 permit 0.0.0.0/0 le 32
 ipv6 prefix-list no-default seq 5 deny ::/0
 ipv6 prefix-list no-default seq 10 permit ::/0 le 128
 `)
-
 	fmt.Fprintf(&confBuilder, "router bgp %s vrf %s\n", asn, vrfName)
 	for _, connection := range extConnections {
+		routerID := generateRouterID(getLrpName(s, connection.Iface))
+		fmt.Fprintf(&confBuilder, "bgp router-id %s\n", routerID)
 		fmt.Fprintf(&confBuilder,
 			"neighbor %s interface remote-as external\n",
 			getBgpRedirectIfaceName(connection.Iface),
@@ -443,9 +467,11 @@ func moveInterfaceToVrf(ctx context.Context, iface string, ipv4Cidr string, vrf 
 		return fmt.Errorf("failed bring interface '%s' UP: %v", iface, err)
 	}
 
-	_, err = shared.RunCommandContext(ctx, "ip", "address", "add", ipv4Cidr, "dev", iface)
-	if err != nil {
-		return fmt.Errorf("failed to set IPv4 on interface '%s': %v", iface, err)
+	if ipv4Cidr != "" {
+		_, err = shared.RunCommandContext(ctx, "ip", "address", "add", ipv4Cidr, "dev", iface)
+		if err != nil {
+			return fmt.Errorf("failed to set IPv4 on interface '%s': %v", iface, err)
+		}
 	}
 	return nil
 }
