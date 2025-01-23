@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/canonical/microcluster/v2/microcluster"
 	"github.com/spf13/cobra"
@@ -28,7 +29,9 @@ func (c *cmdClusterRemove) Command() *cobra.Command {
 
 func (c *cmdClusterRemove) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
-		return cmd.Help()
+		fmt.Println("Incorrect number of arguments.")
+		_ = cmd.Help()
+		return fmt.Errorf("invalid arguments")
 	}
 
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})

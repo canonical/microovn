@@ -27,7 +27,9 @@ func (c *cmdClusterBootstrap) Command() *cobra.Command {
 
 func (c *cmdClusterBootstrap) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
-		return cmd.Help()
+		fmt.Println("Incorrect number of arguments.")
+		_ = cmd.Help()
+		return fmt.Errorf("invalid arguments")
 	}
 
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})

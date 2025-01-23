@@ -32,6 +32,13 @@ func (c *cmdDisable) Command() *cobra.Command {
 }
 
 func (c *cmdDisable) Run(cmd *cobra.Command, args []string) error {
+
+	if len(args) == 0 {
+		fmt.Println("Incorrect number of arguments.")
+		_ = cmd.Help()
+		return fmt.Errorf("invalid arguments")
+	}
+
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
 		return err
@@ -40,10 +47,6 @@ func (c *cmdDisable) Run(cmd *cobra.Command, args []string) error {
 	cli, err := m.LocalClient()
 	if err != nil {
 		return err
-	}
-
-	if len(args) == 0 {
-		return cmd.Help()
 	}
 
 	targetService := args[0]
@@ -79,6 +82,13 @@ func (c *cmdEnable) Command() *cobra.Command {
 }
 
 func (c *cmdEnable) Run(cmd *cobra.Command, args []string) error {
+
+	if len(args) == 0 {
+		fmt.Println("Incorrect number of arguments.")
+		_ = cmd.Help()
+		return fmt.Errorf("invalid arguments")
+	}
+
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
 		return err
@@ -87,10 +97,6 @@ func (c *cmdEnable) Run(cmd *cobra.Command, args []string) error {
 	cli, err := m.LocalClient()
 	if err != nil {
 		return err
-	}
-
-	if len(args) == 0 {
-		return cmd.Help()
 	}
 
 	targetService := args[0]

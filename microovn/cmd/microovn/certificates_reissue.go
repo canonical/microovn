@@ -46,7 +46,9 @@ func (c *cmdCertificatesReissue) Command() *cobra.Command {
 // service to issue new certificate for selected OVN service.
 func (c *cmdCertificatesReissue) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
-		return cmd.Help()
+		fmt.Println("Incorrect number of arguments.")
+		_ = cmd.Help()
+		return fmt.Errorf("invalid arguments")
 	}
 	var response types.IssueCertificateResponse
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})

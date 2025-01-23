@@ -27,7 +27,9 @@ func (c *cmdClusterJoin) Command() *cobra.Command {
 
 func (c *cmdClusterJoin) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
-		return cmd.Help()
+		fmt.Println("Incorrect number of arguments.")
+		_ = cmd.Help()
+		return fmt.Errorf("invalid arguments")
 	}
 
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
