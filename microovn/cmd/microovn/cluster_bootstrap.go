@@ -43,7 +43,7 @@ func (c *cmdClusterBootstrap) Run(cmd *cobra.Command, args []string) error {
 
 	// Get system address.
 	address := util.NetworkInterfaceAddress()
-	address = util.CanonicalNetworkAddress(address, 6443)
+	address = util.CanonicalNetworkAddress(address, DefaultMicroClusterPort)
 
 	return m.NewCluster(context.Background(), hostname, address, nil)
 }

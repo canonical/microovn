@@ -85,7 +85,8 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 		if err != nil {
 			return err
 		}
-		address = util.CanonicalNetworkAddress(address, 6443)
+		address = util.CanonicalNetworkAddress(
+			address, DefaultMicroClusterPort)
 
 		wantsBootstrap, err := c.common.asker.AskBool("Would you like to create a new MicroOVN cluster? (yes/no) [default=no]: ", "no")
 		if err != nil {
