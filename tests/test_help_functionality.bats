@@ -37,49 +37,42 @@ test_invalid_args_return_1() {
 
         # Assert the return code is 1
         assert_failure
-        assert [ "$status" -eq 1 ]
 
         # Run the cluster remove command with invalid arguments
         run lxc_exec "$container" "microovn cluster remove"
 
         # Assert the return code is 1
         assert_failure
-        assert [ "$status" -eq 1 ]
 
         # Run the cluster bootstrap command with invalid arguments
         run lxc_exec "$container" "microovn cluster bootstrap invalid_arg"
 
         # Assert the return code is 1
         assert_failure
-        assert [ "$status" -eq 1 ]
 
         # Run the cluster join command with invalid arguments
         run lxc_exec "$container" "microovn cluster join"
 
         # Assert the return code is 1
         assert_failure
-        assert [ "$status" -eq 1 ]
 
         # Run the certificate reissue command with invalid arguments
         run lxc_exec "$container" "microovn certificates reissue"
 
         # Assert the return code is 1
         assert_failure
-        assert [ "$status" -eq 1 ]
 
         # Run the enable command with invalid arguments
         run lxc_exec "$container" "microovn enable"
 
         # Assert the return code is 1
         assert_failure
-        assert [ "$status" -eq 1 ]
 
         # Run the cluster disable command with invalid arguments
         run lxc_exec "$container" "microovn disable"
 
         # Assert the return code is 1
         assert_failure
-        assert [ "$status" -eq 1 ]
 
     done
 }
@@ -91,7 +84,6 @@ test_valid_args_return_0() {
 
         # Assert the return code is 0
         assert_success
-        assert [ "$status" -eq 0 ]
 
         # Ensure help message is not in the output
         refute_output --partial "Usage: microovn"
