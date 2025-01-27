@@ -276,6 +276,7 @@ func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExt
 
 	_, err := ovnCmd.NBCtlCluster(ctx,
 		"set", "Logical_Router", lrName, fmt.Sprintf("options:requested-tnl-key=%s", tableID),
+		"options:dynamic-routing=true",
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create vrf for LR '%s': %v", lrName, err)
@@ -288,6 +289,16 @@ func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExt
 		)
 		if err != nil {
 			return fmt.Errorf("failed to enable vrf for LRP '%s': %v", lrpName, err)
+		}
+
+		_, err = ovnCmd.NBCtlCluster(ctx, "set", "Logical_Router_Port", lrpName,
+			"ipv6_ra_configs:address_mode=slaac",
+			"ipv6_ra_configs:send_periodic=true",
+			"ipv6_ra_configs:max_interval=5",
+			"ipv6_ra_configs:min_interval=3",
+		)
+		if err != nil {
+			return fmt.Errorf("failed to enable IPv6 Router Announcements on LRP '%s': %v", lrpName, err)
 		}
 	}
 	return nil
