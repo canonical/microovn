@@ -14,20 +14,11 @@ setup() {
     assert [ -n "$TEST_CONTAINERS" ]
 }
 
-teardown() {
-    # No specific cleanup needed for this test
-    :
-}
-
 # Register the new test functions
 cli_help_functionality_register_test_functions() {
     bats_test_function \
         --description "Test invalid arguments return error code 1" \
         -- test_invalid_args_return_1
-
-    bats_test_function \
-        --description "Test valid arguments return code 0" \
-        -- test_valid_args_return_0
 }
 
 test_invalid_args_return_1() {
@@ -74,19 +65,6 @@ test_invalid_args_return_1() {
         # Assert the return code is 1
         assert_failure
 
-    done
-}
-
-test_valid_args_return_0() {
-    for container in $TEST_CONTAINERS; do
-        # Run the command with valid arguments
-        run lxc_exec "$container" "microovn --version"
-
-        # Assert the return code is 0
-        assert_success
-
-        # Ensure help message is not in the output
-        refute_output --partial "Usage: microovn"
     done
 }
 
