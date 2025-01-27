@@ -1,0 +1,656 @@
+From 7a77fcb1f300aa98f57c070c0829db12c9b2464a Mon Sep 17 00:00:00 2001
+From: Felix Huettner <felix.huettner@stackit.cloud>
+Date: Wed, 18 Dec 2024 11:24:53 +0100
+Subject: [Patch ovn 01/15] northd: Add route table to southbound and sync.
+To: dev@openvswitch.org
+
+in order to exchange routes between OVN and the network fabric we
+introduce a new southbound table. This is used by northd to write in the
+routes which should be announced from a given Logical Router.
+
+ovn-controller will later use this table to share these routes to the
+outside.
+
+Additionally this table will be used as a way for ovn-controller to
+share learned routes back to northd.
+
+Users must explicitly opt-in to advertise the routes using this table.
+
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+---
+ NEWS                              |   3 +
+ ic/ovn-ic.c                       |  21 ----
+ lib/ovn-util.c                    |  22 ++++
+ lib/ovn-util.h                    |   2 +
+ lib/stopwatch-names.h             |   1 +
+ northd/automake.mk                |   2 +
+ northd/en-advertised-route-sync.c | 202 ++++++++++++++++++++++++++++++
+ northd/en-advertised-route-sync.h |  27 ++++
+ northd/en-northd-output.c         |   8 ++
+ northd/en-northd-output.h         |   2 +
+ northd/inc-proc-northd.c          |  11 +-
+ northd/northd.c                   |  24 ++--
+ northd/northd.h                   |   4 +-
+ ovn-nb.xml                        |  13 ++
+ tests/ovn-northd.at               |  57 +++++++++
+ 15 files changed, 365 insertions(+), 34 deletions(-)
+ create mode 100644 northd/en-advertised-route-sync.c
+ create mode 100644 northd/en-advertised-route-sync.h
+
+diff --git a/NEWS b/NEWS
+index 72c5a6339..0d1e9ff68 100644
+--- a/NEWS
++++ b/NEWS
+@@ -28,6 +28,9 @@ Post v24.09.0
+        this option was not set).  TLS ciphersuites for TLSv1.3 and later can
+        be configured via --ssl-ciphersuites (--ssl-ciphers only applies to
+        TLSv1.2 and earlier).
++   - Add the option "dynamic-routing" to Logical Routers. If set to true all
++     static and connected routes attached to the router are shared to the
++     southbound "Route" table for sharing outside of OVN.
+ 
+ OVN v24.09.0 - 13 Sep 2024
+ --------------------------
+diff --git a/ic/ovn-ic.c b/ic/ovn-ic.c
+index 75b5d1787..1b05f1463 100644
+--- a/ic/ovn-ic.c
++++ b/ic/ovn-ic.c
+@@ -1008,27 +1008,6 @@ get_nexthop_from_lport_addresses(bool is_v4,
+     return true;
+ }
+ 
+-static bool
+-prefix_is_link_local(struct in6_addr *prefix, unsigned int plen)
+-{
+-    if (IN6_IS_ADDR_V4MAPPED(prefix)) {
+-        /* Link local range is "169.254.0.0/16". */
+-        if (plen < 16) {
+-            return false;
+-        }
+-        ovs_be32 lla;
+-        inet_pton(AF_INET, "169.254.0.0", &lla);
+-        return ((in6_addr_get_mapped_ipv4(prefix) & htonl(0xffff0000)) == lla);
+-    }
+-
+-    /* ipv6, link local range is "fe80::/10". */
+-    if (plen < 10) {
+-        return false;
+-    }
+-    return (((prefix->s6_addr[0] & 0xff) == 0xfe) &&
+-            ((prefix->s6_addr[1] & 0xc0) == 0x80));
+-}
+-
+ static bool
+ prefix_is_deny_listed(const struct smap *nb_options,
+                       struct in6_addr *prefix,
+diff --git a/lib/ovn-util.c b/lib/ovn-util.c
+index b78bdbfa1..ed847517a 100644
+--- a/lib/ovn-util.c
++++ b/lib/ovn-util.c
+@@ -1351,3 +1351,25 @@ ovn_update_swconn_at(struct rconn *swconn, const char *target,
+ 
+     return notify;
+ }
++
++bool
++prefix_is_link_local(const struct in6_addr *prefix, unsigned int plen)
++{
++    if (IN6_IS_ADDR_V4MAPPED(prefix)) {
++        /* Link local range is "169.254.0.0/16". */
++        if (plen < 16) {
++            return false;
++        }
++        ovs_be32 lla;
++        inet_pton(AF_INET, "169.254.0.0", &lla);
++        return ((in6_addr_get_mapped_ipv4(prefix) & htonl(0xffff0000)) == lla);
++    }
++
++    /* ipv6, link local range is "fe80::/10". */
++    if (plen < 10) {
++        return false;
++    }
++    return (((prefix->s6_addr[0] & 0xff) == 0xfe) &&
++            ((prefix->s6_addr[1] & 0xc0) == 0x80));
++}
++
+diff --git a/lib/ovn-util.h b/lib/ovn-util.h
+index 899bd9d12..31c2c68df 100644
+--- a/lib/ovn-util.h
++++ b/lib/ovn-util.h
+@@ -487,4 +487,6 @@ void ovn_exit_args_finish(struct ovn_exit_args *exit_args);
+ bool ovn_update_swconn_at(struct rconn *swconn, const char *target,
+                           int probe_interval, const char *where);
+ 
++bool prefix_is_link_local(const struct in6_addr *prefix, unsigned int plen);
++
+ #endif /* OVN_UTIL_H */
+diff --git a/lib/stopwatch-names.h b/lib/stopwatch-names.h
+index 660c653fb..dc4129ee5 100644
+--- a/lib/stopwatch-names.h
++++ b/lib/stopwatch-names.h
+@@ -34,5 +34,6 @@
+ #define LR_NAT_RUN_STOPWATCH_NAME "lr_nat_run"
+ #define LR_STATEFUL_RUN_STOPWATCH_NAME "lr_stateful"
+ #define LS_STATEFUL_RUN_STOPWATCH_NAME "ls_stateful"
++#define ADVERTISED_ROUTE_SYNC_RUN_STOPWATCH_NAME "advertised_route_sync"
+ 
+ #endif
+diff --git a/northd/automake.mk b/northd/automake.mk
+index 6566ad299..a2797237a 100644
+--- a/northd/automake.mk
++++ b/northd/automake.mk
+@@ -34,6 +34,8 @@ northd_ovn_northd_SOURCES = \
+ 	northd/en-ls-stateful.h \
+ 	northd/en-sampling-app.c \
+ 	northd/en-sampling-app.h \
++	northd/en-advertised-route-sync.c \
++	northd/en-advertised-route-sync.h \
+ 	northd/inc-proc-northd.c \
+ 	northd/inc-proc-northd.h \
+ 	northd/ipam.c \
+diff --git a/northd/en-advertised-route-sync.c b/northd/en-advertised-route-sync.c
+new file mode 100644
+index 000000000..46ae3adf8
+--- /dev/null
++++ b/northd/en-advertised-route-sync.c
+@@ -0,0 +1,202 @@
++/*
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at:
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <config.h>
++
++#include "openvswitch/vlog.h"
++#include "stopwatch.h"
++#include "northd.h"
++
++#include "en-advertised-route-sync.h"
++#include "lib/stopwatch-names.h"
++#include "openvswitch/hmap.h"
++#include "ovn-util.h"
++
++VLOG_DEFINE_THIS_MODULE(en_advertised_route_sync);
++
++static void
++advertised_route_table_sync(
++    struct ovsdb_idl_txn *ovnsb_txn,
++    const struct sbrec_advertised_route_table *sbrec_advertised_route_table,
++    const struct hmap *parsed_routes);
++
++void
++*en_advertised_route_sync_init(struct engine_node *node OVS_UNUSED,
++                     struct engine_arg *arg OVS_UNUSED)
++{
++    return NULL;
++}
++
++void
++en_advertised_route_sync_cleanup(void *data OVS_UNUSED)
++{
++}
++
++void
++en_advertised_route_sync_run(struct engine_node *node, void *data OVS_UNUSED)
++{
++    struct routes_data *routes_data
++        = engine_get_input_data("routes", node);
++    const struct engine_context *eng_ctx = engine_get_context();
++    const struct sbrec_advertised_route_table *sbrec_advertised_route_table =
++        EN_OVSDB_GET(engine_get_input("SB_advertised_route", node));
++
++    stopwatch_start(ADVERTISED_ROUTE_SYNC_RUN_STOPWATCH_NAME, time_msec());
++
++    advertised_route_table_sync(eng_ctx->ovnsb_idl_txn,
++                      sbrec_advertised_route_table,
++                      &routes_data->parsed_routes);
++
++    stopwatch_stop(ADVERTISED_ROUTE_SYNC_RUN_STOPWATCH_NAME, time_msec());
++    engine_set_node_state(node, EN_UPDATED);
++}
++
++struct ar_entry {
++    struct hmap_node hmap_node;
++
++    const struct sbrec_advertised_route *sb_route;
++    const struct sbrec_datapath_binding *sb_db;
++
++    const struct sbrec_port_binding *logical_port;
++    char *ip_prefix;
++    bool stale;
++};
++
++static struct ar_entry *
++ar_alloc_entry(struct hmap *routes,
++                  const struct sbrec_datapath_binding *sb_db,
++                  const struct sbrec_port_binding *logical_port,
++                  const char *ip_prefix)
++{
++    struct ar_entry *route_e = xzalloc(sizeof *route_e);
++
++    route_e->sb_db = sb_db;
++    route_e->logical_port = logical_port;
++    route_e->ip_prefix = xstrdup(ip_prefix);
++    route_e->stale = false;
++    uint32_t hash = uuid_hash(&sb_db->header_.uuid);
++    hash = hash_string(logical_port->logical_port, hash);
++    hash = hash_string(ip_prefix, hash);
++    hmap_insert(routes, &route_e->hmap_node, hash);
++
++    return route_e;
++}
++
++static struct ar_entry *
++ar_lookup_or_add(struct hmap *route_map,
++                    const struct sbrec_datapath_binding *sb_db,
++                    const struct sbrec_port_binding *logical_port,
++                    const char *ip_prefix)
++{
++    struct ar_entry *route_e;
++    uint32_t hash;
++
++    hash = uuid_hash(&sb_db->header_.uuid);
++    hash = hash_string(logical_port->logical_port, hash);
++    hash = hash_string(ip_prefix, hash);
++    HMAP_FOR_EACH_WITH_HASH (route_e, hmap_node, hash, route_map) {
++        if (!uuid_equals(&sb_db->header_.uuid,
++                         &route_e->sb_db->header_.uuid)) {
++            continue;
++        }
++
++        if (!uuid_equals(&logical_port->header_.uuid,
++                         &route_e->logical_port->header_.uuid)) {
++            continue;
++        }
++
++        if (strcmp(ip_prefix, route_e->ip_prefix)) {
++            continue;
++        }
++
++        return route_e;
++    }
++
++    route_e = ar_alloc_entry(route_map, sb_db,
++                             logical_port, ip_prefix);
++    return route_e;
++}
++
++static void
++route_erase_entry(struct ar_entry *route_e)
++{
++    free(route_e->ip_prefix);
++    free(route_e);
++}
++
++static void
++advertised_route_table_sync(
++    struct ovsdb_idl_txn *ovnsb_txn,
++    const struct sbrec_advertised_route_table *sbrec_advertised_route_table,
++    const struct hmap *parsed_routes)
++{
++    if (!ovnsb_txn) {
++        return;
++    }
++
++    struct hmap sync_routes = HMAP_INITIALIZER(&sync_routes);
++
++    const struct parsed_route *route;
++
++    struct ar_entry *route_e;
++    const struct sbrec_advertised_route *sb_route;
++    SBREC_ADVERTISED_ROUTE_TABLE_FOR_EACH (sb_route,
++                                           sbrec_advertised_route_table) {
++        route_e = ar_alloc_entry(&sync_routes,
++                                    sb_route->datapath,
++                                    sb_route->logical_port,
++                                    sb_route->ip_prefix);
++        route_e->stale = true;
++        route_e->sb_route = sb_route;
++    }
++
++    HMAP_FOR_EACH (route, key_node, parsed_routes) {
++        if (route->is_discard_route) {
++            continue;
++        }
++        if (prefix_is_link_local(&route->prefix, route->plen)) {
++            continue;
++        }
++        if (!smap_get_bool(&route->od->nbr->options, "dynamic-routing",
++                           false)) {
++            continue;
++        }
++
++        char *ip_prefix = normalize_v46_prefix(&route->prefix,
++                                               route->plen);
++        route_e = ar_lookup_or_add(&sync_routes, route->od->sb,
++                                   route->out_port->sb, ip_prefix);
++        route_e->stale = false;
++
++        if (!route_e->sb_route) {
++            const struct sbrec_advertised_route *sr =
++                sbrec_advertised_route_insert(ovnsb_txn);
++            sbrec_advertised_route_set_datapath(sr, route_e->sb_db);
++            sbrec_advertised_route_set_logical_port(sr, route_e->logical_port);
++            sbrec_advertised_route_set_ip_prefix(sr, route_e->ip_prefix);
++            route_e->sb_route = sr;
++        }
++
++        free(ip_prefix);
++    }
++
++    HMAP_FOR_EACH_POP (route_e, hmap_node, &sync_routes) {
++        if (route_e->stale) {
++            sbrec_advertised_route_delete(route_e->sb_route);
++        }
++        route_erase_entry(route_e);
++    }
++    hmap_destroy(&sync_routes);
++}
++
+diff --git a/northd/en-advertised-route-sync.h b/northd/en-advertised-route-sync.h
+new file mode 100644
+index 000000000..c6a41c713
+--- /dev/null
++++ b/northd/en-advertised-route-sync.h
+@@ -0,0 +1,27 @@
++/*
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at:
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++#ifndef EN_ADVERTISED_ROUTE_SYNC_H
++#define EN_ADVERTISED_ROUTE_SYNC_H 1
++
++#include "lib/inc-proc-eng.h"
++
++struct advertised_route_sync_data {
++};
++
++void *en_advertised_route_sync_init(struct engine_node *, struct engine_arg *);
++void en_advertised_route_sync_cleanup(void *data);
++void en_advertised_route_sync_run(struct engine_node *, void *data);
++
++
++#endif /* EN_ADVERTISED_ROUTE_SYNC_H */
+diff --git a/northd/en-northd-output.c b/northd/en-northd-output.c
+index 98098d974..555ed2b9e 100644
+--- a/northd/en-northd-output.c
++++ b/northd/en-northd-output.c
+@@ -72,3 +72,11 @@ northd_output_fdb_aging_handler(struct engine_node *node,
+     engine_set_node_state(node, EN_UPDATED);
+     return true;
+ }
++
++bool
++northd_output_advertised_route_sync_handler(struct engine_node *node,
++                                            void *data OVS_UNUSED)
++{
++    engine_set_node_state(node, EN_UPDATED);
++    return true;
++}
+diff --git a/northd/en-northd-output.h b/northd/en-northd-output.h
+index 5f577b89c..00391ace3 100644
+--- a/northd/en-northd-output.h
++++ b/northd/en-northd-output.h
+@@ -17,5 +17,7 @@ bool northd_output_mac_binding_aging_handler(struct engine_node *node,
+                                              void *data OVS_UNUSED);
+ bool northd_output_fdb_aging_handler(struct engine_node *node,
+                                      void *data OVS_UNUSED);
++bool northd_output_advertised_route_sync_handler(struct engine_node *node,
++                                                 void *data OVS_UNUSED);
+ 
+ #endif
+diff --git a/northd/inc-proc-northd.c b/northd/inc-proc-northd.c
+index 6e0aa04c4..77a7d637c 100644
+--- a/northd/inc-proc-northd.c
++++ b/northd/inc-proc-northd.c
+@@ -41,6 +41,7 @@
+ #include "en-sampling-app.h"
+ #include "en-sync-sb.h"
+ #include "en-sync-from-sb.h"
++#include "en-advertised-route-sync.h"
+ #include "unixctl.h"
+ #include "util.h"
+ 
+@@ -102,7 +103,8 @@ static unixctl_cb_func chassis_features_list;
+     SB_NODE(fdb, "fdb") \
+     SB_NODE(static_mac_binding, "static_mac_binding") \
+     SB_NODE(chassis_template_var, "chassis_template_var") \
+-    SB_NODE(logical_dp_group, "logical_dp_group")
++    SB_NODE(logical_dp_group, "logical_dp_group") \
++    SB_NODE(advertised_route, "advertised_route")
+ 
+ enum sb_engine_node {
+ #define SB_NODE(NAME, NAME_STR) SB_##NAME,
+@@ -161,6 +163,7 @@ static ENGINE_NODE(route_policies, "route_policies");
+ static ENGINE_NODE(routes, "routes");
+ static ENGINE_NODE(bfd, "bfd");
+ static ENGINE_NODE(bfd_sync, "bfd_sync");
++static ENGINE_NODE(advertised_route_sync, "advertised_route_sync");
+ 
+ void inc_proc_northd_init(struct ovsdb_idl_loop *nb,
+                           struct ovsdb_idl_loop *sb)
+@@ -263,6 +266,10 @@ void inc_proc_northd_init(struct ovsdb_idl_loop *nb,
+     engine_add_input(&en_bfd_sync, &en_route_policies, NULL);
+     engine_add_input(&en_bfd_sync, &en_northd, bfd_sync_northd_change_handler);
+ 
++    engine_add_input(&en_advertised_route_sync, &en_routes, NULL);
++    engine_add_input(&en_advertised_route_sync, &en_sb_advertised_route,
++                     engine_noop_handler);
++
+     engine_add_input(&en_sync_meters, &en_nb_acl, NULL);
+     engine_add_input(&en_sync_meters, &en_nb_meter, NULL);
+     engine_add_input(&en_sync_meters, &en_sb_meter, NULL);
+@@ -344,6 +351,8 @@ void inc_proc_northd_init(struct ovsdb_idl_loop *nb,
+                      northd_output_mac_binding_aging_handler);
+     engine_add_input(&en_northd_output, &en_fdb_aging,
+                      northd_output_fdb_aging_handler);
++    engine_add_input(&en_northd_output, &en_advertised_route_sync,
++                     northd_output_advertised_route_sync_handler);
+ 
+     struct engine_arg engine_arg = {
+         .nb_idl = nb->idl,
+diff --git a/northd/northd.c b/northd/northd.c
+index cff0b21f4..024d7a9a0 100644
+--- a/northd/northd.c
++++ b/northd/northd.c
+@@ -11076,7 +11076,8 @@ route_hash(struct parsed_route *route)
+ }
+ 
+ static bool
+-find_static_route_outport(struct ovn_datapath *od, const struct hmap *lr_ports,
++find_static_route_outport(const struct ovn_datapath *od,
++    const struct hmap *lr_ports,
+     const struct nbrec_logical_router_static_route *route, bool is_ipv4,
+     const char **p_lrp_addr_s, struct ovn_port **p_out_port);
+ 
+@@ -11178,7 +11179,7 @@ parsed_route_add(const struct ovn_datapath *od,
+     new_pr->route_table_id = route_table_id;
+     new_pr->is_src_route = is_src_route;
+     new_pr->hash = route_hash(new_pr);
+-    new_pr->nbr = od->nbr;
++    new_pr->od = od;
+     new_pr->ecmp_symmetric_reply = ecmp_symmetric_reply;
+     new_pr->is_discard_route = is_discard_route;
+     if (!is_discard_route) {
+@@ -11204,7 +11205,8 @@ parsed_route_add(const struct ovn_datapath *od,
+ }
+ 
+ static void
+-parsed_routes_add_static(struct ovn_datapath *od, const struct hmap *lr_ports,
++parsed_routes_add_static(const struct ovn_datapath *od,
++                  const struct hmap *lr_ports,
+                   const struct nbrec_logical_router_static_route *route,
+                   const struct hmap *bfd_connections,
+                   struct hmap *routes, struct simap *route_tables,
+@@ -11330,7 +11332,8 @@ parsed_routes_add_static(struct ovn_datapath *od, const struct hmap *lr_ports,
+ }
+ 
+ static void
+-parsed_routes_add_connected(struct ovn_datapath *od, const struct ovn_port *op,
++parsed_routes_add_connected(const struct ovn_datapath *od,
++                            const struct ovn_port *op,
+                             struct hmap *routes)
+ {
+     for (size_t i = 0; i < op->lrp_networks.n_ipv4_addrs; i++) {
+@@ -11359,14 +11362,14 @@ parsed_routes_add_connected(struct ovn_datapath *od, const struct ovn_port *op,
+ }
+ 
+ void
+-build_parsed_routes(struct ovn_datapath *od, const struct hmap *lr_ports,
+-                    const struct hmap *bfd_connections, struct hmap *routes,
+-                    struct simap *route_tables,
+-                    struct hmap *bfd_active_connections)
++build_parsed_routes(const struct ovn_datapath *od, const struct hmap *lr_ports,
++                     const struct hmap *bfd_connections, struct hmap *routes,
++                     struct simap *route_tables,
++                     struct hmap *bfd_active_connections)
+ {
+     struct parsed_route *pr;
+     HMAP_FOR_EACH (pr, key_node, routes) {
+-        if (pr->nbr == od->nbr) {
++        if (pr->od == od) {
+             pr->stale = true;
+         }
+     }
+@@ -11590,7 +11593,8 @@ build_route_match(const struct ovn_port *op_inport, uint32_t rtb_id,
+ 
+ /* Output: p_lrp_addr_s and p_out_port. */
+ static bool
+-find_static_route_outport(struct ovn_datapath *od, const struct hmap *lr_ports,
++find_static_route_outport(const struct ovn_datapath *od,
++    const struct hmap *lr_ports,
+     const struct nbrec_logical_router_static_route *route, bool is_ipv4,
+     const char **p_lrp_addr_s, struct ovn_port **p_out_port)
+ {
+diff --git a/northd/northd.h b/northd/northd.h
+index 9457a7be6..2be34e249 100644
+--- a/northd/northd.h
++++ b/northd/northd.h
+@@ -714,7 +714,7 @@ struct parsed_route {
+     const struct nbrec_logical_router_static_route *route;
+     bool ecmp_symmetric_reply;
+     bool is_discard_route;
+-    const struct nbrec_logical_router *nbr;
++    const struct ovn_datapath *od;
+     bool stale;
+     struct sset ecmp_selection_fields;
+     enum route_source source;
+@@ -745,7 +745,7 @@ void northd_indices_create(struct northd_data *data,
+ 
+ void route_policies_init(struct route_policies_data *);
+ void route_policies_destroy(struct route_policies_data *);
+-void build_parsed_routes(struct ovn_datapath *, const struct hmap *,
++void build_parsed_routes(const struct ovn_datapath *, const struct hmap *,
+                          const struct hmap *, struct hmap *, struct simap *,
+                          struct hmap *);
+ uint32_t get_route_table_id(struct simap *, const char *);
+diff --git a/ovn-nb.xml b/ovn-nb.xml
+index 24ef12f3b..718d0126e 100644
+--- a/ovn-nb.xml
++++ b/ovn-nb.xml
+@@ -2946,6 +2946,19 @@ or
+         option is not present the limit is not set and the zone limit is
+         derived from OvS default datapath limit.
+       </column>
++
++      <column name="options" key="dynamic-routing" type='{"type": "boolean"}'>
++        If set to <code>true</code> then this <ref table="Logical_Router"/>
++        can participate in dynamic routing with components outside of OVN.
++
++        It will synchronize all routes to the soutbound
++        <ref table="Route" db="OVN_SB"/> table that are relevant for the
++        router. This includes:
++        * all "connected" routes implicitly created by networks associated with
++          this Logical Router
++        * all <ref table="Logical_Router_Static_Route"/> that are applied to
++          this Logical Router
++      </column>
+     </group>
+ 
+     <group title="Common Columns">
+diff --git a/tests/ovn-northd.at b/tests/ovn-northd.at
+index 2b1791de0..d4038abc0 100644
+--- a/tests/ovn-northd.at
++++ b/tests/ovn-northd.at
+@@ -14419,3 +14419,60 @@ AT_CHECK([ovn-sbctl lflow-list S1 | grep ls_out_acl_action | grep priority=500 |
+ 
+ AT_CLEANUP
+ ])
++
++OVN_FOR_EACH_NORTHD_NO_HV([
++AT_SETUP([dynamic-routing - sync to sb])
++AT_KEYWORDS([dynamic-routing])
++ovn_start
++
++# adding a router - still nothing here
++check ovn-nbctl lr-add lr0
++check ovn-nbctl --wait=sb set Logical_Router lr0 option:dynamic-routing=true
++check_row_count Advertised_Route 0
++datapath=$(ovn-sbctl --bare --columns _uuid list datapath_binding lr0)
++
++# adding a LRP adds a route entry for the associated network
++check ovn-nbctl --wait=sb lrp-add lr0 lr0-sw0 00:00:00:00:ff:01 10.0.0.1/24
++pb=$(ovn-sbctl --bare --columns _uuid list port_binding lr0-sw0)
++check_row_count Advertised_Route 1
++AT_CHECK([ovn-sbctl --columns ip_prefix --bare find Advertised_Route datapath=$datapath logical_port=$pb], [0], [dnl
++10.0.0.0/24
++])
++
++# adding a second LRP adds an additional route entry
++check ovn-nbctl --wait=sb lrp-add lr0 lr0-sw1 00:00:00:00:ff:02 10.0.1.1/24
++pb2=$(ovn-sbctl --bare --columns _uuid list port_binding lr0-sw1)
++check_row_count Advertised_Route 2
++AT_CHECK([ovn-sbctl --columns ip_prefix --bare find Advertised_Route datapath=$datapath logical_port=$pb], [0], [dnl
++10.0.0.0/24
++])
++AT_CHECK([ovn-sbctl --columns ip_prefix --bare find Advertised_Route datapath=$datapath logical_port=$pb2], [0], [dnl
++10.0.1.0/24
++])
++
++# adding a static route adds an additional entry
++check ovn-nbctl --wait=sb lr-route-add lr0 192.168.0.0/24 10.0.0.10
++check_row_count Advertised_Route 3
++check_row_count Advertised_Route 2 logical_port=$pb
++check_row_count Advertised_Route 1 logical_port=$pb ip_prefix=192.168.0.0/24
++
++# removing the option:dynamic-routing removes all routes
++check ovn-nbctl --wait=sb remove Logical_Router lr0 option dynamic-routing
++check_row_count Advertised_Route 0
++
++# and setting it again adds them again
++check ovn-nbctl --wait=sb set Logical_Router lr0 option:dynamic-routing=true
++check_row_count Advertised_Route 3
++
++# removing the lrp used for the static route removes both route entries
++check ovn-nbctl --wait=sb lrp-del lr0-sw0
++check_row_count Advertised_Route 1
++check_row_count Advertised_Route 1 logical_port=$pb2
++
++# removing the lr will remove all routes
++check ovn-nbctl --wait=sb lr-del lr0
++check_row_count Advertised_Route 0
++
++AT_CLEANUP
++])
++
+-- 
+2.43.0
+

@@ -1,0 +1,450 @@
+From 5de0b643f70d2e8d31464af39bd7a0f9ec4bd792 Mon Sep 17 00:00:00 2001
+From: Felix Huettner <felix.huettner@stackit.cloud>
+Date: Thu, 19 Dec 2024 15:02:50 +0100
+Subject: [Patch ovn 09/15] controller: Introduce route-exchange-netlink.
+To: dev@openvswitch.org
+
+Introduce route-exchange-netlink module which implements interface
+for maintaining VRFs [0] and routes through Netlink.
+
+There is a desire to do this without having to (re-)implement
+routing protocol state machines in OVN, and to accomplish this we
+make use of Netlink.
+
+Netlink was chosen because:
+* Its ubiquitous nature with availability on any Linux system as
+  as well other platforms.
+* Presence of a very good Netlink library implementation in our
+  sibling project and library, Open vSwitch.
+* Popular routing protocol software conveniently already have
+  support for redistributing routes to/from Netlink.
+* Support for interacting with Virtual Routing and Forwarding
+  domains [0], allowing full isolation between virtual network
+  resources defined within OVN and the hosting system while
+  retaining access to all system network interfaces.
+
+It is important to note that the purpose of this integration is
+generic exchange of control plane information, while allowing to
+keep the datapath in OVS/OVN, enabling users to leverage its full
+range of user-, kernel- and mixed- space datapath implementations.
+
+0: https://docs.kernel.org/networking/vrf.html
+
+This was orignally built by Frode Nordahl <fnordahl@ubuntu.com>
+
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+---
+ configure.ac                        |   2 +
+ controller/automake.mk              |   6 +
+ controller/route-exchange-netlink.c | 249 ++++++++++++++++++++++++++++
+ controller/route-exchange-netlink.h |  40 +++++
+ m4/ovn.m4                           |  25 +++
+ tests/automake.mk                   |   5 +
+ tests/system-common-macros.at       |  12 ++
+ 7 files changed, 339 insertions(+)
+ create mode 100644 controller/route-exchange-netlink.c
+ create mode 100644 controller/route-exchange-netlink.h
+
+diff --git a/configure.ac b/configure.ac
+index 4a63b84d4..cf9b4a6fd 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -87,6 +87,8 @@ OVS_CHECK_WIN32
+ OVS_CHECK_VISUAL_STUDIO_DDK
+ OVN_CHECK_COVERAGE
+ OVS_CHECK_NDEBUG
++OVS_CHECK_NETLINK
++OVS_CHECK_LINUX_NETLINK
+ OVS_CHECK_OPENSSL
+ OVN_CHECK_LOGDIR
+ OVN_CHECK_PYTHON3
+diff --git a/controller/automake.mk b/controller/automake.mk
+index a6a2c517a..39deeb029 100644
+--- a/controller/automake.mk
++++ b/controller/automake.mk
+@@ -55,6 +55,12 @@ controller_ovn_controller_SOURCES = \
+ 	controller/route.h \
+ 	controller/route.c
+ 
++if HAVE_NETLINK
++controller_ovn_controller_SOURCES += \
++	controller/route-exchange-netlink.h \
++	controller/route-exchange-netlink.c
++endif
++
+ controller_ovn_controller_LDADD = lib/libovn.la $(OVS_LIBDIR)/libopenvswitch.la
+ man_MANS += controller/ovn-controller.8
+ EXTRA_DIST += controller/ovn-controller.8.xml
+diff --git a/controller/route-exchange-netlink.c b/controller/route-exchange-netlink.c
+new file mode 100644
+index 000000000..e065c49c1
+--- /dev/null
++++ b/controller/route-exchange-netlink.c
+@@ -0,0 +1,249 @@
++/*
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at:
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <config.h>
++
++#include <errno.h>
++#include <inttypes.h>
++#include <linux/rtnetlink.h>
++#include <net/if.h>
++#include <netinet/in.h>
++
++#include "netlink-socket.h"
++#include "netlink.h"
++#include "openvswitch/hmap.h"
++#include "openvswitch/ofpbuf.h"
++#include "openvswitch/vlog.h"
++#include "packets.h"
++#include "route-table.h"
++#include "route.h"
++
++#include "route-exchange-netlink.h"
++
++VLOG_DEFINE_THIS_MODULE(route_exchange_netlink);
++static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
++
++#define TABLE_ID_VALID(table_id) (table_id != RT_TABLE_UNSPEC &&              \
++                                  table_id != RT_TABLE_COMPAT &&              \
++                                  table_id != RT_TABLE_DEFAULT &&             \
++                                  table_id != RT_TABLE_MAIN &&                \
++                                  table_id != RT_TABLE_LOCAL &&               \
++                                  table_id != RT_TABLE_MAX)
++
++static int
++modify_vrf(uint32_t type, uint32_t flags_arg,
++           const char *ifname, uint32_t table_id)
++{
++    uint32_t flags = NLM_F_REQUEST | NLM_F_ACK;
++    size_t linkinfo_off, infodata_off;
++    struct ifinfomsg *ifinfo;
++    struct ofpbuf request;
++    int err;
++
++    flags |= flags_arg;
++
++    ofpbuf_init(&request, 0);
++    nl_msg_put_nlmsghdr(&request, 0, type, flags);
++    ifinfo = ofpbuf_put_zeros(&request, sizeof *ifinfo);
++    nl_msg_put_string(&request, IFLA_IFNAME, ifname);
++    if (type == RTM_DELLINK) {
++        goto out;
++    }
++
++    ifinfo->ifi_change = ifinfo->ifi_flags = IFF_UP;
++    linkinfo_off = nl_msg_start_nested(&request, IFLA_LINKINFO);
++    nl_msg_put_string(&request, IFLA_INFO_KIND, "vrf");
++    infodata_off = nl_msg_start_nested(&request, IFLA_INFO_DATA);
++    nl_msg_put_u32(&request, IFLA_VRF_TABLE, table_id);
++    nl_msg_end_nested(&request, infodata_off);
++    nl_msg_end_nested(&request, linkinfo_off);
++
++out:
++    err = nl_transact(NETLINK_ROUTE, &request, NULL);
++
++    ofpbuf_uninit(&request);
++
++    return err;
++}
++
++int
++re_nl_create_vrf(const char *ifname, uint32_t table_id)
++{
++    uint32_t flags = NLM_F_CREATE | NLM_F_EXCL;
++    uint32_t type = RTM_NEWLINK;
++
++    if (!TABLE_ID_VALID(table_id)) {
++        VLOG_WARN_RL(&rl,
++                     "attempt to create VRF using invalid table id %"PRIu32,
++                     table_id);
++        return EINVAL;
++    }
++
++    return modify_vrf(type, flags, ifname, table_id);
++}
++
++int
++re_nl_delete_vrf(const char *ifname)
++{
++    return modify_vrf(RTM_DELLINK, 0, ifname, 0);
++}
++
++static int
++modify_route(uint32_t type, uint32_t flags_arg, uint32_t table_id,
++             const struct in6_addr *dst, unsigned int plen)
++{
++    uint32_t flags = NLM_F_REQUEST | NLM_F_ACK;
++    bool is_ipv4 = IN6_IS_ADDR_V4MAPPED(dst);
++    struct ofpbuf request;
++    struct rtmsg *rt;
++    int err;
++
++    flags |= flags_arg;
++
++    ofpbuf_init(&request, 0);
++    nl_msg_put_nlmsghdr(&request, 0, type, flags);
++    rt = ofpbuf_put_zeros(&request, sizeof *rt);
++    rt->rtm_family = is_ipv4 ? AF_INET : AF_INET6;
++    rt->rtm_table = RT_TABLE_UNSPEC; /* RTA_TABLE attribute allows id > 256 */
++    /* Manage only OVN routes */
++    rt->rtm_protocol = RTPROT_OVN;
++    rt->rtm_type = RTN_BLACKHOLE;
++    if (type == RTM_DELROUTE) {
++        rt->rtm_scope = RT_SCOPE_NOWHERE;
++    } else {
++        rt->rtm_scope = RT_SCOPE_UNIVERSE;
++    }
++    rt->rtm_dst_len = plen;
++
++    nl_msg_put_u32(&request, RTA_TABLE, table_id);
++
++    if (is_ipv4) {
++        nl_msg_put_be32(&request, RTA_DST, in6_addr_get_mapped_ipv4(dst));
++    } else {
++        nl_msg_put_in6_addr(&request, RTA_DST, dst);
++    }
++
++    err = nl_transact(NETLINK_ROUTE, &request, NULL);
++    ofpbuf_uninit(&request);
++
++    return err;
++}
++
++int
++re_nl_add_route(uint32_t table_id, const struct in6_addr *dst,
++                unsigned int plen)
++{
++    uint32_t flags = NLM_F_CREATE | NLM_F_EXCL;
++    uint32_t type = RTM_NEWROUTE;
++
++    if (!TABLE_ID_VALID(table_id)) {
++        VLOG_WARN_RL(&rl,
++                     "attempt to add route using invalid table id %"PRIu32,
++                     table_id);
++        return EINVAL;
++    }
++
++    return modify_route(type, flags, table_id, dst, plen);
++}
++
++int
++re_nl_delete_route(uint32_t table_id, const struct in6_addr *dst,
++                   unsigned int plen)
++{
++    if (!TABLE_ID_VALID(table_id)) {
++        VLOG_WARN_RL(&rl,
++                     "attempt to delete route using invalid table id %"PRIu32,
++                     table_id);
++        return EINVAL;
++    }
++
++    return modify_route(RTM_DELROUTE, 0, table_id, dst, plen);
++}
++
++struct route_msg_handle_data {
++    const struct hmap *routes;
++};
++
++static void
++handle_route_msg_delete_routes(const struct route_table_msg *msg, void *data)
++{
++    const struct route_data *rd = &msg->rd;
++    struct route_msg_handle_data *handle_data = data;
++    const struct hmap *routes = handle_data->routes;
++    struct advertise_route_entry *ar;
++    int err;
++
++    /* This route is not from us, we should not touch it. */
++    if (rd->rtm_protocol != RTPROT_OVN) {
++        return;
++    }
++
++    uint32_t arhash = advertise_route_hash(&rd->rta_dst, rd->rtm_dst_len);
++    HMAP_FOR_EACH_WITH_HASH (ar, node, arhash, routes) {
++        if (ipv6_addr_equals(&ar->addr, &rd->rta_dst)
++                && ar->plen == rd->rtm_dst_len) {
++            ar->installed = true;
++            return;
++        }
++    }
++    err = re_nl_delete_route(rd->rta_table_id, &rd->rta_dst,
++                             rd->rtm_dst_len);
++    if (err) {
++        char addr_s[INET6_ADDRSTRLEN + 1];
++        VLOG_WARN_RL(&rl, "Delete route table_id=%"PRIu32" dst=%s plen=%d: %s",
++                     rd->rta_table_id,
++                     ipv6_string_mapped(
++                         addr_s, &rd->rta_dst) ? addr_s : "(invalid)",
++                     rd->rtm_dst_len,
++                     ovs_strerror(err));
++    }
++}
++
++void
++re_nl_sync_routes(uint32_t table_id,
++                  const struct hmap *routes)
++{
++    struct advertise_route_entry *ar;
++    HMAP_FOR_EACH (ar, node, routes) {
++        ar->installed = false;
++    }
++
++    /* Remove routes from the system that are not in the host_routes hmap and
++     * remove entries from host_routes hmap that match routes already installed
++     * in the system. */
++    struct route_msg_handle_data data = {
++        .routes = routes,
++    };
++    route_table_dump_one_table(table_id, handle_route_msg_delete_routes,
++                               &data);
++
++    /* Add any remaining routes in the host_routes hmap to the system routing
++     * table. */
++    HMAP_FOR_EACH (ar, node, routes) {
++        if (ar->installed) {
++            continue;
++        }
++        int err = re_nl_add_route(table_id, &ar->addr, ar->plen);
++        if (err) {
++            char addr_s[INET6_ADDRSTRLEN + 1];
++            VLOG_WARN_RL(&rl, "Add route table_id=%"PRIu32" dst=%s "
++                         "plen=%d: %s",
++                         table_id,
++                         ipv6_string_mapped(
++                             addr_s, &ar->addr) ? addr_s : "(invalid)",
++                         ar->plen,
++                         ovs_strerror(err));
++        }
++    }
++}
+diff --git a/controller/route-exchange-netlink.h b/controller/route-exchange-netlink.h
+new file mode 100644
+index 000000000..f87ebd75d
+--- /dev/null
++++ b/controller/route-exchange-netlink.h
+@@ -0,0 +1,40 @@
++/*
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at:
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef ROUTE_EXCHANGE_NETLINK_H
++#define ROUTE_EXCHANGE_NETLINK_H 1
++
++#include <stdint.h>
++
++/* This value is arbitrary but currently unused.
++ * See https://github.com/iproute2/iproute2/blob/main/etc/iproute2/rt_protos */
++#define RTPROT_OVN 84
++
++struct in6_addr;
++struct hmap;
++
++int re_nl_create_vrf(const char *ifname, uint32_t table_id);
++int re_nl_delete_vrf(const char *ifname);
++
++int re_nl_add_route(uint32_t table_id, const struct in6_addr *dst,
++                    unsigned int plen);
++int re_nl_delete_route(uint32_t table_id, const struct in6_addr *dst,
++                       unsigned int plen);
++
++void re_nl_dump(uint32_t table_id);
++
++void re_nl_sync_routes(uint32_t table_id,
++                       const struct hmap *host_routes);
++
++#endif /* route-exchange-netlink.h */
+diff --git a/m4/ovn.m4 b/m4/ovn.m4
+index 8f36b75fc..8ccc1629e 100644
+--- a/m4/ovn.m4
++++ b/m4/ovn.m4
+@@ -560,3 +560,28 @@ AC_DEFUN([OVN_CHECK_UNBOUND],
+    fi
+    AM_CONDITIONAL([HAVE_UNBOUND], [test "$HAVE_UNBOUND" = yes])
+    AC_SUBST([HAVE_UNBOUND])])
++
++dnl Checks for Netlink support.
++AC_DEFUN([OVS_CHECK_NETLINK],
++  [AC_CHECK_HEADER([linux/netlink.h],
++                   [HAVE_NETLINK=yes],
++                   [HAVE_NETLINK=no],
++                   [#include <sys/socket.h>
++   ])
++   AM_CONDITIONAL([HAVE_NETLINK], [test "$HAVE_NETLINK" = yes])
++   if test "$HAVE_NETLINK" = yes; then
++      AC_DEFINE([HAVE_NETLINK], [1],
++                [Define to 1 if Netlink protocol is available.])
++   fi])
++
++dnl OVS_CHECK_LINUX_NETLINK
++dnl
++dnl Configure Linux netlink compat.
++AC_DEFUN([OVS_CHECK_LINUX_NETLINK], [
++  AC_COMPILE_IFELSE([
++    AC_LANG_PROGRAM([#include <linux/netlink.h>], [
++        struct nla_bitfield32 x =  { 0 };
++    ])],
++    [AC_DEFINE([HAVE_NLA_BITFIELD32], [1],
++    [Define to 1 if struct nla_bitfield32 is available.])])
++])
+diff --git a/tests/automake.mk b/tests/automake.mk
+index 9244532fa..11696f159 100644
+--- a/tests/automake.mk
++++ b/tests/automake.mk
+@@ -308,6 +308,11 @@ tests_ovstest_LDADD = $(OVS_LIBDIR)/daemon.lo \
+ 	controller/route.$(OBJEXT) \
+ 	northd/ipam.$(OBJEXT)
+ 
++if HAVE_NETLINK
++tests_ovstest_LDADD += \
++	controller/route-exchange-netlink.$(OBJEXT)
++endif
++
+ # Python tests.
+ CHECK_PYFILES = \
+ 	tests/test-l7.py \
+diff --git a/tests/system-common-macros.at b/tests/system-common-macros.at
+index 968c4028b..bba2597cf 100644
+--- a/tests/system-common-macros.at
++++ b/tests/system-common-macros.at
+@@ -530,3 +530,15 @@ OVS_TRAFFIC_VSWITCHD_STOP(["/.*error receiving.*/d
+ /failed to query port patch-.*/d
+ /.*terminating with signal 15.*/d"])
+ ]))
++
++# CHECK_VRF()
++#
++# Perform a requirements check for running VRF tests.
++#
++m4_define([CHECK_VRF],
++[
++    rc=0
++    modprobe vrf || rc=$?
++    AT_SKIP_IF([test $rc -ne 0])
++    on_exit 'modprobe -r vrf'
++])
+-- 
+2.43.0
+

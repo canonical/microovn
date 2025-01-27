@@ -1,0 +1,80 @@
+From ed0392cb3d07934c5088adc6ee24c0e4d4fc6db7 Mon Sep 17 00:00:00 2001
+From: Martin Kalcok <martin.kalcok@canonical.com>
+Date: Mon, 20 Jan 2025 15:52:13 +0100
+Subject: [PATCH] route-table: Allow parsing routes without nexthop.
+To: dev@openvswitch.org
+
+A recent commit added condition to "route_table_parse__" function that
+causes it to throw an error when parsing route without "nexthop
+information" (either RTA_OIF, RTA_GATEWAY, RTA_VIA or RTA_MULTIPATH). While
+this requirement is reasonable for regular routes, there are some route types
+that don't need nexthop. We intend to use one of these types,
+(RTN_BLACKHOLE)[0], in OVN for route advertising .
+
+This change does not enforce the above-mentioned condition for those special
+route types that don't require "nexthop information".
+
+[0] https://mail.openvswitch.org/pipermail/ovs-dev/2025-January/419383.html
+[1] https://patchwork.ozlabs.org/project/openvswitch/patch/20250120134309.9618-1-fnordahl@ubuntu.com/
+
+CC: Frode Nordahl <fnordahl@ubuntu.com>
+Fixes: 91fc51106cfe ("route-table: Support parsing multipath routes.")
+Signed-off-by: Martin Kalcok <martin.kalcok@canonical.com>
+---
+ lib/route-table.c | 27 ++++++++++++++++++++++++++-
+ 1 file changed, 26 insertions(+), 1 deletion(-)
+
+diff --git a/lib/route-table.c b/lib/route-table.c
+index d9b51931e..4244009c4 100644
+--- a/lib/route-table.c
++++ b/lib/route-table.c
+@@ -226,6 +226,24 @@ route_table_reset(void)
+     }
+ }
+ 
++/* Returns true if the given route requires nexthop information (output
++ * interface, nexthop IP, ...). Returns false for special route types
++ * that don't need this information. */
++static bool
++route_type_needs_nexthop(unsigned char rtmsg_type)
++{
++    switch (rtmsg_type) {
++    case RTN_BLACKHOLE:
++    case RTN_THROW:
++    case RTN_UNREACHABLE:
++    case RTN_PROHIBIT:
++        return false;
++
++    default:
++        return true;
++    }
++}
++
+ static int
+ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+                     const struct nlmsghdr *nlmsg,
+@@ -447,13 +465,20 @@ route_table_parse__(struct ofpbuf *buf, size_t ofs,
+                                        &mp_change.rd.nexthops);
+             }
+         }
+-        if (!attrs[RTA_OIF] && !attrs[RTA_GATEWAY]
++        if (route_type_needs_nexthop(rtm->rtm_type)
++                && !attrs[RTA_OIF] && !attrs[RTA_GATEWAY]
+                 && !attrs[RTA_VIA] && !attrs[RTA_MULTIPATH]) {
+             VLOG_DBG_RL(&rl, "route message needs an RTA_OIF, RTA_GATEWAY, "
+                              "RTA_VIA or RTA_MULTIPATH attribute");
+             goto error_out;
+         }
+         /* Add any additional RTA attribute processing before RTA_MULTIPATH. */
++
++        /* Ensure that the change->rd->nexthops list is cleared in cases when
++         * the route does not need a next hop. */
++        if (!route_type_needs_nexthop(rtm->rtm_type)) {
++            route_data_destroy_nexthops__(&change->rd);
++        }
+     } else {
+         VLOG_DBG_RL(&rl, "received unparseable rtnetlink route message");
+         goto error_out;
+-- 
+2.43.0
+

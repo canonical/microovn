@@ -1,0 +1,668 @@
+From 1a6b46d3c178d6afc078cc98c4d318a77af74c0e Mon Sep 17 00:00:00 2001
+From: Martin Kalcok <martin.kalcok@canonical.com>
+Date: Fri, 20 Dec 2024 13:40:20 +0100
+Subject: [Patch ovn 2/2] northd: Advertise Routes for LB and NAT VIPs.
+To: dev@openvswitch.org
+
+This change builds on top of the new "dynamic routing" OVN feature
+that allows advertising routes to the fabric network. When LR option
+"dynamic-routing" is set on the router, following two new LRP options
+become available:
+
+* redistribute-nat - When set to "true", ovn-controller will advertise
+                     routes for external NAT IPs valid for the LRP.
+* redistribute-lb-vips - When set to "true", ovn-controller will advertise
+                         host routes to LB VIPs via the LRP.
+
+Co-authored-by: Frode Nordahl <fnordahl@ubuntu.com>
+Signed-off-by: Frode Nordahl <fnordahl@ubuntu.com>
+Signed-off-by: Martin Kalcok <martin.kalcok@canonical.com>
+---
+ NEWS                              |   4 +
+ northd/en-advertised-route-sync.c |  11 +
+ northd/inc-proc-northd.c          |   4 +
+ northd/northd.c                   |  98 +++++++-
+ northd/northd.h                   |   4 +
+ ovn-nb.xml                        |  31 +++
+ tests/system-ovn.at               | 379 ++++++++++++++++++++++++++++++
+ 7 files changed, 530 insertions(+), 1 deletion(-)
+
+diff --git a/NEWS b/NEWS
+index 413572c97..899b1cbaa 100644
+--- a/NEWS
++++ b/NEWS
+@@ -40,6 +40,10 @@ Post v24.09.0
+      a lower priority than static routes.
+    - Add the option "dynamic-routing-connected-as-host-routes" to LRPs. If set
+      to true then connected routes are announced as individual host routes.
++   - Add 'redistribute-lb-vips' LRP option. If set to true, the LRP can be used
++     to advertise host paths to the Load Balancer VIPs associated with the LR.
++   - Add 'redistribute-nat' LRP option. If set to true, the LRP can be used
++     to advertise external NAT IPs associated with it.
+ 
+ OVN v24.09.0 - 13 Sep 2024
+ --------------------------
+diff --git a/northd/en-advertised-route-sync.c b/northd/en-advertised-route-sync.c
+index 065c73861..b6786b3af 100644
+--- a/northd/en-advertised-route-sync.c
++++ b/northd/en-advertised-route-sync.c
+@@ -421,9 +421,20 @@ advertised_route_table_sync(
+                                         "dynamic-routing-static")) {
+             continue;
+         }
++        if (route->source == ROUTE_SOURCE_NAT &&
++                !smap_get_bool(&route->out_port->nbrp->options,
++                               "redistribute-nat", false)) {
++                continue;
++        }
++        if (route->source == ROUTE_SOURCE_LB &&
++                !smap_get_bool(&route->out_port->nbrp->options,
++                               "redistribute-lb-vips", false)) {
++                continue;
++        }
+ 
+         char *ip_prefix = normalize_v46_prefix(&route->prefix,
+                                                route->plen);
++
+         ar_sync_to_sb(ovnsb_txn, &sync_routes,
+                          route->od->sb,
+                          route->out_port->sb,
+diff --git a/northd/inc-proc-northd.c b/northd/inc-proc-northd.c
+index ab500a86a..36e1d9993 100644
+--- a/northd/inc-proc-northd.c
++++ b/northd/inc-proc-northd.c
+@@ -262,6 +262,10 @@ void inc_proc_northd_init(struct ovsdb_idl_loop *nb,
+     engine_add_input(&en_routes, &en_bfd, NULL);
+     engine_add_input(&en_routes, &en_northd,
+                      routes_northd_change_handler);
++    engine_add_input(&en_routes, &en_lr_nat,
++                     NULL);
++    engine_add_input(&en_routes, &en_lb_data,
++                     NULL);
+ 
+     engine_add_input(&en_bfd_sync, &en_bfd, NULL);
+     engine_add_input(&en_bfd_sync, &en_nb_bfd, NULL);
+diff --git a/northd/northd.c b/northd/northd.c
+index 7bdb0a6f7..aea32baa7 100644
+--- a/northd/northd.c
++++ b/northd/northd.c
+@@ -11384,6 +11384,96 @@ parsed_routes_add_connected(const struct ovn_datapath *od,
+     }
+ }
+ 
++static void
++parsed_routes_add_nat(const struct ovn_datapath *od,
++                      const struct ovn_port *op,
++                      struct hmap *routes)
++{
++    if (!op->nbrp || !smap_get_bool(&op->nbrp->options,
++                                    "redistribute-nat", false)) {
++        return;
++    }
++
++    size_t n_nats = 0;
++    char **nats = NULL;
++    nats = get_nat_addresses(op, &n_nats, false, false, NULL, true);
++
++    for (size_t i = 0; i < n_nats; i++) {
++        struct lport_addresses *laddrs = xzalloc(sizeof *laddrs);
++        int ofs = 0;
++        extract_addresses(nats[i], laddrs, &ofs);
++        for (int j = 0; j < laddrs->n_ipv4_addrs; j++) {
++            struct ipv4_netaddr *addr = &laddrs->ipv4_addrs[j];
++            struct in6_addr prefix;
++            ip46_parse(addr->network_s, &prefix);
++
++            parsed_route_add(od, NULL, &prefix, addr->plen,
++                             false, addr->addr_s, op,
++                             0, false,
++                             false, NULL, ROUTE_SOURCE_NAT,
++                             &op->nbrp->header_, routes);
++        }
++        for (int j = 0; j < laddrs->n_ipv6_addrs; j++) {
++            struct ipv6_netaddr *addr = &laddrs->ipv6_addrs[j];
++            parsed_route_add(od, NULL, &addr->addr, addr->plen,
++                             false, addr->addr_s, op,
++                             0, false,
++                             false, NULL, ROUTE_SOURCE_NAT,
++                             &op->nbrp->header_, routes);
++        }
++        destroy_lport_addresses(laddrs);
++        free(nats[i]);
++    }
++    free(nats);
++}
++
++static void
++parsed_routes_add_lb(const struct ovn_datapath *od,
++                     const struct ovn_port *op,
++                     struct hmap *routes)
++{
++    if (!op->nbrp || !smap_get_bool(&op->nbrp->options,
++                                    "redistribute-lb-vips", false)) {
++        return;
++    }
++
++    for (size_t i = 0; i < od->nbr->n_load_balancer; i++) {
++        struct ovn_northd_lb *lb = ovn_northd_lb_create(
++                                        od->nbr->load_balancer[i]);
++        for (size_t j = 0; j < lb->n_vips; j++) {
++            const struct ovn_lb_vip *lb_vip = &lb->vips[j];
++            if (find_lport_address(&op->lrp_networks, lb_vip->vip_str)) {
++                int plen = lb_vip->address_family == AF_INET ? 32 : 128;
++                parsed_route_add(od, NULL, &lb_vip->vip, plen,
++                                 false, lb_vip->vip_str, op,
++                                 0, false,
++                                 false, NULL, ROUTE_SOURCE_LB,
++                                 &op->nbrp->header_, routes);
++            }
++        }
++    }
++
++    for (size_t i = 0; i < od->nbr->n_load_balancer_group; i++) {
++        struct nbrec_load_balancer_group *lb_group =
++            od->nbr->load_balancer_group[i];
++        for (size_t j = 0; j < lb_group->n_load_balancer; j++) {
++            struct ovn_northd_lb *lb =
++                ovn_northd_lb_create(lb_group->load_balancer[j]);
++            for (size_t k = 0; k < lb->n_vips; k++) {
++                const struct ovn_lb_vip *lb_vip = &lb->vips[k];
++                if (find_lport_address(&op->lrp_networks, lb_vip->vip_str)) {
++                    int plen = lb_vip->address_family == AF_INET ? 32 : 128;
++                    parsed_route_add(od, NULL, &lb_vip->vip, plen,
++                                     false, lb_vip->vip_str, op,
++                                     0, false,
++                                     false, NULL, ROUTE_SOURCE_LB,
++                                     &op->nbrp->header_, routes);
++                }
++            }
++        }
++    }
++}
++
+ void
+ build_parsed_routes(const struct ovn_datapath *od, const struct hmap *lr_ports,
+                      const struct hmap *bfd_connections, struct hmap *routes,
+@@ -11406,6 +11496,8 @@ build_parsed_routes(const struct ovn_datapath *od, const struct hmap *lr_ports,
+     const struct ovn_port *op;
+     HMAP_FOR_EACH (op, dp_node, &od->ports) {
+         parsed_routes_add_connected(od, op, routes);
++        parsed_routes_add_nat(od, op, routes);
++        parsed_routes_add_lb(od, op, routes);
+     }
+ 
+     HMAP_FOR_EACH_SAFE (pr, key_node, routes) {
+@@ -11587,6 +11679,8 @@ route_source_to_offset(enum route_source source)
+ {
+     switch (source) {
+         case ROUTE_SOURCE_CONNECTED:
++        case ROUTE_SOURCE_NAT:
++        case ROUTE_SOURCE_LB:
+             return ROUTE_PRIO_OFFSET_CONNECTED;
+         case ROUTE_SOURCE_STATIC:
+             return ROUTE_PRIO_OFFSET_STATIC;
+@@ -13864,7 +13958,9 @@ build_route_flows_for_lrouter(
+     struct parsed_route *route;
+     HMAP_FOR_EACH_WITH_HASH (route, key_node, uuid_hash(&od->key),
+                              parsed_routes) {
+-        if (route->source == ROUTE_SOURCE_CONNECTED) {
++        if (route->source == ROUTE_SOURCE_CONNECTED ||
++                route->source == ROUTE_SOURCE_NAT ||
++                route->source == ROUTE_SOURCE_LB) {
+             unique_routes_add(&unique_routes, route);
+             continue;
+         }
+diff --git a/northd/northd.h b/northd/northd.h
+index 3bc6f6f04..117b7421f 100644
+--- a/northd/northd.h
++++ b/northd/northd.h
+@@ -702,6 +702,10 @@ enum route_source {
+     ROUTE_SOURCE_CONNECTED,
+     /* The route is derived from a northbound static route entry. */
+     ROUTE_SOURCE_STATIC,
++    /* Host route generated from NAT's external IP. */
++    ROUTE_SOURCE_NAT,
++    /* Host route generated from LB's external IP. */
++    ROUTE_SOURCE_LB,
+     /* the route is learned by an ovn-controller */
+     ROUTE_SOURCE_LEARNED,
+ };
+diff --git a/ovn-nb.xml b/ovn-nb.xml
+index 1f298f159..488da751e 100644
+--- a/ovn-nb.xml
++++ b/ovn-nb.xml
+@@ -2961,6 +2961,10 @@ or
+                table="Logical_Router_Port"/>
+         * <ref column="options" key="dynamic-routing-static"
+                table="Logical_Router_Port"/>
++        * <ref column="options" key="redistribute-lb-vips"
++               table="Logical_Router_Port"/>
++        * <ref column="options" key="redistribute-nat"
++               table="Logical_Router_Port"/>
+       </column>
+ 
+       <column name="options" key="dynamic-routing-connected"
+@@ -3798,6 +3802,33 @@ or
+           This allows a single chassis to learn different routes on separate
+           LRPs bound to this chassis.
+       </column>
++
++      <column name="options" key="redistribute-lb-vips"
++              type='{"type": "boolean"}'>
++        <p>
++          Only relevant if <ref column="options" key="dynamic-routing"
++          table="Logical_Router"/> on the respective Logical_Router is set
++          to <code>true</code>.
++
++          If this option is <code>true</code>, northd will create host route
++          entries in the southbound <ref table="Advertised_Route"
++          db="OVN_Southbound"/> table, associated with this LRP, for each LB
++          VIP.
++        </p>
++      </column>
++
++      <column name="options" key="redistribute-nat" type='{"type": "boolean"}'>
++        <p>
++          Only relevant if <ref column="options" key="dynamic-routing"
++          table="Logical_Router"/> on the respective Logical_Router is set
++          to <code>true</code>.
++
++          If this option is <code>true</code>, northd will create host route
++          entries in the southbound <ref table="Advertised_Route"
++          db="OVN_Southbound"/> table, for external IP addresses of NAT rules
++          associated with this LRP.
++        </p>
++      </column>
+     </group>
+ 
+     <group title="Attachment">
+diff --git a/tests/system-ovn.at b/tests/system-ovn.at
+index b4580a62a..5e1f66512 100644
+--- a/tests/system-ovn.at
++++ b/tests/system-ovn.at
+@@ -15424,3 +15424,382 @@ OVS_TRAFFIC_VSWITCHD_STOP(["/.*error receiving.*/d
+ AT_CLEANUP
+ ])
+ 
++OVN_FOR_EACH_NORTHD([
++AT_SETUP([route-exchange for LB VIPs with gateway router IPv4])
++AT_KEYWORDS([route-exchange])
++
++CHECK_VRF()
++CHECK_CONNTRACK()
++CHECK_CONNTRACK_NAT()
++ovn_start
++OVS_TRAFFIC_VSWITCHD_START()
++ADD_BR([br-int])
++ADD_BR([br-ext], [set Bridge br-ext fail-mode=standalone])
++
++# Set external-ids in br-int needed for ovn-controller
++ovs-vsctl \
++        -- set Open_vSwitch . external-ids:system-id=hv1 \
++        -- set Open_vSwitch . external-ids:ovn-remote=unix:$ovs_base/ovn-sb/ovn-sb.sock \
++        -- set Open_vSwitch . external-ids:ovn-encap-type=geneve \
++        -- set Open_vSwitch . external-ids:ovn-encap-ip=169.0.0.1 \
++        -- set bridge br-int fail-mode=secure other-config:disable-in-band=true
++
++# Start ovn-controller
++start_daemon ovn-controller
++
++ovn-appctl vlog/set route_exchange
++check ovn-nbctl -- lr-add R1 \
++                -- set Logical_Router R1 options:requested-tnl-key=1000 options:dynamic-routing=true
++
++check ovn-nbctl ls-add sw0
++check ovn-nbctl ls-add public
++
++check ovn-nbctl --wait=hv sync
++
++AT_CHECK([ip link | grep -q ovnvrf1000:.*UP], [1])
++
++check ovn-nbctl lrp-add R1 rp-sw0 00:00:01:01:02:03 192.168.1.1/24
++check ovn-nbctl -- lrp-add R1 rp-public 00:00:02:01:02:03 172.16.1.1/24 \
++                -- lrp-set-options rp-public \
++                       maintain-vrf=true \
++                       redistribute-lb-vips=true
++
++check ovn-nbctl set logical_router R1 options:chassis=hv1
++
++check ovn-nbctl lsp-add sw0 sw0-rp -- set Logical_Switch_Port sw0-rp \
++    type=router options:router-port=rp-sw0 \
++    -- lsp-set-addresses sw0-rp router
++
++check ovn-nbctl lsp-add public public-rp -- set Logical_Switch_Port public-rp \
++    type=router options:router-port=rp-public \
++    -- lsp-set-addresses public-rp router
++
++check ovs-vsctl set Open_vSwitch . external-ids:ovn-bridge-mappings=phynet:br-ext
++
++check ovn-nbctl lsp-add public public1 \
++        -- lsp-set-addresses public1 unknown \
++        -- lsp-set-type public1 localnet \
++        -- lsp-set-options public1 network_name=phynet
++
++check ovn-nbctl --wait=hv sync
++
++AT_CHECK([test `ip route show table 1000 | wc -l` -eq 1], [1])
++
++
++# Create a load balancer and associate to R1
++check ovn-nbctl lb-add lb1 172.16.1.150:80 172.16.1.100:80
++check ovn-nbctl lr-lb-add R1 lb1
++
++check ovn-nbctl --wait=hv sync
++
++AT_CHECK([ip link | grep -q ovnvrf1000:.*UP])
++AT_CHECK([test `ip route show table 1000 | wc -l` -eq 1])
++AT_CHECK([ip route show table 1000 | grep -q 172.16.1.150])
++
++OVS_APP_EXIT_AND_WAIT([ovn-controller])
++
++# Ensure system resources are cleaned up
++AT_CHECK([ip link | grep -q ovnvrf1000:.*UP], [1])
++AT_CHECK([test `ip route show table 1000 | wc -l` -eq 1], [1])
++
++as ovn-sb
++OVS_APP_EXIT_AND_WAIT([ovsdb-server])
++
++as ovn-nb
++OVS_APP_EXIT_AND_WAIT([ovsdb-server])
++
++as northd
++OVS_APP_EXIT_AND_WAIT([ovn-northd])
++
++as
++OVS_TRAFFIC_VSWITCHD_STOP(["/failed to query port patch-.*/d
++/Failed to acquire.*/d
++/connection dropped.*/d"])
++AT_CLEANUP
++])
++
++OVN_FOR_EACH_NORTHD([
++AT_SETUP([route-exchange for LB VIPs with gateway router IPv6])
++AT_KEYWORDS([route-exchange])
++
++CHECK_VRF()
++CHECK_CONNTRACK()
++CHECK_CONNTRACK_NAT()
++ovn_start
++OVS_TRAFFIC_VSWITCHD_START()
++ADD_BR([br-int])
++ADD_BR([br-ext], [set Bridge br-ext fail-mode=standalone])
++
++# Set external-ids in br-int needed for ovn-controller
++ovs-vsctl \
++        -- set Open_vSwitch . external-ids:system-id=hv1 \
++        -- set Open_vSwitch . external-ids:ovn-remote=unix:$ovs_base/ovn-sb/ovn-sb.sock \
++        -- set Open_vSwitch . external-ids:ovn-encap-type=geneve \
++        -- set Open_vSwitch . external-ids:ovn-encap-ip=169.0.0.1 \
++        -- set bridge br-int fail-mode=secure other-config:disable-in-band=true
++
++# Start ovn-controller
++start_daemon ovn-controller
++
++ovn-appctl vlog/set route_exchange
++check ovn-nbctl -- lr-add R1 \
++                -- set Logical_Router R1 options:requested-tnl-key=1001 options:dynamic-routing=true
++
++check ovn-nbctl ls-add sw0
++check ovn-nbctl ls-add public
++
++check ovn-nbctl --wait=hv sync
++
++AT_CHECK([ip link | grep -q ovnvrf1001:.*UP], [1])
++
++check ovn-nbctl lrp-add R1 rp-sw0 00:00:01:01:02:03 2001:db8:100::1/64
++check ovn-nbctl -- lrp-add R1 rp-public 00:00:02:01:02:03 2001:db8:1001::1/64 \
++                -- lrp-set-options rp-public \
++                       maintain-vrf=true \
++                       redistribute-lb-vips=true
++
++check ovn-nbctl set logical_router R1 options:chassis=hv1
++
++check ovn-nbctl lsp-add sw0 sw0-rp -- set Logical_Switch_Port sw0-rp \
++    type=router options:router-port=rp-sw0 \
++    -- lsp-set-addresses sw0-rp router
++
++check ovn-nbctl lsp-add public public-rp -- set Logical_Switch_Port public-rp \
++    type=router options:router-port=rp-public \
++    -- lsp-set-addresses public-rp router
++
++check ovs-vsctl set Open_vSwitch . external-ids:ovn-bridge-mappings=phynet:br-ext
++
++check ovn-nbctl lsp-add public public1 \
++        -- lsp-set-addresses public1 unknown \
++        -- lsp-set-type public1 localnet \
++        -- lsp-set-options public1 network_name=phynet
++
++check ovn-nbctl --wait=hv sync
++
++AT_CHECK([test `ip -6 route show table 1001 | wc -l` -eq 1], [1])
++
++# Create a load balancer and associate to R1
++check ovn-nbctl lb-add lb1 [[2001:db8:1001::150]]:80 [[2001:db8:1001::100]]:80
++check ovn-nbctl lr-lb-add R1 lb1
++
++check ovn-nbctl --wait=hv sync
++
++AT_CHECK([ip link | grep -q ovnvrf1001:.*UP])
++AT_CHECK([test `ip -6 route show table 1001 | wc -l` -eq 1])
++AT_CHECK([ip -6 route show table 1001 | grep -q 2001:db8:1001::150])
++
++
++OVS_APP_EXIT_AND_WAIT([ovn-controller])
++
++# Ensure system resources are cleaned up
++AT_CHECK([ip link | grep -q ovnvrf1001:.*UP], [1])
++AT_CHECK([test `ip -6 route show table 1001 | wc -l` -eq 1], [1])
++
++as ovn-sb
++OVS_APP_EXIT_AND_WAIT([ovsdb-server])
++
++as ovn-nb
++OVS_APP_EXIT_AND_WAIT([ovsdb-server])
++
++as northd
++OVS_APP_EXIT_AND_WAIT([ovn-northd])
++
++as
++OVS_TRAFFIC_VSWITCHD_STOP(["/failed to query port patch-.*/d
++/Failed to acquire.*/d
++/connection dropped.*/d"])
++AT_CLEANUP
++])
++
++OVN_FOR_EACH_NORTHD([
++AT_SETUP([route-exchange for DNAT and DNAT_AND_SNAT with gateway router IPv4])
++AT_KEYWORDS([route-exchange])
++
++CHECK_VRF()
++CHECK_CONNTRACK()
++CHECK_CONNTRACK_NAT()
++ovn_start
++OVS_TRAFFIC_VSWITCHD_START()
++ADD_BR([br-int])
++ADD_BR([br-ext], [set Bridge br-ext fail-mode=standalone])
++
++# Set external-ids in br-int needed for ovn-controller
++ovs-vsctl \
++        -- set Open_vSwitch . external-ids:system-id=hv1 \
++        -- set Open_vSwitch . external-ids:ovn-remote=unix:$ovs_base/ovn-sb/ovn-sb.sock \
++        -- set Open_vSwitch . external-ids:ovn-encap-type=geneve \
++        -- set Open_vSwitch . external-ids:ovn-encap-ip=169.0.0.1 \
++        -- set bridge br-int fail-mode=secure other-config:disable-in-band=true
++
++# Start ovn-controller
++start_daemon ovn-controller
++
++ovn-appctl vlog/set route_exchange
++check ovn-nbctl -- lr-add R1 \
++                -- set Logical_Router R1 options:requested-tnl-key=1002 options:dynamic-routing=true
++
++check ovn-nbctl ls-add sw0
++check ovn-nbctl ls-add public
++
++check ovn-nbctl --wait=hv sync
++
++AT_CHECK([ip link | grep -q ovnvrf1002:.*UP], [1])
++
++check ovn-nbctl lrp-add R1 rp-sw0 00:00:01:01:02:03 192.168.1.1/24
++check ovn-nbctl -- lrp-add R1 rp-public 00:00:02:01:02:03 172.16.1.1/24 \
++                -- lrp-set-options rp-public \
++                       maintain-vrf=true \
++                       redistribute-nat=true
++
++check ovn-nbctl set logical_router R1 options:chassis=hv1
++
++check ovn-nbctl lsp-add sw0 sw0-rp -- set Logical_Switch_Port sw0-rp \
++    type=router options:router-port=rp-sw0 \
++    -- lsp-set-addresses sw0-rp router
++
++check ovn-nbctl lsp-add public public-rp -- set Logical_Switch_Port public-rp \
++    type=router options:router-port=rp-public \
++    -- lsp-set-addresses public-rp router
++
++check ovs-vsctl set Open_vSwitch . external-ids:ovn-bridge-mappings=phynet:br-ext
++
++check ovn-nbctl lsp-add public public1 \
++        -- lsp-set-addresses public1 unknown \
++        -- lsp-set-type public1 localnet \
++        -- lsp-set-options public1 network_name=phynet
++
++check ovn-nbctl --wait=hv sync
++
++AT_CHECK([test `ip route show table 1002 | wc -l` -eq 2], [1])
++
++# Create dnat_and_snat, dnat rules in R1
++check ovn-nbctl lr-nat-add R1 dnat_and_snat 172.16.1.10 192.168.1.10
++check ovn-nbctl lr-nat-add R1 dnat 172.16.1.11 192.168.1.11
++
++check ovn-nbctl --wait=hv sync
++
++AT_CHECK([ip link | grep -q ovnvrf1002:.*UP])
++AT_CHECK([test `ip route show table 1002 | wc -l` -eq 2])
++AT_CHECK([ip route show table 1002 | grep -q 172.16.1.10])
++AT_CHECK([ip route show table 1002 | grep -q 172.16.1.11])
++
++
++OVS_APP_EXIT_AND_WAIT([ovn-controller])
++
++# Ensure system resources are cleaned up
++AT_CHECK([ip link | grep -q ovnvrf1000:.*UP], [1])
++AT_CHECK([test `ip route show table 1002 | wc -l` -eq 1], [1])
++
++as ovn-sb
++OVS_APP_EXIT_AND_WAIT([ovsdb-server])
++
++as ovn-nb
++OVS_APP_EXIT_AND_WAIT([ovsdb-server])
++
++as northd
++OVS_APP_EXIT_AND_WAIT([ovn-northd])
++
++as
++OVS_TRAFFIC_VSWITCHD_STOP(["/failed to query port patch-.*/d
++/Failed to acquire.*/d
++/connection dropped.*/d"])
++AT_CLEANUP
++])
++
++OVN_FOR_EACH_NORTHD([
++AT_SETUP([route-exchange for DNAT and DNAT_AND_SNAT with gateway router IPv6])
++AT_KEYWORDS([route-exchange])
++
++CHECK_VRF()
++CHECK_CONNTRACK()
++CHECK_CONNTRACK_NAT()
++ovn_start
++OVS_TRAFFIC_VSWITCHD_START()
++ADD_BR([br-int])
++ADD_BR([br-ext], [set Bridge br-ext fail-mode=standalone])
++
++# Set external-ids in br-int needed for ovn-controller
++ovs-vsctl \
++        -- set Open_vSwitch . external-ids:system-id=hv1 \
++        -- set Open_vSwitch . external-ids:ovn-remote=unix:$ovs_base/ovn-sb/ovn-sb.sock \
++        -- set Open_vSwitch . external-ids:ovn-encap-type=geneve \
++        -- set Open_vSwitch . external-ids:ovn-encap-ip=169.0.0.1 \
++        -- set bridge br-int fail-mode=secure other-config:disable-in-band=true
++
++# Start ovn-controller
++start_daemon ovn-controller
++
++ovn-appctl vlog/set route_exchange
++check ovn-nbctl -- lr-add R1 \
++                -- set Logical_Router R1 options:requested-tnl-key=1003 options:dynamic-routing=true
++
++check ovn-nbctl ls-add sw0
++check ovn-nbctl ls-add public
++
++check ovn-nbctl --wait=hv sync
++
++AT_CHECK([ip link | grep -q ovnvrf1003:.*UP], [1])
++
++check ovn-nbctl lrp-add R1 rp-sw0 00:00:01:01:02:03 2001:db8:100::1/64
++check ovn-nbctl -- lrp-add R1 rp-public 00:00:02:01:02:03 2001:db8:1003::1/64 \
++                -- lrp-set-options rp-public \
++                       maintain-vrf=true \
++                       redistribute-nat=true
++
++check ovn-nbctl set logical_router R1 options:chassis=hv1
++
++check ovn-nbctl lsp-add sw0 sw0-rp -- set Logical_Switch_Port sw0-rp \
++    type=router options:router-port=rp-sw0 \
++    -- lsp-set-addresses sw0-rp router
++
++check ovn-nbctl lsp-add public public-rp -- set Logical_Switch_Port public-rp \
++    type=router options:router-port=rp-public \
++    -- lsp-set-addresses public-rp router
++
++check ovs-vsctl set Open_vSwitch . external-ids:ovn-bridge-mappings=phynet:br-ext
++
++check ovn-nbctl lsp-add public public1 \
++        -- lsp-set-addresses public1 unknown \
++        -- lsp-set-type public1 localnet \
++        -- lsp-set-options public1 network_name=phynet
++
++check ovn-nbctl --wait=hv sync
++
++AT_CHECK([test `ip -6 route show table 1003 | wc -l` -eq 2], [1])
++
++# Create dnat_and_snat, dnat rules in R1
++check ovn-nbctl lr-nat-add R1 \
++    dnat_and_snat 2001:db8:1003::150 2001:db8:100::100
++check ovn-nbctl lr-nat-add R1 \
++    dnat 2001:db8:1003::151 2001:db8:100::100
++
++check ovn-nbctl --wait=hv sync
++
++AT_CHECK([ip link | grep -q ovnvrf1003:.*UP])
++AT_CHECK([test `ip -6 route show table 1003 | wc -l` -eq 2])
++AT_CHECK([ip -6 route show table 1003 | grep -q 2001:db8:1003::150])
++AT_CHECK([ip -6 route show table 1003 | grep -q 2001:db8:1003::151])
++
++OVS_APP_EXIT_AND_WAIT([ovn-controller])
++
++# Ensure system resources are cleaned up
++AT_CHECK([ip link | grep -q ovnvrf1003:.*UP], [1])
++AT_CHECK([test `ip -6 route show table 1003 | wc -l` -eq 2], [1])
++
++as ovn-sb
++OVS_APP_EXIT_AND_WAIT([ovsdb-server])
++
++as ovn-nb
++OVS_APP_EXIT_AND_WAIT([ovsdb-server])
++
++as northd
++OVS_APP_EXIT_AND_WAIT([ovn-northd])
++
++as
++OVS_TRAFFIC_VSWITCHD_STOP(["/failed to query port patch-.*/d
++/Failed to acquire.*/d
++/connection dropped.*/d"])
++AT_CLEANUP
++])
++
+-- 
+2.43.0
+

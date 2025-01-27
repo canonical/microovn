@@ -1,0 +1,707 @@
+From f5bff97202fb70bee85dcd0d5d2a1586607dad5a Mon Sep 17 00:00:00 2001
+From: Felix Huettner <felix.huettner@stackit.cloud>
+Date: Wed, 18 Dec 2024 11:25:01 +0100
+Subject: [Patch ovn 05/15] northd: Allow announcing individual host routes.
+To: dev@openvswitch.org
+
+sometimes we want to use individual host routes instead of the connected
+routes of LRPs.
+This allows the network fabric to know which adresses are actually in
+use and e.g. drop traffic to adresses that are not used anyway.
+
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+---
+ NEWS                              |   2 +
+ northd/en-advertised-route-sync.c | 270 +++++++++++++++++++++++++++---
+ northd/en-advertised-route-sync.h |  16 ++
+ northd/inc-proc-northd.c          |   4 +
+ northd/northd.c                   |  32 ++--
+ northd/northd.h                   |  25 ++-
+ ovn-nb.xml                        |  27 +++
+ tests/ovn-northd.at               |  71 ++++++++
+ 8 files changed, 402 insertions(+), 45 deletions(-)
+
+diff --git a/NEWS b/NEWS
+index 17a370753..413572c97 100644
+--- a/NEWS
++++ b/NEWS
+@@ -38,6 +38,8 @@ Post v24.09.0
+      Routes entered into the "Route" table in the southbound database will be
+      learned by the respective LR. They are included in the route table with
+      a lower priority than static routes.
++   - Add the option "dynamic-routing-connected-as-host-routes" to LRPs. If set
++     to true then connected routes are announced as individual host routes.
+ 
+ OVN v24.09.0 - 13 Sep 2024
+ --------------------------
+diff --git a/northd/en-advertised-route-sync.c b/northd/en-advertised-route-sync.c
+index 33097ed72..065c73861 100644
+--- a/northd/en-advertised-route-sync.c
++++ b/northd/en-advertised-route-sync.c
+@@ -13,6 +13,7 @@
+  */
+ 
+ #include <config.h>
++#include <stdbool.h>
+ 
+ #include "openvswitch/vlog.h"
+ #include "smap.h"
+@@ -20,6 +21,7 @@
+ #include "northd.h"
+ 
+ #include "en-advertised-route-sync.h"
++#include "en-lr-stateful.h"
+ #include "lib/stopwatch-names.h"
+ #include "openvswitch/hmap.h"
+ #include "ovn-util.h"
+@@ -30,34 +32,129 @@ static void
+ advertised_route_table_sync(
+     struct ovsdb_idl_txn *ovnsb_txn,
+     const struct sbrec_advertised_route_table *sbrec_advertised_route_table,
+-    const struct hmap *parsed_routes);
++    const struct lr_stateful_table *lr_stateful_table,
++    const struct hmap *parsed_routes,
++    struct advertised_route_sync_tracked_data *trk_data);
++
++bool
++advertised_route_sync_lr_stateful_change_handler(struct engine_node *node,
++                                                 void *data_)
++{
++    /* We only actually use lr_stateful data if we expose individual host
++     * routes. In this case we for now just recompute.
++     * */
++    struct ed_type_lr_stateful *lr_stateful_data =
++        engine_get_input_data("lr_stateful", node);
++    struct advertised_route_sync_data *data = data_;
++
++    struct hmapx_node *hmapx_node;
++    const struct lr_stateful_record *lr_stateful_rec;
++    HMAPX_FOR_EACH (hmapx_node, &lr_stateful_data->trk_data.crupdated) {
++        lr_stateful_rec = hmapx_node->data;
++        if (uuidset_contains(&data->trk_data.nb_lr_stateful,
++                             &lr_stateful_rec->nbr_uuid)) {
++            return false;
++        }
++    }
++
++    return true;
++}
++
++bool
++advertised_route_sync_northd_change_handler(struct engine_node *node,
++                                            void *data_)
++{
++    struct advertised_route_sync_data *data = data_;
++    struct northd_data *northd_data = engine_get_input_data("northd", node);
++    if (!northd_has_tracked_data(&northd_data->trk_data)) {
++        return false;
++    }
++
++    /* This node uses the below data from the en_northd engine node.
++     * See (lr_stateful_get_input_data())
++     *   1. Indirectly  northd_data->ls_ports if we announce host routes
++     *      This is what we check below
++     */
++
++    struct hmapx_node *hmapx_node;
++    const struct ovn_port *op;
++    HMAPX_FOR_EACH (hmapx_node, &northd_data->trk_data.trk_lsps.created) {
++        op = hmapx_node->data;
++        if (uuidset_contains(&data->trk_data.nb_ls,
++                             &op->od->nbs->header_.uuid)) {
++            return false;
++        }
++    }
++    HMAPX_FOR_EACH (hmapx_node, &northd_data->trk_data.trk_lsps.updated) {
++        op = hmapx_node->data;
++        if (uuidset_contains(&data->trk_data.nb_ls,
++                             &op->od->nbs->header_.uuid)) {
++            return false;
++        }
++    }
++    HMAPX_FOR_EACH (hmapx_node, &northd_data->trk_data.trk_lsps.deleted) {
++        op = hmapx_node->data;
++        if (uuidset_contains(&data->trk_data.nb_ls,
++                             &op->od->nbs->header_.uuid)) {
++            return false;
++        }
++    }
++
++    return true;
++}
++
++static void
++routes_sync_init(struct advertised_route_sync_data *data)
++{
++    uuidset_init(&data->trk_data.nb_lr_stateful);
++    uuidset_init(&data->trk_data.nb_ls);
++}
++
++static void
++routes_sync_destroy(struct advertised_route_sync_data *data)
++{
++    uuidset_destroy(&data->trk_data.nb_lr_stateful);
++    uuidset_destroy(&data->trk_data.nb_ls);
++}
++
+ 
+ void
+ *en_advertised_route_sync_init(struct engine_node *node OVS_UNUSED,
+                      struct engine_arg *arg OVS_UNUSED)
+ {
+-    return NULL;
++    struct advertised_route_sync_data *data = xzalloc(sizeof *data);
++    routes_sync_init(data);
++    return data;
+ }
+ 
+ void
+ en_advertised_route_sync_cleanup(void *data OVS_UNUSED)
+ {
++    routes_sync_destroy(data);
+ }
+ 
+ void
+ en_advertised_route_sync_run(struct engine_node *node, void *data OVS_UNUSED)
+ {
++    routes_sync_destroy(data);
++    routes_sync_init(data);
++
++    struct advertised_route_sync_data *routes_sync_data = data;
+     struct routes_data *routes_data
+         = engine_get_input_data("routes", node);
+     const struct engine_context *eng_ctx = engine_get_context();
+     const struct sbrec_advertised_route_table *sbrec_advertised_route_table =
+         EN_OVSDB_GET(engine_get_input("SB_advertised_route", node));
++    struct ed_type_lr_stateful *lr_stateful_data =
++        engine_get_input_data("lr_stateful", node);
+ 
+     stopwatch_start(ADVERTISED_ROUTE_SYNC_RUN_STOPWATCH_NAME, time_msec());
+ 
+     advertised_route_table_sync(eng_ctx->ovnsb_idl_txn,
+                       sbrec_advertised_route_table,
+-                      &routes_data->parsed_routes);
++                      &lr_stateful_data->table,
++                      &routes_data->parsed_routes,
++                      &routes_sync_data->trk_data);
+ 
+     stopwatch_stop(ADVERTISED_ROUTE_SYNC_RUN_STOPWATCH_NAME, time_msec());
+     engine_set_node_state(node, EN_UPDATED);
+@@ -71,6 +168,7 @@ struct ar_entry {
+ 
+     const struct sbrec_port_binding *logical_port;
+     char *ip_prefix;
++    const struct sbrec_port_binding *tracked_port;
+     bool stale;
+ };
+ 
+@@ -78,13 +176,17 @@ static struct ar_entry *
+ ar_alloc_entry(struct hmap *routes,
+                   const struct sbrec_datapath_binding *sb_db,
+                   const struct sbrec_port_binding *logical_port,
+-                  const char *ip_prefix)
++                  const char *ip_prefix,
++                  const struct sbrec_port_binding *tracked_port)
+ {
+     struct ar_entry *route_e = xzalloc(sizeof *route_e);
+ 
+     route_e->sb_db = sb_db;
+     route_e->logical_port = logical_port;
+     route_e->ip_prefix = xstrdup(ip_prefix);
++    if (tracked_port) {
++        route_e->tracked_port = tracked_port;
++    }
+     route_e->stale = false;
+     uint32_t hash = uuid_hash(&sb_db->header_.uuid);
+     hash = hash_string(logical_port->logical_port, hash);
+@@ -98,7 +200,8 @@ static struct ar_entry *
+ ar_lookup_or_add(struct hmap *route_map,
+                     const struct sbrec_datapath_binding *sb_db,
+                     const struct sbrec_port_binding *logical_port,
+-                    const char *ip_prefix)
++                    const char *ip_prefix,
++                    const struct sbrec_port_binding *tracked_port)
+ {
+     struct ar_entry *route_e;
+     uint32_t hash;
+@@ -121,11 +224,50 @@ ar_lookup_or_add(struct hmap *route_map,
+             continue;
+         }
+ 
++        if (!tracked_port != !route_e->tracked_port) {
++            continue;
++        }
++
++        if (tracked_port && !uuid_equals(
++                &tracked_port->header_.uuid,
++                &route_e->tracked_port->header_.uuid)) {
++            continue;
++        }
++
+         return route_e;
+     }
+ 
+     route_e = ar_alloc_entry(route_map, sb_db,
+-                             logical_port, ip_prefix);
++                             logical_port, ip_prefix, tracked_port);
++    return route_e;
++}
++
++static struct ar_entry *
++ar_sync_to_sb(struct ovsdb_idl_txn *ovnsb_txn, struct hmap *route_map,
++                 const struct sbrec_datapath_binding *sb_db,
++                 const struct sbrec_port_binding *logical_port,
++                 const char *ip_prefix,
++                 const struct sbrec_port_binding *tracked_port)
++{
++    struct ar_entry *route_e = ar_lookup_or_add(route_map,
++                                                sb_db,
++                                                logical_port,
++                                                ip_prefix,
++                                                tracked_port);
++    route_e->stale = false;
++
++    if (!route_e->sb_route) {
++        const struct sbrec_advertised_route *sr =
++            sbrec_advertised_route_insert(ovnsb_txn);
++        sbrec_advertised_route_set_datapath(sr, route_e->sb_db);
++        sbrec_advertised_route_set_logical_port(sr, route_e->logical_port);
++        sbrec_advertised_route_set_ip_prefix(sr, route_e->ip_prefix);
++        if (route_e->tracked_port) {
++            sbrec_advertised_route_set_tracked_port(sr, route_e->tracked_port);
++        }
++        route_e->sb_route = sr;
++    }
++
+     return route_e;
+ }
+ 
+@@ -143,11 +285,91 @@ get_nbrp_or_nbr_option(const struct ovn_port *op, const char *key)
+         smap_get_bool(&op->od->nbr->options, key, false));
+ }
+ 
++static void
++publish_lport_addresses(struct ovsdb_idl_txn *ovnsb_txn,
++                        struct hmap *route_map,
++                        const struct sbrec_datapath_binding *sb_db,
++                        const struct ovn_port *logical_port,
++                        struct lport_addresses *addresses,
++                        const struct ovn_port *tracking_port)
++{
++    for (int i = 0; i < addresses->n_ipv4_addrs; i++) {
++        const struct ipv4_netaddr *addr = &addresses->ipv4_addrs[i];
++        char *addr_s = xasprintf("%s/32", addr->addr_s);
++        ar_sync_to_sb(ovnsb_txn, route_map,
++                         sb_db,
++                         logical_port->sb,
++                         addr_s,
++                         tracking_port->sb);
++        free(addr_s);
++    }
++    for (int i = 0; i < addresses->n_ipv6_addrs; i++) {
++        if (in6_is_lla(&addresses->ipv6_addrs[i].network)) {
++            continue;
++        }
++        const struct ipv6_netaddr *addr = &addresses->ipv6_addrs[i];
++        char *addr_s = xasprintf("%s/128", addr->addr_s);
++        ar_sync_to_sb(ovnsb_txn, route_map,
++                         sb_db,
++                         logical_port->sb,
++                         addr_s,
++                         tracking_port->sb);
++        free(addr_s);
++    }
++}
++
++
++static void
++publish_host_routes(struct ovsdb_idl_txn *ovnsb_txn,
++                    struct hmap *route_map,
++                    const struct lr_stateful_table *lr_stateful_table,
++                    const struct parsed_route *route,
++                    struct advertised_route_sync_tracked_data *trk_data)
++{
++    struct ovn_port *port;
++    struct ovn_datapath *lsp_od = route->out_port->peer->od;
++    uuidset_insert(&trk_data->nb_ls, &lsp_od->nbs->header_.uuid);
++    HMAP_FOR_EACH (port, dp_node, &lsp_od->ports) {
++        if (port->peer) {
++            /* This is a LSP connected to an LRP */
++            struct lport_addresses *addresses = &port->peer->lrp_networks;
++            publish_lport_addresses(ovnsb_txn, route_map, route->od->sb,
++                                    route->out_port,
++                                    addresses, port->peer);
++
++            const struct lr_stateful_record *lr_stateful_rec;
++            lr_stateful_rec = lr_stateful_table_find_by_index(
++                lr_stateful_table, port->peer->od->index);
++            uuidset_insert(&trk_data->nb_lr_stateful,
++                           &lr_stateful_rec->nbr_uuid);
++            struct ovn_port_routable_addresses addrs = get_op_addresses(
++                port->peer, lr_stateful_rec, false);
++            for (int i = 0; i < addrs.n_addrs; i++) {
++                publish_lport_addresses(ovnsb_txn, route_map, route->od->sb,
++                                        route->out_port,
++                                        &addrs.laddrs[i],
++                                        port->peer);
++            }
++            destroy_routable_addresses(&addrs);
++        } else {
++            /* This is just a plain LSP */
++            for (int i = 0; i < port->n_lsp_addrs; i++) {
++                publish_lport_addresses(ovnsb_txn, route_map, route->od->sb,
++                                        route->out_port,
++                                        &port->lsp_addrs[i],
++                                        port);
++            }
++        }
++    }
++}
++
+ static void
+ advertised_route_table_sync(
+     struct ovsdb_idl_txn *ovnsb_txn,
+     const struct sbrec_advertised_route_table *sbrec_advertised_route_table,
+-    const struct hmap *parsed_routes)
++    const struct lr_stateful_table *lr_stateful_table,
++    const struct hmap *parsed_routes,
++    struct advertised_route_sync_tracked_data *trk_data)
+ {
+     if (!ovnsb_txn) {
+         return;
+@@ -164,7 +386,8 @@ advertised_route_table_sync(
+         route_e = ar_alloc_entry(&sync_routes,
+                                     sb_route->datapath,
+                                     sb_route->logical_port,
+-                                    sb_route->ip_prefix);
++                                    sb_route->ip_prefix,
++                                    sb_route->tracked_port);
+         route_e->stale = true;
+         route_e->sb_route = sb_route;
+     }
+@@ -180,10 +403,18 @@ advertised_route_table_sync(
+                            false)) {
+             continue;
+         }
+-        if (route->source == ROUTE_SOURCE_CONNECTED &&
+-                !get_nbrp_or_nbr_option(route->out_port,
++        if (route->source == ROUTE_SOURCE_CONNECTED) {
++            if (!get_nbrp_or_nbr_option(route->out_port,
+                                         "dynamic-routing-connected")) {
+-            continue;
++                continue;
++            }
++            if (smap_get_bool(&route->out_port->nbrp->options,
++                              "dynamic-routing-connected-as-host-routes",
++                              false)) {
++                publish_host_routes(ovnsb_txn, &sync_routes,
++                                    lr_stateful_table, route, trk_data);
++                continue;
++            }
+         }
+         if (route->source == ROUTE_SOURCE_STATIC &&
+                 !get_nbrp_or_nbr_option(route->out_port,
+@@ -193,18 +424,11 @@ advertised_route_table_sync(
+ 
+         char *ip_prefix = normalize_v46_prefix(&route->prefix,
+                                                route->plen);
+-        route_e = ar_lookup_or_add(&sync_routes, route->od->sb,
+-                                   route->out_port->sb, ip_prefix);
+-        route_e->stale = false;
+-
+-        if (!route_e->sb_route) {
+-            const struct sbrec_advertised_route *sr =
+-                sbrec_advertised_route_insert(ovnsb_txn);
+-            sbrec_advertised_route_set_datapath(sr, route_e->sb_db);
+-            sbrec_advertised_route_set_logical_port(sr, route_e->logical_port);
+-            sbrec_advertised_route_set_ip_prefix(sr, route_e->ip_prefix);
+-            route_e->sb_route = sr;
+-        }
++        ar_sync_to_sb(ovnsb_txn, &sync_routes,
++                         route->od->sb,
++                         route->out_port->sb,
++                         ip_prefix,
++                         NULL);
+ 
+         free(ip_prefix);
+     }
+diff --git a/northd/en-advertised-route-sync.h b/northd/en-advertised-route-sync.h
+index c6a41c713..8206d7e27 100644
+--- a/northd/en-advertised-route-sync.h
++++ b/northd/en-advertised-route-sync.h
+@@ -15,10 +15,26 @@
+ #define EN_ADVERTISED_ROUTE_SYNC_H 1
+ 
+ #include "lib/inc-proc-eng.h"
++#include "lib/uuidset.h"
++
++struct advertised_route_sync_tracked_data {
++  /* Contains the uuids of all NB Logical Routers where we used a
++   * lr_stateful_record during computation. */
++  struct uuidset nb_lr_stateful;
++  /* Contains the uuids of all NB Logical Switches where we rely on port
++   * port changes for host routes. */
++  struct uuidset nb_ls;
++};
+ 
+ struct advertised_route_sync_data {
++    /* Node's tracked data. */
++    struct advertised_route_sync_tracked_data trk_data;
+ };
+ 
++bool advertised_route_sync_lr_stateful_change_handler(struct engine_node *node,
++                                                      void *data);
++bool advertised_route_sync_northd_change_handler(struct engine_node *node,
++                                       void *data);
+ void *en_advertised_route_sync_init(struct engine_node *, struct engine_arg *);
+ void en_advertised_route_sync_cleanup(void *data);
+ void en_advertised_route_sync_run(struct engine_node *, void *data);
+diff --git a/northd/inc-proc-northd.c b/northd/inc-proc-northd.c
+index ed9e27de9..ab500a86a 100644
+--- a/northd/inc-proc-northd.c
++++ b/northd/inc-proc-northd.c
+@@ -272,6 +272,10 @@ void inc_proc_northd_init(struct ovsdb_idl_loop *nb,
+     engine_add_input(&en_advertised_route_sync, &en_routes, NULL);
+     engine_add_input(&en_advertised_route_sync, &en_sb_advertised_route,
+                      engine_noop_handler);
++    engine_add_input(&en_advertised_route_sync, &en_lr_stateful,
++                     advertised_route_sync_lr_stateful_change_handler);
++    engine_add_input(&en_advertised_route_sync, &en_northd,
++                     advertised_route_sync_northd_change_handler);
+ 
+     engine_add_input(&en_learned_route_sync, &en_routes, NULL);
+     engine_add_input(&en_learned_route_sync, &en_sb_learned_route, NULL);
+diff --git a/northd/northd.c b/northd/northd.c
+index 9536d7bf3..ee00f990e 100644
+--- a/northd/northd.c
++++ b/northd/northd.c
+@@ -1096,19 +1096,6 @@ build_datapaths(struct ovsdb_idl_txn *ovnsb_txn,
+     ods_build_array_index(lr_datapaths);
+ }
+ 
+-/* Structure representing logical router port
+- * routable addresses. This includes DNAT and Load Balancer
+- * addresses. This structure will only be filled in if the
+- * router port is a gateway router port. Otherwise, all pointers
+- * will be NULL and n_addrs will be 0.
+- */
+-struct ovn_port_routable_addresses {
+-    /* The parsed routable addresses */
+-    struct lport_addresses *laddrs;
+-    /* Number of items in the laddrs array */
+-    size_t n_addrs;
+-};
+-
+ static bool lsp_can_be_inc_processed(const struct nbrec_logical_switch_port *);
+ 
+ /* This function returns true if 'op' is a gateway router port.
+@@ -1143,7 +1130,7 @@ is_cr_port(const struct ovn_port *op)
+     return op->primary_port;
+ }
+ 
+-static void
++void
+ destroy_routable_addresses(struct ovn_port_routable_addresses *ra)
+ {
+     for (size_t i = 0; i < ra->n_addrs; i++) {
+@@ -1156,12 +1143,14 @@ static char **get_nat_addresses(const struct ovn_port *op, size_t *n,
+                                 bool routable_only, bool include_lb_ips,
+                                 const struct lr_stateful_record *);
+ 
+-static struct ovn_port_routable_addresses
+-get_op_routable_addresses(struct ovn_port *op,
+-                          const struct lr_stateful_record *lr_stateful_rec)
++struct ovn_port_routable_addresses
++get_op_addresses(struct ovn_port *op,
++                 const struct lr_stateful_record *lr_stateful_rec,
++                 bool routable_only)
+ {
+     size_t n;
+-    char **nats = get_nat_addresses(op, &n, true, true, lr_stateful_rec);
++    char **nats = get_nat_addresses(op, &n, routable_only, true,
++                                    lr_stateful_rec);
+ 
+     if (!nats) {
+         return (struct ovn_port_routable_addresses) {
+@@ -1194,6 +1183,13 @@ get_op_routable_addresses(struct ovn_port *op,
+     };
+ }
+ 
++static struct ovn_port_routable_addresses
++get_op_routable_addresses(struct ovn_port *op,
++                          const struct lr_stateful_record *lr_stateful_rec)
++{
++    return get_op_addresses(op, lr_stateful_rec, true);
++}
++
+ 
+ static void
+ ovn_port_set_nb(struct ovn_port *op,
+diff --git a/northd/northd.h b/northd/northd.h
+index 9b80f422d..3bc6f6f04 100644
+--- a/northd/northd.h
++++ b/northd/northd.h
+@@ -25,6 +25,7 @@
+ #include "openvswitch/hmap.h"
+ #include "simap.h"
+ #include "ovs-thread.h"
++#include "en-lr-stateful.h"
+ 
+ struct northd_input {
+     /* Northbound table references */
+@@ -185,10 +186,6 @@ struct routes_data {
+     struct hmap bfd_active_connections;
+ };
+ 
+-struct routes_sync_data {
+-    struct hmap parsed_routes;
+-};
+-
+ struct route_policies_data {
+     struct hmap route_policies;
+     struct hmap bfd_active_connections;
+@@ -938,4 +935,24 @@ ovn_port_find_bound(const struct hmap *ports, const char *name)
+     return ovn_port_find__(ports, name, true);
+ }
+ 
++/* Structure representing logical router port
++ * routable addresses. This includes DNAT and Load Balancer
++ * addresses. This structure will only be filled in if the
++ * router port is a gateway router port. Otherwise, all pointers
++ * will be NULL and n_addrs will be 0.
++ */
++struct ovn_port_routable_addresses {
++    /* The parsed routable addresses */
++    struct lport_addresses *laddrs;
++    /* Number of items in the laddrs array */
++    size_t n_addrs;
++};
++
++struct ovn_port_routable_addresses get_op_addresses(
++    struct ovn_port *op,
++    const struct lr_stateful_record *lr_stateful_rec,
++    bool routable_only);
++
++void destroy_routable_addresses(struct ovn_port_routable_addresses *ra);
++
+ #endif /* NORTHD_H */
+diff --git a/ovn-nb.xml b/ovn-nb.xml
+index 0ac03fda0..268e6d041 100644
+--- a/ovn-nb.xml
++++ b/ovn-nb.xml
+@@ -3748,6 +3748,33 @@ or
+         key="dynamic-routing-static" table="Logical_Router_Port"/> will be
+         used.
+       </column>
++      <column name="options" key="dynamic-routing-connected-as-host-routes"
++              type='{"type": "boolean"}'>
++        Only relevant if <ref column="options" key="dynamic-routing"
++        table="Logical_Router"/> on the respective Logical_Router is set
++        to <code>true</code> and also
++        <ref column="options" key="dynamic-routing-connected"/> is enabled on
++        the LR or LRP.
++
++        In this case the prefix connected to the LRP is not advertised as a
++        whole. Rather each individual IP address that is actually in use inside
++        this prefix is announced as a host route.
++
++        This can be used to:
++        <ul>
++          <li>
++            allow the fabric outside of OVN to drop traffic towards IP
++            addresses that are not actually used. This traffic would otherwise
++            hit this LR and then be dropped.
++          </li>
++
++          <li>
++            If this LR has multiple LRPs connected to the fabric on different
++            chassis: allows the fabric outside of OVN to steer packets to the
++            chassis which already hosts this backing ip address.
++          </li>
++        </ul>
++      </column>
+     </group>
+ 
+     <group title="Attachment">
+diff --git a/tests/ovn-northd.at b/tests/ovn-northd.at
+index 6b5b04a7c..b2046a9f3 100644
+--- a/tests/ovn-northd.at
++++ b/tests/ovn-northd.at
+@@ -14642,3 +14642,74 @@ AT_CHECK([grep -w "lr_in_ip_routing" lr0flows | ovn_strip_lflows], [0], [dnl
+ AT_CLEANUP
+ ])
+ 
++OVN_FOR_EACH_NORTHD_NO_HV([
++AT_SETUP([dynamic-routing - host routes])
++AT_KEYWORDS([dynamic-routing])
++ovn_start
++
++# we start with announcing routes on a lr with 2 lrps
++# lr0-sw0 is connected to ls sw0
++check ovn-nbctl lr-add lr0
++check ovn-nbctl set Logical_Router lr0 option:dynamic-routing=true \
++                                 option:dynamic-routing-connected=true \
++                                 option:dynamic-routing-static=true
++check ovn-nbctl lrp-add lr0 lr0-sw0 00:00:00:00:ff:01 10.0.0.1/24
++sw0=$(ovn-sbctl --bare --columns _uuid list port_binding lr0-sw0)
++check ovn-nbctl lrp-add lr0 lr0-sw1 00:00:00:00:ff:02 10.0.1.1/24
++sw1=$(ovn-sbctl --bare --columns _uuid list port_binding lr0-sw1)
++check ovn-nbctl ls-add sw0
++check ovn-nbctl lsp-add sw0 sw0-lr0
++check ovn-nbctl --wait=sb set Logical_Switch_Port sw0-lr0 type=router options:router-port=lr0-sw0
++check_row_count Advertised_Route 2 tracked_port='[[]]'
++datapath=$(ovn-sbctl --bare --columns _uuid list datapath_binding lr0)
++
++# configuring the LRP lr0-sw0 to send host routes
++# as sw0 is quite empty we will only see the addresses of lr0-sw0
++check ovn-nbctl --wait=sb set Logical_Router_Port lr0-sw0 options:dynamic-routing-connected-as-host-routes=true
++check_row_count Advertised_Route 2
++AT_CHECK_UNQUOTED([ovn-sbctl --columns ip_prefix,tracked_port --bare find Advertised_Route datapath=$datapath logical_port=$sw0], [0], [dnl
++10.0.0.1/32
++$sw0
++])
++
++# adding a VIF to the LS sw0 will advertise it as well
++check ovn-nbctl lsp-add sw0 sw0-vif0
++check ovn-nbctl --wait=sb lsp-set-addresses sw0-vif0 "00:aa:bb:cc:dd:ee 10.0.0.2"
++vif0=$(ovn-sbctl --bare --columns _uuid list port_binding sw0-vif0)
++check_row_count Advertised_Route 3
++check_row_count Advertised_Route 2 tracked_port!='[[]]'
++AT_CHECK_UNQUOTED([ovn-sbctl --columns tracked_port --bare find Advertised_Route datapath=$datapath logical_port=$sw0 ip_prefix=10.0.0.2/32], [0], [dnl
++$vif0
++])
++
++# adding a LR lr1 to the LS sw0 will advertise the LRP of the new router
++check ovn-nbctl lr-add lr1
++check ovn-nbctl lrp-add lr1 lr1-sw0 00:00:00:01:ff:01 10.0.0.10/24
++check ovn-nbctl lsp-add sw0 sw0-lr1
++lr1=$(ovn-sbctl --bare --columns _uuid list port_binding lr1-sw0)
++check ovn-nbctl --wait=sb set Logical_Switch_Port sw0-lr1 type=router options:router-port=lr1-sw0
++check_row_count Advertised_Route 4
++check_row_count Advertised_Route 3 tracked_port!='[[]]'
++AT_CHECK_UNQUOTED([ovn-sbctl --columns tracked_port --bare find Advertised_Route datapath=$datapath logical_port=$sw0 ip_prefix=10.0.0.10/32], [0], [dnl
++$lr1
++])
++
++# adding a NAT rule to lr1 will advertise it as well
++check ovn-nbctl --wait=sb lr-nat-add lr1 dnat_and_snat 10.0.0.100 192.168.0.1
++check_row_count Advertised_Route 5
++check_row_count Advertised_Route 4 tracked_port!='[[]]'
++AT_CHECK_UNQUOTED([ovn-sbctl --columns tracked_port --bare find Advertised_Route datapath=$datapath logical_port=$sw0 ip_prefix=10.0.0.100/32], [0], [dnl
++$lr1
++])
++
++# adding a static route to lr1 will be advertised just normally
++check ovn-nbctl --wait=sb lr-route-add lr0 172.16.0.0/24 10.0.0.200
++check_row_count Advertised_Route 6
++check_row_count Advertised_Route 4 tracked_port!='[[]]'
++AT_CHECK([ovn-sbctl --columns ip_prefix --bare find Advertised_Route datapath=$datapath logical_port=$sw0 ip_prefix=172.16.0.0/24], [0], [dnl
++172.16.0.0/24
++])
++
++AT_CLEANUP
++])
++
+-- 
+2.43.0
+

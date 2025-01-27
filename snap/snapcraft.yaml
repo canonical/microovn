@@ -334,10 +334,14 @@ parts:
     plugin: autotools
     source: https://github.com/ovn-org/ovn.git
     source-type: git
-    source-tag: v24.09.0
+    source-commit: 91988089c53a57d76936b3574254469ea8d05f43
     override-build: |
-      # build OVS first
+      # build OVS first 1
       cd ovs
+      git checkout branch-3.5
+      # Fix for cleanup of routes from VRF
+      # https://patchwork.ozlabs.org/project/openvswitch/patch/20250123152125.17973-1-martin.kalcok@canonical.com/
+      git am  $CRAFT_PROJECT_DIR/patches/route_advertisement/ovs/0*.patch
       ./boot.sh
       ./configure \
         --enable-ssl \
@@ -348,10 +352,15 @@ parts:
       # build OVN
       cd ..
       # apply patches related to the route leaking/learning
-      git am  $CRAFT_PROJECT_DIR/patches/route_leaking/0*.patch
-      patch -p1 < $CRAFT_PROJECT_DIR/patches/route_leaking/dont-delete-other-routes.patch
-      git am  $CRAFT_PROJECT_DIR/patches/allow_ipv6_ra/*.patch
-      git am  $CRAFT_PROJECT_DIR/patches/ipv4_over_ipv6/*.patch
+      # OVN northd v2 prerequirement:
+      # https://patchwork.ozlabs.org/project/ovn/cover/cover.1734513749.git.felix.huettner@stackit.cloud/
+      git am  $CRAFT_PROJECT_DIR/patches/route_advertisement/northd/0*.patch
+      # OVN controller v2 prerequirement:
+      # https://patchwork.ozlabs.org/project/ovn/cover/cover.1734614818.git.felix.huettner@stackit.cloud/
+      git am  $CRAFT_PROJECT_DIR/patches/route_advertisement/controller/0*.patch
+      # NAT/LB VIP advertising:
+      # https://patchwork.ozlabs.org/project/ovn/cover/20250123135951.13232-1-martin.kalcok@canonical.com/
+      git am  $CRAFT_PROJECT_DIR/patches/route_advertisement/0*.patch
       ./boot.sh
       ./configure \
         --prefix=/usr \
