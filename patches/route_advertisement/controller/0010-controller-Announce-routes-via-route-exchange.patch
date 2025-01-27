@@ -1,0 +1,815 @@
+From c2857eca895f5d920ad73b9a3ad4e3dbe71de0e4 Mon Sep 17 00:00:00 2001
+From: Felix Huettner <felix.huettner@stackit.cloud>
+Date: Thu, 19 Dec 2024 15:02:52 +0100
+Subject: [Patch ovn 10/15] controller: Announce routes via route-exchange.
+To: dev@openvswitch.org
+
+This engine node takes the routes from the "route" engine node and ensures
+they are written to the linux side.
+
+It is separate from the "route" engine node as it will also be used to
+learn routes in the future.
+
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+---
+ controller/automake.mk           |   7 +-
+ controller/ovn-controller.c      |  49 +++-
+ controller/route-exchange-stub.c |  42 ++++
+ controller/route-exchange.c      | 102 ++++++++
+ controller/route-exchange.h      |  33 +++
+ tests/ovs-macros.at              |  11 +
+ tests/system-common-macros.at    |  15 ++
+ tests/system-ovn.at              | 404 +++++++++++++++++++++++++++++++
+ 8 files changed, 659 insertions(+), 4 deletions(-)
+ create mode 100644 controller/route-exchange-stub.c
+ create mode 100644 controller/route-exchange.c
+ create mode 100644 controller/route-exchange.h
+
+diff --git a/controller/automake.mk b/controller/automake.mk
+index 39deeb029..66aff8643 100644
+--- a/controller/automake.mk
++++ b/controller/automake.mk
+@@ -52,13 +52,18 @@ controller_ovn_controller_SOURCES = \
+ 	controller/ct-zone.c \
+ 	controller/ovn-dns.c \
+ 	controller/ovn-dns.h \
++	controller/route-exchange.h \
+ 	controller/route.h \
+ 	controller/route.c
+ 
+ if HAVE_NETLINK
+ controller_ovn_controller_SOURCES += \
+ 	controller/route-exchange-netlink.h \
+-	controller/route-exchange-netlink.c
++	controller/route-exchange-netlink.c \
++	controller/route-exchange.c
++else
++controller_ovn_controller_SOURCES += \
++	controller/route-exchange-stub.c
+ endif
+ 
+ controller_ovn_controller_LDADD = lib/libovn.la $(OVS_LIBDIR)/libopenvswitch.la
+diff --git a/controller/ovn-controller.c b/controller/ovn-controller.c
+index 2082cbf22..0176b1095 100644
+--- a/controller/ovn-controller.c
++++ b/controller/ovn-controller.c
+@@ -89,6 +89,7 @@
+ #include "ct-zone.h"
+ #include "ovn-dns.h"
+ #include "route.h"
++#include "route-exchange.h"
+ 
+ VLOG_DEFINE_THIS_MODULE(main);
+ 
+@@ -4791,6 +4792,14 @@ controller_output_bfd_chassis_handler(struct engine_node *node,
+     return true;
+ }
+ 
++static bool
++controller_output_route_exchange_handler(struct engine_node *node,
++                                         void *data OVS_UNUSED)
++{
++    engine_set_node_state(node, EN_UPDATED);
++    return true;
++}
++
+ /* Handles sbrec_chassis changes.
+  * If a new chassis is added or removed return false, so that
+  * flows are recomputed.  For any updates, there is no need for
+@@ -4983,6 +4992,36 @@ route_sb_advertised_route_data_handler(struct engine_node *node, void *data)
+     return true;
+ }
+ 
++static void
++en_route_exchange_run(struct engine_node *node, void *data OVS_UNUSED)
++{
++    struct ed_type_route *route_data =
++        engine_get_input_data("route", node);
++
++    struct route_exchange_ctx_in r_ctx_in = {
++        .announce_routes = &route_data->announce_routes,
++    };
++
++    struct route_exchange_ctx_out r_ctx_out = {
++    };
++
++    route_exchange_run(&r_ctx_in, &r_ctx_out);
++
++    engine_set_node_state(node, EN_UPDATED);
++}
++
++
++static void *
++en_route_exchange_init(struct engine_node *node OVS_UNUSED,
++                       struct engine_arg *arg OVS_UNUSED)
++{
++    return NULL;
++}
++
++static void
++en_route_exchange_cleanup(void *data OVS_UNUSED)
++{}
++
+ /* Returns false if the northd internal version stored in SB_Global
+  * and ovn-controller internal version don't match.
+  */
+@@ -5278,6 +5317,7 @@ main(int argc, char *argv[])
+     ENGINE_NODE(bfd_chassis, "bfd_chassis");
+     ENGINE_NODE(dns_cache, "dns_cache");
+     ENGINE_NODE(route, "route");
++    ENGINE_NODE(route_exchange, "route_exchange");
+ 
+ #define SB_NODE(NAME, NAME_STR) ENGINE_NODE_SB(NAME, NAME_STR);
+     SB_NODES
+@@ -5309,6 +5349,8 @@ main(int argc, char *argv[])
+     engine_add_input(&en_route, &en_sb_advertised_route,
+                      route_sb_advertised_route_data_handler);
+ 
++    engine_add_input(&en_route_exchange, &en_route, NULL);
++
+     engine_add_input(&en_addr_sets, &en_sb_address_set,
+                      addr_sets_sb_address_set_handler);
+     engine_add_input(&en_port_groups, &en_sb_port_group,
+@@ -5494,9 +5536,8 @@ main(int argc, char *argv[])
+                      controller_output_mac_cache_handler);
+     engine_add_input(&en_controller_output, &en_bfd_chassis,
+                      controller_output_bfd_chassis_handler);
+-    /* This is just temporary until the route output is actually used. */
+-    engine_add_input(&en_controller_output, &en_route,
+-                     controller_output_bfd_chassis_handler);
++    engine_add_input(&en_controller_output, &en_route_exchange,
++                     controller_output_route_exchange_handler);
+ 
+     struct engine_arg engine_arg = {
+         .sb_idl = ovnsb_idl_loop.idl,
+@@ -6224,6 +6265,7 @@ loop_done:
+ 
+             poll_block();
+         }
++        route_exchange_cleanup();
+     }
+ 
+     free(ovn_version);
+@@ -6253,6 +6295,7 @@ loop_done:
+     service_stop();
+     ovsrcu_exit();
+     dns_resolve_destroy();
++    route_exchange_destroy();
+ 
+     exit(retval);
+ }
+diff --git a/controller/route-exchange-stub.c b/controller/route-exchange-stub.c
+new file mode 100644
+index 000000000..2ca644b06
+--- /dev/null
++++ b/controller/route-exchange-stub.c
+@@ -0,0 +1,42 @@
++/*
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at:
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <config.h>
++
++#include <stdbool.h>
++
++#include "openvswitch/compiler.h"
++#include "route-exchange.h"
++
++bool
++route_exchange_relevant_port(const struct sbrec_port_binding *pb OVS_UNUSED)
++{
++    return false;
++}
++
++void
++route_exchange_run(struct route_exchange_ctx_in *r_ctx_in OVS_UNUSED,
++                   struct route_exchange_ctx_out *r_ctx_out OVS_UNUSED)
++{
++}
++
++void
++route_exchange_cleanup(void)
++{
++}
++
++void
++route_exchange_destroy(void)
++{
++}
+diff --git a/controller/route-exchange.c b/controller/route-exchange.c
+new file mode 100644
+index 000000000..90144f75f
+--- /dev/null
++++ b/controller/route-exchange.c
+@@ -0,0 +1,102 @@
++/*
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at:
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <config.h>
++
++#include <errno.h>
++#include <net/if.h>
++
++#include "openvswitch/vlog.h"
++
++#include "lib/ovn-sb-idl.h"
++
++#include "binding.h"
++#include "ha-chassis.h"
++#include "local_data.h"
++#include "route.h"
++#include "route-exchange.h"
++#include "route-exchange-netlink.h"
++
++
++VLOG_DEFINE_THIS_MODULE(route_exchange);
++static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
++
++static struct sset _maintained_vrfs = SSET_INITIALIZER(&_maintained_vrfs);
++
++void
++route_exchange_run(struct route_exchange_ctx_in *r_ctx_in,
++                   struct route_exchange_ctx_out *r_ctx_out OVS_UNUSED)
++{
++    struct sset old_maintained_vrfs = SSET_INITIALIZER(&old_maintained_vrfs);
++    sset_swap(&_maintained_vrfs, &old_maintained_vrfs);
++
++    const struct advertise_datapath_entry *ad;
++    HMAP_FOR_EACH (ad, node, r_ctx_in->announce_routes) {
++        struct hmap received_routes
++                = HMAP_INITIALIZER(&received_routes);
++        char vrf_name[IFNAMSIZ + 1];
++        snprintf(vrf_name, sizeof vrf_name, "ovnvrf%"PRIi64,
++                 ad->key);
++
++        if (ad->maintain_vrf) {
++            int error = re_nl_create_vrf(vrf_name, ad->key);
++            if (error && error != EEXIST) {
++                VLOG_WARN_RL(&rl,
++                             "Unable to create VRF %s for datapath "
++                             "%"PRId64": %s.",
++                             vrf_name, ad->key,
++                             ovs_strerror(error));
++                continue;
++            }
++            sset_add(&_maintained_vrfs, vrf_name);
++        } else {
++            /* a previous maintain-vrf flag was removed. We should therfor
++             * also not delete it even if we created it previously. */
++            sset_find_and_delete(&_maintained_vrfs, vrf_name);
++            sset_find_and_delete(&old_maintained_vrfs, vrf_name);
++        }
++
++        re_nl_sync_routes(ad->key, &ad->routes);
++    }
++
++    /* Remove VRFs previously maintained by us not found in the above loop. */
++    const char *vrf_name;
++    SSET_FOR_EACH_SAFE (vrf_name, &old_maintained_vrfs) {
++        if (!sset_find(&_maintained_vrfs, vrf_name)) {
++            re_nl_delete_vrf(vrf_name);
++        }
++        sset_delete(&old_maintained_vrfs, SSET_NODE_FROM_NAME(vrf_name));
++    }
++    sset_destroy(&old_maintained_vrfs);
++}
++
++void
++route_exchange_cleanup(void)
++{
++    const char *vrf_name;
++    SSET_FOR_EACH_SAFE (vrf_name, &_maintained_vrfs) {
++        re_nl_delete_vrf(vrf_name);
++    }
++}
++
++void
++route_exchange_destroy(void)
++{
++    const char *vrf_name;
++    SSET_FOR_EACH_SAFE (vrf_name, &_maintained_vrfs) {
++        sset_delete(&_maintained_vrfs, SSET_NODE_FROM_NAME(vrf_name));
++    }
++
++    sset_destroy(&_maintained_vrfs);
++}
+diff --git a/controller/route-exchange.h b/controller/route-exchange.h
+new file mode 100644
+index 000000000..2c2a9ab84
+--- /dev/null
++++ b/controller/route-exchange.h
+@@ -0,0 +1,33 @@
++/*
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at:
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef ROUTE_EXCHANGE_H
++#define ROUTE_EXCHANGE_H 1
++
++#include <stdbool.h>
++
++struct route_exchange_ctx_in {
++    /* Contains struct advertise_datapath_entry */
++    struct hmap *announce_routes;
++};
++
++struct route_exchange_ctx_out {
++};
++
++void route_exchange_run(struct route_exchange_ctx_in *,
++                        struct route_exchange_ctx_out *);
++void route_exchange_cleanup(void);
++void route_exchange_destroy(void);
++
++#endif /* ROUTE_EXCHANGE_H */
+diff --git a/tests/ovs-macros.at b/tests/ovs-macros.at
+index 0e3b1bcd6..60e1433f0 100644
+--- a/tests/ovs-macros.at
++++ b/tests/ovs-macros.at
+@@ -285,6 +285,17 @@ m4_define([OVS_WAIT_UNTIL],
+   [check_ovs_wait_until_args "$#" "$2"
+    OVS_WAIT([$1], [$2], [AT_LINE], [until $1])])
+ 
++dnl OVS_WAIT_UNTIL_EQUAL(COMMAND, OUTPUT)
++dnl
++dnl Executes shell COMMAND in a loop until it returns zero and the output
++dnl equals OUTPUT.  If COMMAND does not return zero or a desired output within
++dnl a reasonable time limit, fails the test.
++m4_define([OVS_WAIT_UNTIL_EQUAL],
++  [AT_FAIL_IF([test "$#" -ge 3])
++   echo "$2" > wait_until_expected
++   OVS_WAIT_UNTIL([$1 | diff -u wait_until_expected - ])])
++
++
+ dnl OVS_WAIT_FOR_OUTPUT(COMMAND, EXIT-STATUS, STDOUT, STDERR)
+ dnl OVS_WAIT_FOR_OUTPUT_UNQUOTED(COMMAND, EXIT-STATUS, STDOUT, STDERR)
+ dnl
+diff --git a/tests/system-common-macros.at b/tests/system-common-macros.at
+index bba2597cf..72ff6bdfc 100644
+--- a/tests/system-common-macros.at
++++ b/tests/system-common-macros.at
+@@ -542,3 +542,18 @@ m4_define([CHECK_VRF],
+     AT_SKIP_IF([test $rc -ne 0])
+     on_exit 'modprobe -r vrf'
+ ])
++
++# VRF_RESERVE([id])
++#
++# Helper to ensure we actually support vrfs and the vrf in question has no
++# route entries in it and is not existing.
++# We need to add it before deleting as routes can actually survive in a
++# deleted vrf.
++m4_define([VRF_RESERVE],
++    [
++     CHECK_VRF()
++     ip link add "ovnvrf$1" type vrf table "$1"
++     ip route flush vrf "ovnvrf$1"
++     ip link del "ovnvrf$1"
++    ]
++)
+diff --git a/tests/system-ovn.at b/tests/system-ovn.at
+index 2e59f425b..b7afb29c2 100644
+--- a/tests/system-ovn.at
++++ b/tests/system-ovn.at
+@@ -14862,3 +14862,407 @@ OVS_TRAFFIC_VSWITCHD_STOP(["/failed to query port patch-.*/d
+ 
+ AT_CLEANUP
+ ])
++
++OVN_FOR_EACH_NORTHD([
++AT_SETUP([dynamic-routing - DGP])
++
++VRF_RESERVE([1337])
++
++# This test uses dynamic routing on a simulated multi-tenant internet
++# connection.
++# Tenant 1 (pr1, p1, vif1) is connected to the internet via NAT on pr1.
++# Tenant 2 (pr2, p2, vif2) is connected to the internet via routing.
++# The connections of pr1 and pr2 to public are using DGPs.
++# The connection from internet to phys is also using a DGP.
++# The LR internet is running dynamic-routing.
++# The LS phys is assumed to be used for peering with a router outside OVN
++#
++#
++# +----+       +----+
++# |vif1|       |vif2|
++# +--+-+       +--+-+
++#    |            |
++# +--+--+      +--+--+
++# |LS p1|      |LS p2|
++# +--+--+      +--+--+
++#    |            |
++# +--+---+     +--+---+
++# |LR pr1|     |LR pr2|
++# +-----++     ++-----+
++#       |       |
++#      ++-------++
++#      |LS public|
++#      +-----+---+
++#            |
++#      +-----+-----+
++#      |LR internet|
++#      +-----+-----+
++#            |
++#        +---+---+
++#        |LS phys|
++#        +-------+
++
++ovn_start
++OVS_TRAFFIC_VSWITCHD_START()
++
++ADD_BR([br-int])
++ADD_BR([br-ext])
++
++check ovs-ofctl add-flow br-ext action=normal
++# Set external-ids in br-int needed for ovn-controller
++check ovs-vsctl \
++        -- set Open_vSwitch . external-ids:system-id=hv1 \
++        -- set Open_vSwitch . external-ids:ovn-remote=unix:$ovs_base/ovn-sb/ovn-sb.sock \
++        -- set Open_vSwitch . external-ids:ovn-encap-type=geneve \
++        -- set Open_vSwitch . external-ids:ovn-encap-ip=169.0.0.1 \
++        -- set bridge br-int fail-mode=secure other-config:disable-in-band=true
++
++# Start ovn-controller
++start_daemon ovn-controller
++
++# LS setup
++
++check ovn-nbctl ls-add public
++check ovn-nbctl ls-add phys
++check ovn-nbctl ls-add p1
++check ovn-nbctl ls-add p2
++
++# LR internet setup
++
++check ovn-nbctl lr-add internet \
++    -- set Logical_Router internet options:dynamic-routing=true \
++                                   options:requested-tnl-key=1337
++
++check ovn-nbctl lrp-add internet internet-public \
++        00:00:02:01:02:03 192.0.2.1/24 \
++    -- set Logical_Router_Port internet-public \
++                             options:dynamic-routing-connected=true \
++                             options:dynamic-routing-static=true
++check ovn-nbctl lsp-add public public-internet \
++    -- set Logical_Switch_Port public-internet type=router \
++                                         options:router-port=internet-public \
++    -- lsp-set-addresses public-internet router
++
++check ovn-nbctl lrp-add internet internet-phys \
++        00:00:ff:00:00:01 192.168.10.1/24 \
++    -- set Logical_Router_Port internet-phys \
++                             options:maintain-vrf=true
++check ovn-nbctl lrp-set-gateway-chassis internet-phys hv1
++check ovn-nbctl lsp-add phys phys-internet \
++    -- set Logical_Switch_Port phys-internet type=router \
++                                         options:router-port=internet-phys \
++    -- lsp-set-addresses phys-internet router
++
++# LR pr1 setup
++
++check ovn-nbctl lr-add pr1 \
++    -- set Logical_Router pr1 options:requested-tnl-key=1338
++
++check ovn-nbctl lrp-add pr1 pr1-public \
++        00:00:02:01:02:04 192.0.2.2/24
++check ovn-nbctl lrp-set-gateway-chassis pr1-public hv1
++check ovn-nbctl lsp-add public public-pr1 \
++    -- set Logical_Switch_Port public-pr1 type=router \
++                                         options:router-port=pr1-public \
++    -- lsp-set-addresses public-pr1 router
++
++check ovn-nbctl lrp-add pr1 pr1-p1 \
++        00:00:03:00:00:01 10.0.0.1/24
++check ovn-nbctl lsp-add p1 p1-pr1 \
++    -- set Logical_Switch_Port p1-pr1 type=router \
++                                         options:router-port=pr1-p1 \
++    -- lsp-set-addresses p1-pr1 router
++
++check ovn-nbctl lr-route-add pr1 0.0.0.0/0 192.0.2.1
++
++# LR pr2 setup
++
++check ovn-nbctl lr-add pr2 \
++    -- set Logical_Router pr2 options:requested-tnl-key=1339
++
++check ovn-nbctl lrp-add pr2 pr2-public \
++        00:00:02:01:02:05 192.0.2.3/24
++check ovn-nbctl lrp-set-gateway-chassis pr2-public hv1
++check ovn-nbctl lsp-add public public-pr2 \
++    -- set Logical_Switch_Port public-pr2 type=router \
++                                         options:router-port=pr2-public \
++    -- lsp-set-addresses public-pr2 router
++
++check ovn-nbctl lrp-add pr2 pr2-p2 \
++        00:00:04:00:00:01 198.51.100.1/24
++check ovn-nbctl lsp-add p2 p2-pr2 \
++    -- set Logical_Switch_Port p2-pr2 type=router \
++                                         options:router-port=pr2-p2 \
++    -- lsp-set-addresses p2-pr2 router
++
++check ovn-nbctl lr-route-add pr2 0.0.0.0/0 192.0.2.1
++
++# Setup lsp "vif1" with NAT
++check ovn-nbctl lsp-add p1 vif1 \
++    -- lsp-set-addresses vif1 "00:00:ff:ff:ff:01 10.0.0.2"
++check ovn-nbctl lr-nat-add pr1 dnat_and_snat 192.0.2.10 10.0.0.2
++
++# Setup lsp "vif2" with a static route on LR internet
++check ovn-nbctl lsp-add p2 vif2 \
++    -- lsp-set-addresses vif2 "00:00:ff:ff:ff:02 198.51.100.10"
++check ovn-nbctl lr-route-add internet 198.51.100.0/24 192.0.2.3
++
++# Configure external connectivity
++check ovs-vsctl set Open_vSwitch . external-ids:ovn-bridge-mappings=phynet:br-ext
++check ovn-nbctl lsp-add phys phys1 \
++        -- lsp-set-addresses phys1 unknown \
++        -- lsp-set-type phys1 localnet \
++        -- lsp-set-options phys1 network_name=phynet
++
++check ovn-nbctl --wait=hv sync
++
++# now the ovn-controller should have setup a vrf named "ovnvrf1337"
++# it should contain routes for:
++# * 192.0.2.0/24
++# * 198.51.100.0/24
++
++AT_CHECK([ip vrf show ovnvrf1337], [0], [dnl
++ovnvrf1337 1337
++])
++
++# ip route list output has a trailing space on each line
++# the awk magic removes all trailing spaces.
++OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
++blackhole 192.0.2.0/24 proto 84
++blackhole 198.51.100.0/24 proto 84])
++
++# we now switch to announcing host routes and expect 192.0.2.0/24 to be gone
++# and the following to be added:
++# * 192.0.2.1/32
++# * 192.0.2.2/32
++# * 192.0.2.3/32
++# * 192.0.2.10/32
++check ovn-nbctl --wait=hv set Logical_Router_Port internet-public \
++                         options:dynamic-routing-connected-as-host-routes=true
++
++OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
++blackhole 192.0.2.1 proto 84
++blackhole 192.0.2.2 proto 84
++blackhole 192.0.2.3 proto 84
++blackhole 192.0.2.10 proto 84
++blackhole 198.51.100.0/24 proto 84])
++
++OVS_APP_EXIT_AND_WAIT([ovn-controller])
++
++as ovn-sb
++OVS_APP_EXIT_AND_WAIT([ovsdb-server])
++
++as ovn-nb
++OVS_APP_EXIT_AND_WAIT([ovsdb-server])
++
++as northd
++OVS_APP_EXIT_AND_WAIT([ovn-northd])
++
++as
++OVS_TRAFFIC_VSWITCHD_STOP(["/.*error receiving.*/d
++/.*terminating with signal 15.*/d"])
++AT_CLEANUP
++])
++
++OVN_FOR_EACH_NORTHD([
++AT_SETUP([dynamic-routing - Gateway Router])
++
++VRF_RESERVE([1337])
++
++# This test uses dynamic routing on a simulated multi-tenant internet
++# connection.
++# Tenant 1 (pr1, p1, vif1) is connected to the internet via NAT on pr1.
++# Tenant 2 (pr2, p2, vif2) is connected to the internet via routing.
++# The connections of pr1 and pr2 to public are using DGPs.
++# The LR internet is a gateway router.
++# The LR internet is running dynamic-routing.
++# The LS phys is assumed to be used for peering with a router outside OVN
++#
++#
++# +----+       +----+
++# |vif1|       |vif2|
++# +--+-+       +--+-+
++#    |            |
++# +--+--+      +--+--+
++# |LS p1|      |LS p2|
++# +--+--+      +--+--+
++#    |            |
++# +--+---+     +--+---+
++# |LR pr1|     |LR pr2|
++# +-----++     ++-----+
++#       |       |
++#      ++-------++
++#      |LS public|
++#      +-----+---+
++#            |
++#      +-----+-----+
++#      |LR internet|
++#      +-----+-----+
++#            |
++#        +---+---+
++#        |LS phys|
++#        +-------+
++
++ovn_start
++OVS_TRAFFIC_VSWITCHD_START()
++
++ADD_BR([br-int])
++ADD_BR([br-ext])
++
++check ovs-ofctl add-flow br-ext action=normal
++# Set external-ids in br-int needed for ovn-controller
++check ovs-vsctl \
++        -- set Open_vSwitch . external-ids:system-id=hv1 \
++        -- set Open_vSwitch . external-ids:ovn-remote=unix:$ovs_base/ovn-sb/ovn-sb.sock \
++        -- set Open_vSwitch . external-ids:ovn-encap-type=geneve \
++        -- set Open_vSwitch . external-ids:ovn-encap-ip=169.0.0.1 \
++        -- set bridge br-int fail-mode=secure other-config:disable-in-band=true
++
++# Start ovn-controller
++start_daemon ovn-controller
++
++# LS setup
++
++check ovn-nbctl ls-add public
++check ovn-nbctl ls-add phys
++check ovn-nbctl ls-add p1
++check ovn-nbctl ls-add p2
++
++# LR internet setup
++
++check ovn-nbctl lr-add internet \
++    -- set Logical_Router internet options:dynamic-routing=true \
++                                   options:requested-tnl-key=1337 \
++                                   options:chassis=hv1
++
++check ovn-nbctl lrp-add internet internet-public \
++        00:00:02:01:02:03 192.0.2.1/24 \
++    -- set Logical_Router_Port internet-public \
++                             options:dynamic-routing-connected=true \
++                             options:dynamic-routing-static=true \
++                             options:dynamic-routing-ifname=wedontlearnstuffhere
++check ovn-nbctl lsp-add public public-internet \
++    -- set Logical_Switch_Port public-internet type=router \
++                                         options:router-port=internet-public \
++    -- lsp-set-addresses public-internet router
++
++check ovn-nbctl lrp-add internet internet-phys \
++        00:00:ff:00:00:01 192.168.10.1/24 \
++    -- set Logical_Router_Port internet-phys \
++                             options:maintain-vrf=true
++check ovn-nbctl lsp-add phys phys-internet \
++    -- set Logical_Switch_Port phys-internet type=router \
++                                         options:router-port=internet-phys \
++    -- lsp-set-addresses phys-internet router
++
++# LR pr1 setup
++
++check ovn-nbctl lr-add pr1 \
++    -- set Logical_Router pr1 options:requested-tnl-key=1338
++
++check ovn-nbctl lrp-add pr1 pr1-public \
++        00:00:02:01:02:04 192.0.2.2/24
++check ovn-nbctl lrp-set-gateway-chassis pr1-public hv1
++check ovn-nbctl lsp-add public public-pr1 \
++    -- set Logical_Switch_Port public-pr1 type=router \
++                                         options:router-port=pr1-public \
++    -- lsp-set-addresses public-pr1 router
++
++check ovn-nbctl lrp-add pr1 pr1-p1 \
++        00:00:03:00:00:01 10.0.0.1/24
++check ovn-nbctl lsp-add p1 p1-pr1 \
++    -- set Logical_Switch_Port p1-pr1 type=router \
++                                         options:router-port=pr1-p1 \
++    -- lsp-set-addresses p1-pr1 router
++
++check ovn-nbctl lr-route-add pr1 0.0.0.0/0 192.0.2.1
++
++# LR pr2 setup
++
++check ovn-nbctl lr-add pr2 \
++    -- set Logical_Router pr2 options:requested-tnl-key=1339
++
++check ovn-nbctl lrp-add pr2 pr2-public \
++        00:00:02:01:02:05 192.0.2.3/24
++check ovn-nbctl lrp-set-gateway-chassis pr2-public hv1
++check ovn-nbctl lsp-add public public-pr2 \
++    -- set Logical_Switch_Port public-pr2 type=router \
++                                         options:router-port=pr2-public \
++    -- lsp-set-addresses public-pr2 router
++
++check ovn-nbctl lrp-add pr2 pr2-p2 \
++        00:00:04:00:00:01 198.51.100.1/24
++check ovn-nbctl lsp-add p2 p2-pr2 \
++    -- set Logical_Switch_Port p2-pr2 type=router \
++                                         options:router-port=pr2-p2 \
++    -- lsp-set-addresses p2-pr2 router
++
++check ovn-nbctl lr-route-add pr2 0.0.0.0/0 192.0.2.1
++
++# Setup lsp "vif1" with NAT
++check ovn-nbctl lsp-add p1 vif1 \
++    -- lsp-set-addresses vif1 "00:00:ff:ff:ff:01 10.0.0.2"
++check ovn-nbctl lr-nat-add pr1 dnat_and_snat 192.0.2.10 10.0.0.2
++
++# Setup lsp "vif2" with a static route on LR internet
++check ovn-nbctl lsp-add p2 vif2 \
++    -- lsp-set-addresses vif2 "00:00:ff:ff:ff:02 198.51.100.10"
++check ovn-nbctl lr-route-add internet 198.51.100.0/24 192.0.2.3
++
++# Configure external connectivity
++check ovs-vsctl set Open_vSwitch . external-ids:ovn-bridge-mappings=phynet:br-ext
++check ovn-nbctl lsp-add phys phys1 \
++        -- lsp-set-addresses phys1 unknown \
++        -- lsp-set-type phys1 localnet \
++        -- lsp-set-options phys1 network_name=phynet
++
++check ovn-nbctl --wait=hv sync
++
++# now the ovn-controller should have setup a vrf named "ovnvrf1337"
++# it should contain routes for:
++# * 192.0.2.0/24
++# * 198.51.100.0/24
++
++AT_CHECK([ip vrf show ovnvrf1337], [0], [dnl
++ovnvrf1337 1337
++])
++
++# ip route list output has a trailing space on each line
++# the awk magic removes all trailing spaces.
++OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
++blackhole 192.0.2.0/24 proto 84
++blackhole 198.51.100.0/24 proto 84])
++
++# we now switch to announcing host routes and expect 192.0.2.0/24 to be gone
++# and the following to be added:
++# * 192.0.2.1/32
++# * 192.0.2.2/32
++# * 192.0.2.3/32
++# * 192.0.2.10/32
++# the last 3 of them are local to the current chassis so we expect a better
++# prio.
++check ovn-nbctl --wait=hv set Logical_Router_Port internet-public \
++                         options:dynamic-routing-connected-as-host-routes=true
++
++OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
++blackhole 192.0.2.1 proto 84
++blackhole 192.0.2.2 proto 84
++blackhole 192.0.2.3 proto 84
++blackhole 192.0.2.10 proto 84
++blackhole 198.51.100.0/24 proto 84])
++
++as ovn-sb
++OVS_APP_EXIT_AND_WAIT([ovsdb-server])
++
++as ovn-nb
++OVS_APP_EXIT_AND_WAIT([ovsdb-server])
++
++as northd
++OVS_APP_EXIT_AND_WAIT([ovn-northd])
++
++as
++OVS_TRAFFIC_VSWITCHD_STOP(["/.*error receiving.*/d
++/.*terminating with signal 15.*/d"])
++AT_CLEANUP
++])
++
+-- 
+2.43.0
+

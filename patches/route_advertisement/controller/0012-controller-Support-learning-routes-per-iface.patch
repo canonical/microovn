@@ -1,0 +1,228 @@
+From be28249ab35551e69ea4181e59fc4968931254c1 Mon Sep 17 00:00:00 2001
+From: Felix Huettner <felix.huettner@stackit.cloud>
+Date: Thu, 19 Dec 2024 15:02:56 +0100
+Subject: [Patch ovn 12/15] controller: Support learning routes per iface.
+To: dev@openvswitch.org
+
+Previously we just assumed that if a LR had multiple LRPs bound to the
+local chassis that all routes where valid for all of these LRPs.
+This commit handles a previous option in ovn-nb that allowes the user to
+specify the interface name that a route needs to use to be acceptable
+for a given LRP.
+The users can then have a 1:1 relationship between LRPs and interfaces
+to allow ovn-controller to determine which route belongs to which LRP.
+
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+---
+ controller/route-exchange-netlink.c |  1 +
+ controller/route-exchange-netlink.h |  2 ++
+ controller/route-exchange.c         | 21 +++++++++++++++------
+ controller/route.c                  | 12 +++++++++---
+ controller/route.h                  |  6 ++++--
+ tests/system-ovn.at                 | 25 +++++++++++++++++++++++--
+ 6 files changed, 54 insertions(+), 13 deletions(-)
+
+diff --git a/controller/route-exchange-netlink.c b/controller/route-exchange-netlink.c
+index c2a7551f3..9fea0d955 100644
+--- a/controller/route-exchange-netlink.c
++++ b/controller/route-exchange-netlink.c
+@@ -222,6 +222,7 @@ handle_route_msg_delete_routes(const struct route_table_msg *msg, void *data)
+             rr->addr = rd->rta_dst;
+             rr->plen = rd->rtm_dst_len;
+             rr->nexthop = nexthop->addr;
++            memcpy(rr->ifname, nexthop->ifname, IFNAMSIZ);
+         }
+         return;
+     }
+diff --git a/controller/route-exchange-netlink.h b/controller/route-exchange-netlink.h
+index 566b38fde..fca2429e6 100644
+--- a/controller/route-exchange-netlink.h
++++ b/controller/route-exchange-netlink.h
+@@ -18,6 +18,7 @@
+ #include <stdint.h>
+ #include "openvswitch/hmap.h"
+ #include <netinet/in.h>
++#include <net/if.h>
+ 
+ /* This value is arbitrary but currently unused.
+  * See https://github.com/iproute2/iproute2/blob/main/etc/iproute2/rt_protos */
+@@ -31,6 +32,7 @@ struct re_nl_received_route_node {
+     struct in6_addr addr;
+     unsigned int plen;
+     struct in6_addr nexthop;
++    char ifname[IFNAMSIZ];
+ };
+ 
+ int re_nl_create_vrf(const char *ifname, uint32_t table_id);
+diff --git a/controller/route-exchange.c b/controller/route-exchange.c
+index 50b4709c0..b3968b442 100644
+--- a/controller/route-exchange.c
++++ b/controller/route-exchange.c
+@@ -101,7 +101,7 @@ route_erase_entry(struct route_entry *route_e)
+ static void
+ sb_sync_learned_routes(const struct sbrec_datapath_binding *datapath,
+                        const struct hmap *learned_routes,
+-                       const struct sset *bound_ports,
++                       const struct smap *bound_ports,
+                        struct ovsdb_idl_txn *ovnsb_idl_txn,
+                        struct ovsdb_idl_index *sbrec_learned_route_by_datapath,
+                        struct ovsdb_idl_index *sbrec_port_binding_by_name)
+@@ -116,8 +116,9 @@ sb_sync_learned_routes(const struct sbrec_datapath_binding *datapath,
+     SBREC_LEARNED_ROUTE_FOR_EACH_EQUAL (sb_route, filter,
+                                         sbrec_learned_route_by_datapath) {
+         /* If the port is not local we don't care about it.
+-         * Some other ovn-controller will handle it. */
+-        if (!sset_contains(bound_ports,
++         * Some other ovn-controller will handle it.
++         * We may not use smap_get since the value might be validly NULL. */
++        if (!smap_get_node(bound_ports,
+                            sb_route->logical_port->logical_port)) {
+             continue;
+         }
+@@ -137,14 +138,22 @@ sb_sync_learned_routes(const struct sbrec_datapath_binding *datapath,
+                                                learned_route->plen);
+         char *nexthop = normalize_v46(&learned_route->nexthop);
+ 
+-        const char *logical_port_name;
+-        SSET_FOR_EACH (logical_port_name, bound_ports) {
++        struct smap_node *port_node;
++        SMAP_FOR_EACH (port_node, bound_ports) {
++            /* The user specified an ifname, but we learned it on a different
++             * port. */
++            if (port_node->value && strcmp(port_node->value,
++                                           learned_route->ifname)) {
++                continue;
++            }
++
+             const struct sbrec_port_binding *logical_port =
+                 lport_lookup_by_name(sbrec_port_binding_by_name,
+-                                     logical_port_name);
++                                     port_node->key);
+             if (!logical_port) {
+                 continue;
+             }
++
+             route_e = route_lookup_or_add(&sync_routes,
+                 datapath,
+                 logical_port, ip_prefix, nexthop);
+diff --git a/controller/route.c b/controller/route.c
+index b3ff77b83..036a574d8 100644
+--- a/controller/route.c
++++ b/controller/route.c
+@@ -83,7 +83,7 @@ advertise_datapath_cleanup(struct advertise_datapath_entry *ad)
+         free(ar);
+     }
+     hmap_destroy(&ad->routes);
+-    sset_destroy(&ad->bound_ports);
++    smap_destroy(&ad->bound_ports);
+     free(ad);
+ }
+ 
+@@ -91,6 +91,8 @@ void
+ route_run(struct route_ctx_in *r_ctx_in,
+           struct route_ctx_out *r_ctx_out)
+ {
++    tracked_datapaths_destroy(r_ctx_out->tracked_re_datapaths);
++
+     const struct local_datapath *ld;
+     HMAP_FOR_EACH (ld, hmap_node, r_ctx_in->local_datapaths) {
+         if (!ld->n_peer_ports || ld->is_switch) {
+@@ -102,7 +104,7 @@ route_run(struct route_ctx_in *r_ctx_in,
+         ad->key = ld->datapath->tunnel_key;
+         ad->db = ld->datapath;
+         hmap_init(&ad->routes);
+-        sset_init(&ad->bound_ports);
++        smap_init(&ad->bound_ports);
+ 
+         /* This is a LR datapath, find LRPs with route exchange options
+          * that are bound locally. */
+@@ -122,8 +124,12 @@ route_run(struct route_ctx_in *r_ctx_in,
+                                           "maintain-vrf", false);
+             ad->use_netns |= smap_get_bool(&repb->options,
+                                        "use-netns", false);
++            char *ifname = nullable_xstrdup(
++                                    smap_get(&repb->options,
++                                             "dynamic-routing-ifname"));
+             relevant_datapath = true;
+-            sset_add(&ad->bound_ports, local_peer->logical_port);
++            smap_add_nocopy(&ad->bound_ports,
++                            xstrdup(local_peer->logical_port), ifname);
+         }
+ 
+         if (!relevant_datapath) {
+diff --git a/controller/route.h b/controller/route.h
+index 2a54cf3e3..4b71fa88a 100644
+--- a/controller/route.h
++++ b/controller/route.h
+@@ -19,6 +19,7 @@
+ #include <netinet/in.h>
+ #include "openvswitch/hmap.h"
+ #include "sset.h"
++#include "smap.h"
+ 
+ struct hmap;
+ struct ovsdb_idl_index;
+@@ -51,8 +52,9 @@ struct advertise_datapath_entry {
+     bool use_netns;
+     struct hmap routes;
+     /* the name of the port bindings locally bound for this datapath and
+-     * running route exchange logic. */
+-    struct sset bound_ports;
++     * running route exchange logic.
++     * The key is the port name and the value is the ifname if set. */
++    struct smap bound_ports;
+ };
+ 
+ struct advertise_route_entry {
+diff --git a/tests/system-ovn.at b/tests/system-ovn.at
+index f30571570..e830cbcc7 100644
+--- a/tests/system-ovn.at
++++ b/tests/system-ovn.at
+@@ -15061,6 +15061,17 @@ AT_CHECK_UNQUOTED([ovn-sbctl --columns ip_prefix,nexthop,logical_port --bare fin
+ $lp
+ ])
+ 
++# by setting a learning interface filter we will now forget about this route
++check ovn-nbctl --wait=hv set Logical_Router_Port internet-phys \
++      options:dynamic-routing-ifname=thisdoesnotexist
++check_row_count Learned_Route 0
++
++# chaning it to "lo" will allow us to learn the route again
++check ovn-nbctl --wait=hv set Logical_Router_Port internet-phys \
++      options:dynamic-routing-ifname=lo
++check_row_count Learned_Route 1
++
++
+ OVS_APP_EXIT_AND_WAIT([ovn-controller])
+ 
+ as ovn-sb
+@@ -15271,14 +15282,24 @@ check ip route add 233.252.0.0/24 via 192.168.10.10 dev lo onlink vrf ovnvrf1337
+ # for now we trigger a recompute as route watching is not yet implemented
+ check ovn-appctl -t ovn-controller inc-engine/recompute
+ check ovn-nbctl --wait=hv sync
+-check_row_count Learned_Route 2
++check_row_count Learned_Route 1
+ lp=$(ovn-sbctl --bare --columns _uuid list port_binding internet-phys)
+-AT_CHECK_UNQUOTED([ovn-sbctl --columns ip_prefix,nexthop,logical_port --bare find Learned_Route logical_port=$lp], [0], [dnl
++AT_CHECK_UNQUOTED([ovn-sbctl --columns ip_prefix,nexthop,logical_port --bare find Learned_Route], [0], [dnl
+ 233.252.0.0/24
+ 192.168.10.10
+ $lp
+ ])
+ 
++# by setting a learning interface filter we will now forget about this route
++check ovn-nbctl --wait=hv set Logical_Router_Port internet-phys \
++      options:dynamic-routing-ifname=thisdoesnotexist
++check_row_count Learned_Route 0
++
++# chaning it to "lo" will allow us to learn the route again
++check ovn-nbctl --wait=hv set Logical_Router_Port internet-phys \
++      options:dynamic-routing-ifname=lo
++check_row_count Learned_Route 1
++
+ as ovn-sb
+ OVS_APP_EXIT_AND_WAIT([ovsdb-server])
+ 
+-- 
+2.43.0
+

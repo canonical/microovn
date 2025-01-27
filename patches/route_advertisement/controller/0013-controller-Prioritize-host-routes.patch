@@ -1,0 +1,474 @@
+From 2f2e77b04200e1d225f5a0ac7f6452b0f0e9c848 Mon Sep 17 00:00:00 2001
+From: Felix Huettner <felix.huettner@stackit.cloud>
+Date: Thu, 19 Dec 2024 15:02:57 +0100
+Subject: [Patch ovn 13/15] controller: Prioritize host routes.
+To: dev@openvswitch.org
+
+northd allows us to announce host routes instead of connected routes of
+LRs.
+
+For the host routes we also know the LSP that host the address.
+We can then check if this LSP is pointing to a LRP that is also local to
+the current chassis, so if a LR is chained behind an LR and both use
+chassisredirect ports.
+In this case we can announce the route with a more preferable priority
+than otherwise.
+
+This helps in the following case:
+* the backend router is bound on only a single chassis
+* the frontend router is bound to multiple chassis (with multiple LRPs)
+* one of the chassis of the frontend router matches the backend router
+
+In this case it would be preferable if the network fabric sends the
+traffic to the chassis that hosts both the frontend and backend router.
+Other chassis would work as well, but then OVN would redirect the
+traffic from one chassis to the other.
+So this allows us to skip tunneling traffic in one case.
+
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+---
+ controller/ovn-controller.c         | 51 ++++++++++++++++++++
+ controller/route-exchange-netlink.c | 21 ++++----
+ controller/route-exchange-netlink.h |  4 +-
+ controller/route.c                  | 48 ++++++++++++++++++-
+ controller/route.h                  | 13 +++++
+ tests/system-ovn.at                 | 74 +++++++++++++++++++++++------
+ 6 files changed, 186 insertions(+), 25 deletions(-)
+
+diff --git a/controller/ovn-controller.c b/controller/ovn-controller.c
+index 12dc1c4b7..e62811126 100644
+--- a/controller/ovn-controller.c
++++ b/controller/ovn-controller.c
+@@ -4828,6 +4828,13 @@ struct ed_type_route {
+     /* Contains struct tracked_datapath entries for local datapaths subject to
+      * route exchange. */
+     struct hmap tracked_route_datapaths;
++
++    /* Contains the tracked_ports that in the last run where bound locally */
++    struct sset tracked_ports_local;
++
++    /* Contains the tracked_ports that in the last run where bound not local */
++    struct sset tracked_ports_remote;
++
+     /* Contains struct advertise_datapath_entry */
+     struct hmap announce_routes;
+ };
+@@ -4876,6 +4883,8 @@ en_route_run(struct engine_node *node, void *data)
+ 
+     struct route_ctx_out r_ctx_out = {
+         .tracked_re_datapaths = &re_data->tracked_route_datapaths,
++        .tracked_ports_local = &re_data->tracked_ports_local,
++        .tracked_ports_remote = &re_data->tracked_ports_remote,
+         .announce_routes = &re_data->announce_routes,
+     };
+ 
+@@ -4892,6 +4901,8 @@ en_route_init(struct engine_node *node OVS_UNUSED,
+     struct ed_type_route *data = xzalloc(sizeof *data);
+ 
+     hmap_init(&data->tracked_route_datapaths);
++    sset_init(&data->tracked_ports_local);
++    sset_init(&data->tracked_ports_remote);
+     hmap_init(&data->announce_routes);
+ 
+     return data;
+@@ -4903,6 +4914,8 @@ en_route_cleanup(void *data)
+     struct ed_type_route *re_data = data;
+ 
+     tracked_datapaths_destroy(&re_data->tracked_route_datapaths);
++    sset_destroy(&re_data->tracked_ports_local);
++    sset_destroy(&re_data->tracked_ports_remote);
+     route_cleanup(&re_data->announce_routes);
+     hmap_destroy(&re_data->announce_routes);
+ }
+@@ -4950,6 +4963,26 @@ route_sb_port_binding_data_handler(struct engine_node *node, void *data)
+     const struct sbrec_port_binding_table *pb_table =
+         EN_OVSDB_GET(engine_get_input("SB_port_binding", node));
+ 
++    const struct ovsrec_open_vswitch_table *ovs_table =
++        EN_OVSDB_GET(engine_get_input("OVS_open_vswitch", node));
++    const char *chassis_id = get_ovs_chassis_id(ovs_table);
++    ovs_assert(chassis_id);
++
++    struct ovsdb_idl_index *sbrec_chassis_by_name =
++        engine_ovsdb_node_get_index(
++                engine_get_input("SB_chassis", node),
++                "name");
++    const struct sbrec_chassis *chassis
++        = chassis_lookup_by_name(sbrec_chassis_by_name, chassis_id);
++    ovs_assert(chassis);
++
++    struct ovsdb_idl_index *sbrec_port_binding_by_name =
++        engine_ovsdb_node_get_index(
++                engine_get_input("SB_port_binding", node),
++                "name");
++    struct ed_type_runtime_data *rt_data =
++        engine_get_input_data("runtime_data", node);
++
+     const struct sbrec_port_binding *sbrec_pb;
+     SBREC_PORT_BINDING_TABLE_FOR_EACH_TRACKED (sbrec_pb, pb_table) {
+         struct tracked_datapath *re_t_dp =
+@@ -4967,6 +5000,24 @@ route_sb_port_binding_data_handler(struct engine_node *node, void *data)
+             return false;
+         }
+ 
++        if (sset_contains(&re_data->tracked_ports_local,
++                          sbrec_pb->logical_port)) {
++            if (!find_route_exchange_pb(sbrec_port_binding_by_name, chassis,
++                                        &rt_data->active_tunnels, sbrec_pb)) {
++                /* The port was previously local but now it no longer is. */
++                return false;
++            }
++        }
++
++        if (sset_contains(&re_data->tracked_ports_remote,
++                          sbrec_pb->logical_port)) {
++            if (find_route_exchange_pb(sbrec_port_binding_by_name, chassis,
++                                       &rt_data->active_tunnels, sbrec_pb)) {
++                /* The port was previously remote but now we bound it. */
++                return false;
++            }
++        }
++
+     }
+     return true;
+ }
+diff --git a/controller/route-exchange-netlink.c b/controller/route-exchange-netlink.c
+index 9fea0d955..f4428009e 100644
+--- a/controller/route-exchange-netlink.c
++++ b/controller/route-exchange-netlink.c
+@@ -102,7 +102,8 @@ re_nl_delete_vrf(const char *ifname)
+ 
+ static int
+ modify_route(uint32_t type, uint32_t flags_arg, uint32_t table_id,
+-             const struct in6_addr *dst, unsigned int plen)
++             const struct in6_addr *dst, unsigned int plen,
++             unsigned int priority)
+ {
+     uint32_t flags = NLM_F_REQUEST | NLM_F_ACK;
+     bool is_ipv4 = IN6_IS_ADDR_V4MAPPED(dst);
+@@ -128,6 +129,7 @@ modify_route(uint32_t type, uint32_t flags_arg, uint32_t table_id,
+     rt->rtm_dst_len = plen;
+ 
+     nl_msg_put_u32(&request, RTA_TABLE, table_id);
++    nl_msg_put_u32(&request, RTA_PRIORITY, priority);
+ 
+     if (is_ipv4) {
+         nl_msg_put_be32(&request, RTA_DST, in6_addr_get_mapped_ipv4(dst));
+@@ -143,7 +145,7 @@ modify_route(uint32_t type, uint32_t flags_arg, uint32_t table_id,
+ 
+ int
+ re_nl_add_route(uint32_t table_id, const struct in6_addr *dst,
+-                unsigned int plen)
++                unsigned int plen, unsigned int priority)
+ {
+     uint32_t flags = NLM_F_CREATE | NLM_F_EXCL;
+     uint32_t type = RTM_NEWROUTE;
+@@ -155,12 +157,12 @@ re_nl_add_route(uint32_t table_id, const struct in6_addr *dst,
+         return EINVAL;
+     }
+ 
+-    return modify_route(type, flags, table_id, dst, plen);
++    return modify_route(type, flags, table_id, dst, plen, priority);
+ }
+ 
+ int
+ re_nl_delete_route(uint32_t table_id, const struct in6_addr *dst,
+-                   unsigned int plen)
++                   unsigned int plen, unsigned int priority)
+ {
+     if (!TABLE_ID_VALID(table_id)) {
+         VLOG_WARN_RL(&rl,
+@@ -169,7 +171,7 @@ re_nl_delete_route(uint32_t table_id, const struct in6_addr *dst,
+         return EINVAL;
+     }
+ 
+-    return modify_route(RTM_DELROUTE, 0, table_id, dst, plen);
++    return modify_route(RTM_DELROUTE, 0, table_id, dst, plen, priority);
+ }
+ 
+ static uint32_t
+@@ -230,13 +232,15 @@ handle_route_msg_delete_routes(const struct route_table_msg *msg, void *data)
+     uint32_t arhash = advertise_route_hash(&rd->rta_dst, rd->rtm_dst_len);
+     HMAP_FOR_EACH_WITH_HASH (ar, node, arhash, routes) {
+         if (ipv6_addr_equals(&ar->addr, &rd->rta_dst)
+-                && ar->plen == rd->rtm_dst_len) {
++                && ar->plen == rd->rtm_dst_len
++                && ar->priority == rd->rta_priority) {
+             ar->installed = true;
+             return;
+         }
+     }
++
+     err = re_nl_delete_route(rd->rta_table_id, &rd->rta_dst,
+-                             rd->rtm_dst_len);
++                             rd->rtm_dst_len, rd->rta_priority);
+     if (err) {
+         char addr_s[INET6_ADDRSTRLEN + 1];
+         VLOG_WARN_RL(&rl, "Delete route table_id=%"PRIu32" dst=%s plen=%d: %s",
+@@ -273,7 +277,8 @@ re_nl_sync_routes(uint32_t table_id,
+         if (ar->installed) {
+             continue;
+         }
+-        int err = re_nl_add_route(table_id, &ar->addr, ar->plen);
++        int err = re_nl_add_route(table_id, &ar->addr, ar->plen,
++                                  ar->priority);
+         if (err) {
+             char addr_s[INET6_ADDRSTRLEN + 1];
+             VLOG_WARN_RL(&rl, "Add route table_id=%"PRIu32" dst=%s "
+diff --git a/controller/route-exchange-netlink.h b/controller/route-exchange-netlink.h
+index fca2429e6..13346e944 100644
+--- a/controller/route-exchange-netlink.h
++++ b/controller/route-exchange-netlink.h
+@@ -39,9 +39,9 @@ int re_nl_create_vrf(const char *ifname, uint32_t table_id);
+ int re_nl_delete_vrf(const char *ifname);
+ 
+ int re_nl_add_route(uint32_t table_id, const struct in6_addr *dst,
+-                    unsigned int plen);
++                    unsigned int plen, unsigned int priority);
+ int re_nl_delete_route(uint32_t table_id, const struct in6_addr *dst,
+-                       unsigned int plen);
++                       unsigned int plen, unsigned int priority);
+ 
+ void re_nl_dump(uint32_t table_id);
+ 
+diff --git a/controller/route.c b/controller/route.c
+index 036a574d8..53349821f 100644
+--- a/controller/route.c
++++ b/controller/route.c
+@@ -33,6 +33,9 @@ static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
+  * in the corresponding VRF interface name. */
+ #define MAX_TABLE_ID 1000000000
+ 
++#define PRIORITY_DEFAULT 1000
++#define PRIORITY_LOCAL_BOUND 100
++
+ bool
+ route_exchange_relevant_port(const struct sbrec_port_binding *pb)
+ {
+@@ -46,7 +49,7 @@ advertise_route_hash(const struct in6_addr *dst, unsigned int plen)
+     return hash_int(plen, hash);
+ }
+ 
+-static const struct sbrec_port_binding*
++const struct sbrec_port_binding*
+ find_route_exchange_pb(struct ovsdb_idl_index *sbrec_port_binding_by_name,
+                        const struct sbrec_chassis *chassis,
+                        const struct sset *active_tunnels,
+@@ -74,6 +77,29 @@ find_route_exchange_pb(struct ovsdb_idl_index *sbrec_port_binding_by_name,
+     return NULL;
+ }
+ 
++static bool
++pb_is_local(struct ovsdb_idl_index *sbrec_port_binding_by_name,
++            const struct sbrec_chassis *chassis,
++            const struct sset *active_tunnels,
++            const char *port_name)
++{
++    if (lport_is_chassis_resident(sbrec_port_binding_by_name, chassis,
++                                active_tunnels, port_name)) {
++        return true;
++    }
++
++    const struct sbrec_port_binding *pb = lport_lookup_by_name(
++        sbrec_port_binding_by_name, port_name);
++
++    const char *crp = smap_get(&pb->options, "chassis-redirect-port");
++    if (!crp) {
++        return NULL;
++    }
++
++    return lport_is_chassis_resident(sbrec_port_binding_by_name, chassis,
++                                     active_tunnels, crp);
++}
++
+ static void
+ advertise_datapath_cleanup(struct advertise_datapath_entry *ad)
+ {
+@@ -92,6 +118,8 @@ route_run(struct route_ctx_in *r_ctx_in,
+           struct route_ctx_out *r_ctx_out)
+ {
+     tracked_datapaths_destroy(r_ctx_out->tracked_re_datapaths);
++    sset_clear(r_ctx_out->tracked_ports_local);
++    sset_clear(r_ctx_out->tracked_ports_remote);
+ 
+     const struct local_datapath *ld;
+     HMAP_FOR_EACH (ld, hmap_node, r_ctx_in->local_datapaths) {
+@@ -176,11 +204,29 @@ route_run(struct route_ctx_in *r_ctx_in,
+                 continue;
+             }
+ 
++            unsigned int priority = PRIORITY_DEFAULT;
++
++            if (route->tracked_port) {
++                if (pb_is_local(
++                          r_ctx_in->sbrec_port_binding_by_name,
++                          r_ctx_in->chassis,
++                          r_ctx_in->active_tunnels,
++                          route->tracked_port->logical_port)) {
++                    priority = PRIORITY_LOCAL_BOUND;
++                    sset_add(r_ctx_out->tracked_ports_local,
++                             route->tracked_port->logical_port);
++                } else {
++                    sset_add(r_ctx_out->tracked_ports_remote,
++                             route->tracked_port->logical_port);
++                }
++            }
++
+             struct advertise_route_entry *ar = xzalloc(sizeof(*ar));
+             hmap_insert(&ad->routes, &ar->node,
+                         advertise_route_hash(&prefix, plen));
+             ar->addr = prefix;
+             ar->plen = plen;
++            ar->priority = priority;
+         }
+         sbrec_advertised_route_index_destroy_row(route_filter);
+ 
+diff --git a/controller/route.h b/controller/route.h
+index 4b71fa88a..ef08312cb 100644
+--- a/controller/route.h
++++ b/controller/route.h
+@@ -39,6 +39,13 @@ struct route_ctx_in {
+ 
+ struct route_ctx_out {
+     struct hmap *tracked_re_datapaths;
++
++    /* Contains the tracked_ports that in the last run where bound locally */
++    struct sset *tracked_ports_local;
++
++    /* Contains the tracked_ports that in the last run where bound not local */
++    struct sset *tracked_ports_remote;
++
+     /* Contains struct advertise_datapath_entry */
+     struct hmap *announce_routes;
+ };
+@@ -61,11 +68,17 @@ struct advertise_route_entry {
+     struct hmap_node node;
+     struct in6_addr addr;
+     unsigned int plen;
++    unsigned int priority;
+     /* used by the route-exchange module to determine if the route is
+      * already installed */
+     bool installed;
+ };
+ 
++const struct sbrec_port_binding *find_route_exchange_pb(
++    struct ovsdb_idl_index *sbrec_port_binding_by_name,
++    const struct sbrec_chassis *chassis,
++    const struct sset *active_tunnels,
++    const struct sbrec_port_binding *pb);
+ bool route_exchange_relevant_port(const struct sbrec_port_binding *pb);
+ uint32_t advertise_route_hash(const struct in6_addr *dst, unsigned int plen);
+ void route_run(struct route_ctx_in *,
+diff --git a/tests/system-ovn.at b/tests/system-ovn.at
+index e830cbcc7..217a3f146 100644
+--- a/tests/system-ovn.at
++++ b/tests/system-ovn.at
+@@ -15028,8 +15028,8 @@ ovnvrf1337 1337
+ # ip route list output has a trailing space on each line
+ # the awk magic removes all trailing spaces.
+ OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
+-blackhole 192.0.2.0/24 proto 84
+-blackhole 198.51.100.0/24 proto 84])
++blackhole 192.0.2.0/24 proto 84 metric 1000
++blackhole 198.51.100.0/24 proto 84 metric 1000])
+ 
+ # we now switch to announcing host routes and expect 192.0.2.0/24 to be gone
+ # and the following to be added:
+@@ -15037,15 +15037,39 @@ blackhole 198.51.100.0/24 proto 84])
+ # * 192.0.2.2/32
+ # * 192.0.2.3/32
+ # * 192.0.2.10/32
++# the last 3 of them are local to the current chassis so we expect a better
++# prio.
+ check ovn-nbctl --wait=hv set Logical_Router_Port internet-public \
+                          options:dynamic-routing-connected-as-host-routes=true
+ 
+ OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
+-blackhole 192.0.2.1 proto 84
+-blackhole 192.0.2.2 proto 84
+-blackhole 192.0.2.3 proto 84
+-blackhole 192.0.2.10 proto 84
+-blackhole 198.51.100.0/24 proto 84])
++blackhole 192.0.2.1 proto 84 metric 1000
++blackhole 192.0.2.2 proto 84 metric 100
++blackhole 192.0.2.3 proto 84 metric 100
++blackhole 192.0.2.10 proto 84 metric 100
++blackhole 198.51.100.0/24 proto 84 metric 1000])
++
++# if the pr1-public lrp is now removed from this hypervisor the route metric
++# will go back to the default.
++# For this we just schedule it on a non existing chassis
++check ovn-nbctl lrp-del-gateway-chassis pr1-public hv1
++check ovn-nbctl --wait=hv lrp-set-gateway-chassis pr1-public hv123
++OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
++blackhole 192.0.2.1 proto 84 metric 1000
++blackhole 192.0.2.2 proto 84 metric 1000
++blackhole 192.0.2.3 proto 84 metric 100
++blackhole 192.0.2.10 proto 84 metric 1000
++blackhole 198.51.100.0/24 proto 84 metric 1000])
++
++# moving pr1-public back will also change the route metrics again
++check ovn-nbctl lrp-del-gateway-chassis pr1-public hv123
++check ovn-nbctl --wait=hv lrp-set-gateway-chassis pr1-public hv1
++OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
++blackhole 192.0.2.1 proto 84 metric 1000
++blackhole 192.0.2.2 proto 84 metric 100
++blackhole 192.0.2.3 proto 84 metric 100
++blackhole 192.0.2.10 proto 84 metric 100
++blackhole 198.51.100.0/24 proto 84 metric 1000])
+ 
+ # now we test route learning
+ check_row_count Learned_Route 0
+@@ -15255,8 +15279,8 @@ ovnvrf1337 1337
+ # ip route list output has a trailing space on each line
+ # the awk magic removes all trailing spaces.
+ OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
+-blackhole 192.0.2.0/24 proto 84
+-blackhole 198.51.100.0/24 proto 84])
++blackhole 192.0.2.0/24 proto 84 metric 1000
++blackhole 198.51.100.0/24 proto 84 metric 1000])
+ 
+ # we now switch to announcing host routes and expect 192.0.2.0/24 to be gone
+ # and the following to be added:
+@@ -15270,11 +15294,33 @@ check ovn-nbctl --wait=hv set Logical_Router_Port internet-public \
+                          options:dynamic-routing-connected-as-host-routes=true
+ 
+ OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
+-blackhole 192.0.2.1 proto 84
+-blackhole 192.0.2.2 proto 84
+-blackhole 192.0.2.3 proto 84
+-blackhole 192.0.2.10 proto 84
+-blackhole 198.51.100.0/24 proto 84])
++blackhole 192.0.2.1 proto 84 metric 100
++blackhole 192.0.2.2 proto 84 metric 100
++blackhole 192.0.2.3 proto 84 metric 100
++blackhole 192.0.2.10 proto 84 metric 100
++blackhole 198.51.100.0/24 proto 84 metric 1000])
++
++# if the pr1-public lrp is now removed from this hypervisor the route metric
++# will go back to the default.
++# For this we just schedule it on a non existing chassis
++check ovn-nbctl lrp-del-gateway-chassis pr1-public hv1
++check ovn-nbctl --wait=hv lrp-set-gateway-chassis pr1-public hv123
++OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
++blackhole 192.0.2.1 proto 84 metric 100
++blackhole 192.0.2.2 proto 84 metric 1000
++blackhole 192.0.2.3 proto 84 metric 100
++blackhole 192.0.2.10 proto 84 metric 1000
++blackhole 198.51.100.0/24 proto 84 metric 1000])
++
++# moving pr1-public back will also change the route metrics again
++check ovn-nbctl lrp-del-gateway-chassis pr1-public hv123
++check ovn-nbctl --wait=hv lrp-set-gateway-chassis pr1-public hv1
++OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
++blackhole 192.0.2.1 proto 84 metric 100
++blackhole 192.0.2.2 proto 84 metric 100
++blackhole 192.0.2.3 proto 84 metric 100
++blackhole 192.0.2.10 proto 84 metric 100
++blackhole 198.51.100.0/24 proto 84 metric 1000])
+ 
+ # now we test route learning
+ check_row_count Learned_Route 0
+-- 
+2.43.0
+
