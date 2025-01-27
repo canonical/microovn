@@ -20,6 +20,7 @@ func (c *cmdClusterAdd) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <NAME>",
 		Short: "Generates a token for a new server",
+		Args:  cobra.MatchAll(cobra.ExactArgs(1)),
 		RunE:  c.Run,
 	}
 
@@ -28,11 +29,7 @@ func (c *cmdClusterAdd) Command() *cobra.Command {
 	return cmd
 }
 
-func (c *cmdClusterAdd) Run(cmd *cobra.Command, args []string) error {
-	if len(args) != 1 {
-		return cmd.Help()
-	}
-
+func (c *cmdClusterAdd) Run(_ *cobra.Command, args []string) error {
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
 		return err
