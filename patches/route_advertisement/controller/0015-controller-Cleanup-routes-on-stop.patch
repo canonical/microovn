@@ -1,0 +1,300 @@
+From 2644829fd87054470a42e9492ee015383382eccf Mon Sep 17 00:00:00 2001
+From: Felix Huettner <felix.huettner@stackit.cloud>
+Date: Thu, 19 Dec 2024 15:03:01 +0100
+Subject: [Patch ovn 15/15] controller: Cleanup routes on stop.
+To: dev@openvswitch.org
+
+When we stop ovn-controller without immediately restarting it we now
+cleanup routes.
+This allows the routing agents to stop advertising this chassis to the
+fabric.
+
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+---
+ controller/route-exchange-netlink.c | 40 +++++++++++++++++
+ controller/route-exchange-netlink.h |  2 +
+ controller/route-exchange.c         | 67 ++++++++++++++++++++++++++++
+ tests/system-ovn.at                 | 69 ++++++++++++++++++++++++++++-
+ 4 files changed, 177 insertions(+), 1 deletion(-)
+
+diff --git a/controller/route-exchange-netlink.c b/controller/route-exchange-netlink.c
+index f4428009e..03e75f7de 100644
+--- a/controller/route-exchange-netlink.c
++++ b/controller/route-exchange-netlink.c
+@@ -291,3 +291,43 @@ re_nl_sync_routes(uint32_t table_id,
+         }
+     }
+ }
++
++static void
++handle_route_msg_delete_all_our_routes(const struct route_table_msg *msg,
++                                       void *data OVS_UNUSED)
++{
++    const struct route_data *rd = &msg->rd;
++    int err;
++
++    /* This route is not from us, so not interesting. */
++    if (rd->rtm_protocol != RTPROT_OVN) {
++        return;
++    }
++
++    err = re_nl_delete_route(rd->rta_table_id, &rd->rta_dst,
++                             rd->rtm_dst_len, rd->rta_priority);
++    if (err) {
++        char addr_s[INET6_ADDRSTRLEN + 1];
++        VLOG_WARN_RL(&rl, "Delete route table_id=%"PRIu32" dst=%s plen=%d: %s",
++                     rd->rta_table_id,
++                     ipv6_string_mapped(
++                         addr_s, &rd->rta_dst) ? addr_s : "(invalid)",
++                     rd->rtm_dst_len,
++                     ovs_strerror(err));
++    }
++}
++
++void
++re_nl_cleanup_routes(uint32_t table_id)
++{
++    /* Remove routes from the system that are not in the host_routes hmap and
++     * remove entries from host_routes hmap that match routes already installed
++     * in the system. */
++    struct route_msg_handle_data data = {
++        .routes = NULL,
++        .learned_routes = NULL,
++    };
++    route_table_dump_one_table(table_id,
++                               handle_route_msg_delete_all_our_routes,
++                               &data);
++}
+diff --git a/controller/route-exchange-netlink.h b/controller/route-exchange-netlink.h
+index 13346e944..d1f624e45 100644
+--- a/controller/route-exchange-netlink.h
++++ b/controller/route-exchange-netlink.h
+@@ -50,4 +50,6 @@ void re_nl_sync_routes(uint32_t table_id,
+                        const struct hmap *host_routes,
+                        struct hmap *learned_routes);
+ 
++void re_nl_cleanup_routes(uint32_t table_id);
++
+ #endif /* route-exchange-netlink.h */
+diff --git a/controller/route-exchange.c b/controller/route-exchange.c
+index e56875d9f..8bf29b3f4 100644
+--- a/controller/route-exchange.c
++++ b/controller/route-exchange.c
+@@ -16,6 +16,7 @@
+ 
+ #include <errno.h>
+ #include <net/if.h>
++#include <stdbool.h>
+ 
+ #include "openvswitch/vlog.h"
+ 
+@@ -33,6 +34,13 @@
+ VLOG_DEFINE_THIS_MODULE(route_exchange);
+ static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
+ 
++struct maintained_route_table_entry {
++    struct hmap_node node;
++    uint32_t table_id;
++};
++
++static struct hmap _maintained_route_tables = HMAP_INITIALIZER(
++    &_maintained_route_tables);
+ static struct sset _maintained_vrfs = SSET_INITIALIZER(&_maintained_vrfs);
+ 
+ struct route_entry {
+@@ -47,6 +55,38 @@ struct route_entry {
+     bool stale;
+ };
+ 
++static uint32_t
++maintained_route_table_hash(uint32_t table_id)
++{
++    return hash_int(table_id, 0);
++}
++
++static bool
++maintained_route_table_contains(uint32_t table_id)
++{
++    uint32_t hash = maintained_route_table_hash(table_id);
++    struct maintained_route_table_entry *mrt;
++    HMAP_FOR_EACH_WITH_HASH (mrt, node, hash,
++                             &_maintained_route_tables) {
++        if (mrt->table_id == table_id) {
++            return true;
++        }
++    }
++    return false;
++}
++
++static void
++maintained_route_table_add(uint32_t table_id)
++{
++    if (maintained_route_table_contains(table_id)) {
++        return;
++    }
++    uint32_t hash = maintained_route_table_hash(table_id);
++    struct maintained_route_table_entry *mrt = xzalloc(sizeof(*mrt));
++    mrt->table_id = table_id;
++    hmap_insert(&_maintained_route_tables, &mrt->node, hash);
++}
++
+ static struct route_entry *
+ route_alloc_entry(struct hmap *routes,
+                   const struct sbrec_datapath_binding *sb_db,
+@@ -187,6 +227,9 @@ route_exchange_run(struct route_exchange_ctx_in *r_ctx_in,
+ {
+     struct sset old_maintained_vrfs = SSET_INITIALIZER(&old_maintained_vrfs);
+     sset_swap(&_maintained_vrfs, &old_maintained_vrfs);
++    struct hmap old_maintained_route_table = HMAP_INITIALIZER(
++        &old_maintained_route_table);
++    hmap_swap(&_maintained_route_tables, &old_maintained_route_table);
+ 
+     const struct advertise_datapath_entry *ad;
+     HMAP_FOR_EACH (ad, node, r_ctx_in->announce_routes) {
+@@ -214,6 +257,7 @@ route_exchange_run(struct route_exchange_ctx_in *r_ctx_in,
+             sset_find_and_delete(&old_maintained_vrfs, vrf_name);
+         }
+ 
++        maintained_route_table_add(ad->key);
+         re_nl_sync_routes(ad->key, &ad->routes,
+                           &received_routes);
+ 
+@@ -232,6 +276,17 @@ out:
+         re_nl_received_routes_destroy(&received_routes);
+     }
+ 
++    /* Remove routes in tables previousl maintained by us. */
++    struct maintained_route_table_entry *mrt;
++    HMAP_FOR_EACH_SAFE (mrt, node, &old_maintained_route_table) {
++        if (!maintained_route_table_contains(mrt->table_id)) {
++            re_nl_cleanup_routes(mrt->table_id);
++        }
++        hmap_remove(&old_maintained_route_table, &mrt->node);
++        free(mrt);
++    }
++    hmap_destroy(&old_maintained_route_table);
++
+     /* Remove VRFs previously maintained by us not found in the above loop. */
+     const char *vrf_name;
+     SSET_FOR_EACH_SAFE (vrf_name, &old_maintained_vrfs) {
+@@ -246,6 +301,11 @@ out:
+ void
+ route_exchange_cleanup(void)
+ {
++    struct maintained_route_table_entry *mrt;
++    HMAP_FOR_EACH_SAFE (mrt, node, &_maintained_route_tables) {
++        re_nl_cleanup_routes(mrt->table_id);
++    }
++
+     const char *vrf_name;
+     SSET_FOR_EACH_SAFE (vrf_name, &_maintained_vrfs) {
+         re_nl_delete_vrf(vrf_name);
+@@ -255,10 +315,17 @@ route_exchange_cleanup(void)
+ void
+ route_exchange_destroy(void)
+ {
++    struct maintained_route_table_entry *mrt;
++    HMAP_FOR_EACH_SAFE (mrt, node, &_maintained_route_tables) {
++        hmap_remove(&_maintained_route_tables, &mrt->node);
++        free(mrt);
++    }
++
+     const char *vrf_name;
+     SSET_FOR_EACH_SAFE (vrf_name, &_maintained_vrfs) {
+         sset_delete(&_maintained_vrfs, SSET_NODE_FROM_NAME(vrf_name));
+     }
+ 
+     sset_destroy(&_maintained_vrfs);
++    hmap_destroy(&_maintained_route_tables);
+ }
+diff --git a/tests/system-ovn.at b/tests/system-ovn.at
+index af314cf80..b4580a62a 100644
+--- a/tests/system-ovn.at
++++ b/tests/system-ovn.at
+@@ -15093,8 +15093,40 @@ check ovn-nbctl --wait=hv set Logical_Router_Port internet-phys \
+       options:dynamic-routing-ifname=lo
+ check_row_count Learned_Route 1
+ 
+-
++# stopping the ovn-controller will clean up the route entries created by it
++# we first need to unset maintain-vrf as otherwise it will delete the whole vrf
++check ovn-nbctl --wait=hv set Logical_Router_Port internet-phys \
++                             options:maintain-vrf=false
+ OVS_APP_EXIT_AND_WAIT([ovn-controller])
++AT_CHECK([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [0], [dnl
++233.252.0.0/24 via 192.168.10.10 dev lo onlink
++])
++
++# starting it again will add the routes again
++# the 2 sync commands ensure that we wait until the routes are actually
++# installed. Otherwise this is racy
++start_daemon ovn-controller
++OVS_WAIT_UNTIL([test "$(ovn-appctl -t ovn-controller debug/status)" == "running"])
++check ovn-nbctl --wait=hv sync
++check ovn-nbctl --wait=hv sync
++OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
++blackhole 192.0.2.1 proto 84 metric 1000
++blackhole 192.0.2.2 proto 84 metric 100
++blackhole 192.0.2.3 proto 84 metric 100
++blackhole 192.0.2.10 proto 84 metric 100
++blackhole 198.51.100.0/24 proto 84 metric 1000
++233.252.0.0/24 via 192.168.10.10 dev lo onlink])
++
++# stoping with --restart will not touch the routes
++check ovn-appctl -t ovn-controller exit --restart
++OVS_WAIT_UNTIL([test "$(ovn-appctl -t ovn-controller debug/status)" != "running"])
++OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
++blackhole 192.0.2.1 proto 84 metric 1000
++blackhole 192.0.2.2 proto 84 metric 100
++blackhole 192.0.2.3 proto 84 metric 100
++blackhole 192.0.2.10 proto 84 metric 100
++blackhole 198.51.100.0/24 proto 84 metric 1000
++233.252.0.0/24 via 192.168.10.10 dev lo onlink])
+ 
+ as ovn-sb
+ OVS_APP_EXIT_AND_WAIT([ovsdb-server])
+@@ -15342,6 +15374,41 @@ check ovn-nbctl --wait=hv set Logical_Router_Port internet-phys \
+       options:dynamic-routing-ifname=lo
+ check_row_count Learned_Route 1
+ 
++# stopping the ovn-controller will clean up the route entries created by it
++# we first need to unset maintain-vrf as otherwise it will delete the whole vrf
++check ovn-nbctl --wait=hv set Logical_Router_Port internet-phys \
++                             options:maintain-vrf=false
++OVS_APP_EXIT_AND_WAIT([ovn-controller])
++AT_CHECK([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [0], [dnl
++233.252.0.0/24 via 192.168.10.10 dev lo onlink
++])
++
++# starting it again will add the routes again
++# the 2 sync commands ensure that we wait until the routes are actually
++# installed. Otherwise this is racy
++start_daemon ovn-controller
++OVS_WAIT_UNTIL([test "$(ovn-appctl -t ovn-controller debug/status)" == "running"])
++check ovn-nbctl --wait=hv sync
++check ovn-nbctl --wait=hv sync
++OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
++blackhole 192.0.2.1 proto 84 metric 100
++blackhole 192.0.2.2 proto 84 metric 100
++blackhole 192.0.2.3 proto 84 metric 100
++blackhole 192.0.2.10 proto 84 metric 100
++blackhole 198.51.100.0/24 proto 84 metric 1000
++233.252.0.0/24 via 192.168.10.10 dev lo onlink])
++
++# stoping with --restart will not touch the routes
++check ovn-appctl -t ovn-controller exit --restart
++OVS_WAIT_UNTIL([test "$(ovn-appctl -t ovn-controller debug/status)" != "running"])
++OVS_WAIT_UNTIL_EQUAL([ip route list vrf ovnvrf1337 | awk '{$1=$1};1'], [dnl
++blackhole 192.0.2.1 proto 84 metric 100
++blackhole 192.0.2.2 proto 84 metric 100
++blackhole 192.0.2.3 proto 84 metric 100
++blackhole 192.0.2.10 proto 84 metric 100
++blackhole 198.51.100.0/24 proto 84 metric 1000
++233.252.0.0/24 via 192.168.10.10 dev lo onlink])
++
+ as ovn-sb
+ OVS_APP_EXIT_AND_WAIT([ovsdb-server])
+ 
+-- 
+2.43.0
+

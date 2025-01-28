@@ -70,7 +70,7 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 	}
 
 	if extraConfig.Asn != "" {
-		err = startBgpUnnumbered(ctx, extConnections, extraConfig.Vrf, extraConfig.Asn)
+		err = startBgpUnnumbered(ctx, s, extConnections, extraConfig.Vrf, extraConfig.Asn)
 	}
 
 	return err

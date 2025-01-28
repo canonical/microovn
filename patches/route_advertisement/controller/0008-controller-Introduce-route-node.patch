@@ -1,0 +1,583 @@
+From 1ca251b42290ffafb96a1a03925ef0a3b94140d2 Mon Sep 17 00:00:00 2001
+From: Felix Huettner <felix.huettner@stackit.cloud>
+Date: Thu, 19 Dec 2024 15:02:48 +0100
+Subject: [Patch ovn 08/15] controller: Introduce route node.
+To: dev@openvswitch.org
+
+this engine node determines the routes that the ovn-controller should
+export.
+
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+---
+ controller/automake.mk      |   4 +-
+ controller/ovn-controller.c | 191 +++++++++++++++++++++++++++++++++-
+ controller/route.c          | 197 ++++++++++++++++++++++++++++++++++++
+ controller/route.h          |  73 +++++++++++++
+ tests/automake.mk           |   1 +
+ 5 files changed, 464 insertions(+), 2 deletions(-)
+ create mode 100644 controller/route.c
+ create mode 100644 controller/route.h
+
+diff --git a/controller/automake.mk b/controller/automake.mk
+index bb0bf2d33..a6a2c517a 100644
+--- a/controller/automake.mk
++++ b/controller/automake.mk
+@@ -51,7 +51,9 @@ controller_ovn_controller_SOURCES = \
+ 	controller/ct-zone.h \
+ 	controller/ct-zone.c \
+ 	controller/ovn-dns.c \
+-	controller/ovn-dns.h
++	controller/ovn-dns.h \
++	controller/route.h \
++	controller/route.c
+ 
+ controller_ovn_controller_LDADD = lib/libovn.la $(OVS_LIBDIR)/libopenvswitch.la
+ man_MANS += controller/ovn-controller.8
+diff --git a/controller/ovn-controller.c b/controller/ovn-controller.c
+index 854e54854..2082cbf22 100644
+--- a/controller/ovn-controller.c
++++ b/controller/ovn-controller.c
+@@ -88,6 +88,7 @@
+ #include "lib/dns-resolve.h"
+ #include "ct-zone.h"
+ #include "ovn-dns.h"
++#include "route.h"
+ 
+ VLOG_DEFINE_THIS_MODULE(main);
+ 
+@@ -865,7 +866,8 @@ ctrl_register_ovs_idl(struct ovsdb_idl *ovs_idl)
+     SB_NODE(fdb, "fdb") \
+     SB_NODE(meter, "meter") \
+     SB_NODE(static_mac_binding, "static_mac_binding") \
+-    SB_NODE(chassis_template_var, "chassis_template_var")
++    SB_NODE(chassis_template_var, "chassis_template_var") \
++    SB_NODE(advertised_route, "advertised_route")
+ 
+ enum sb_engine_node {
+ #define SB_NODE(NAME, NAME_STR) SB_##NAME,
+@@ -4812,6 +4814,175 @@ pflow_lflow_output_sb_chassis_handler(struct engine_node *node,
+     return true;
+ }
+ 
++struct ed_type_route {
++    /* Contains struct tracked_datapath entries for local datapaths subject to
++     * route exchange. */
++    struct hmap tracked_route_datapaths;
++    /* Contains struct advertise_datapath_entry */
++    struct hmap announce_routes;
++};
++
++static void
++en_route_run(struct engine_node *node, void *data)
++{
++    struct ed_type_route *re_data = data;
++    route_cleanup(&re_data->announce_routes);
++
++    const struct ovsrec_open_vswitch_table *ovs_table =
++        EN_OVSDB_GET(engine_get_input("OVS_open_vswitch", node));
++    const char *chassis_id = get_ovs_chassis_id(ovs_table);
++    ovs_assert(chassis_id);
++
++    struct ovsdb_idl_index *sbrec_chassis_by_name =
++        engine_ovsdb_node_get_index(
++                engine_get_input("SB_chassis", node),
++                "name");
++    const struct sbrec_chassis *chassis
++        = chassis_lookup_by_name(sbrec_chassis_by_name, chassis_id);
++    ovs_assert(chassis);
++
++    struct ovsdb_idl_index *sbrec_port_binding_by_name =
++        engine_ovsdb_node_get_index(
++                engine_get_input("SB_port_binding", node),
++                "name");
++    struct ed_type_runtime_data *rt_data =
++        engine_get_input_data("runtime_data", node);
++
++    struct ovsdb_idl_index *sbrec_advertised_route_by_datapath =
++        engine_ovsdb_node_get_index(
++            engine_get_input("SB_advertised_route", node),
++            "datapath");
++
++    struct route_ctx_in r_ctx_in = {
++        .ovnsb_idl_txn = engine_get_context()->ovnsb_idl_txn,
++        .sbrec_port_binding_by_name = sbrec_port_binding_by_name,
++        .chassis = chassis,
++        .active_tunnels = &rt_data->active_tunnels,
++        .local_datapaths = &rt_data->local_datapaths,
++        .local_lports = &rt_data->local_lports,
++        .sbrec_advertised_route_by_datapath =
++            sbrec_advertised_route_by_datapath,
++    };
++
++    struct route_ctx_out r_ctx_out = {
++        .tracked_re_datapaths = &re_data->tracked_route_datapaths,
++        .announce_routes = &re_data->announce_routes,
++    };
++
++    route_run(&r_ctx_in, &r_ctx_out);
++
++    engine_set_node_state(node, EN_UPDATED);
++}
++
++
++static void *
++en_route_init(struct engine_node *node OVS_UNUSED,
++                       struct engine_arg *arg OVS_UNUSED)
++{
++    struct ed_type_route *data = xzalloc(sizeof *data);
++
++    hmap_init(&data->tracked_route_datapaths);
++    hmap_init(&data->announce_routes);
++
++    return data;
++}
++
++static void
++en_route_cleanup(void *data)
++{
++    struct ed_type_route *re_data = data;
++
++    tracked_datapaths_destroy(&re_data->tracked_route_datapaths);
++    route_cleanup(&re_data->announce_routes);
++    hmap_destroy(&re_data->announce_routes);
++}
++
++static bool
++route_runtime_data_handler(struct engine_node *node, void *data)
++{
++    struct ed_type_route *re_data = data;
++    struct ed_type_runtime_data *rt_data =
++        engine_get_input_data("runtime_data", node);
++
++    if (!rt_data->tracked) {
++        return false;
++    }
++
++    struct tracked_datapath *t_dp;
++    HMAP_FOR_EACH (t_dp, node, &rt_data->tracked_dp_bindings) {
++        struct tracked_datapath *re_t_dp =
++            tracked_datapath_find(&re_data->tracked_route_datapaths, t_dp->dp);
++
++        if (re_t_dp) {
++            /* Until we get I-P support for route exchange we need to request
++             * recompute. */
++            return false;
++        }
++
++        struct shash_node *shash_node;
++        SHASH_FOR_EACH (shash_node, &t_dp->lports) {
++            struct tracked_lport *lport = shash_node->data;
++            if (route_exchange_relevant_port(lport->pb)) {
++                /* Until we get I-P support for route exchange we need to
++                 * request recompute. */
++                return false;
++            }
++        }
++    }
++
++    return true;
++}
++
++static bool
++route_sb_port_binding_data_handler(struct engine_node *node, void *data)
++{
++    struct ed_type_route *re_data = data;
++    const struct sbrec_port_binding_table *pb_table =
++        EN_OVSDB_GET(engine_get_input("SB_port_binding", node));
++
++    const struct sbrec_port_binding *sbrec_pb;
++    SBREC_PORT_BINDING_TABLE_FOR_EACH_TRACKED (sbrec_pb, pb_table) {
++        struct tracked_datapath *re_t_dp =
++            tracked_datapath_find(&re_data->tracked_route_datapaths,
++                                  sbrec_pb->datapath);
++        if (re_t_dp) {
++            /* Until we get I-P support for route exchange we need to request
++             * recompute. */
++            return false;
++        }
++
++        if (route_exchange_relevant_port(sbrec_pb)) {
++            /* Until we get I-P support for route exchange we need to
++             * request recompute. */
++            return false;
++        }
++
++    }
++    return true;
++}
++
++static bool
++route_sb_advertised_route_data_handler(struct engine_node *node, void *data)
++{
++    struct ed_type_route *re_data = data;
++    const struct sbrec_advertised_route_table *advertised_route_table =
++        EN_OVSDB_GET(engine_get_input("SB_advertised_route", node));
++
++    const struct sbrec_advertised_route *sbrec_route;
++    SBREC_ADVERTISED_ROUTE_TABLE_FOR_EACH_TRACKED (sbrec_route,
++                                                   advertised_route_table) {
++        struct tracked_datapath *re_t_dp =
++            tracked_datapath_find(&re_data->tracked_route_datapaths,
++                                  sbrec_route->datapath);
++        if (re_t_dp) {
++            /* Until we get I-P support for route exchange we need to request
++             * recompute. */
++            return false;
++        }
++    }
++    return true;
++}
++
+ /* Returns false if the northd internal version stored in SB_Global
+  * and ovn-controller internal version don't match.
+  */
+@@ -5020,6 +5191,9 @@ main(int argc, char *argv[])
+     struct ovsdb_idl_index *sbrec_chassis_template_var_index_by_chassis
+         = ovsdb_idl_index_create1(ovnsb_idl_loop.idl,
+                                   &sbrec_chassis_template_var_col_chassis);
++    struct ovsdb_idl_index *sbrec_advertised_route_index_by_datapath
++        = ovsdb_idl_index_create1(ovnsb_idl_loop.idl,
++                                  &sbrec_advertised_route_col_datapath);
+ 
+     ovsdb_idl_track_add_all(ovnsb_idl_loop.idl);
+     ovsdb_idl_omit_alert(ovnsb_idl_loop.idl,
+@@ -5103,6 +5277,7 @@ main(int argc, char *argv[])
+     ENGINE_NODE(mac_cache, "mac_cache");
+     ENGINE_NODE(bfd_chassis, "bfd_chassis");
+     ENGINE_NODE(dns_cache, "dns_cache");
++    ENGINE_NODE(route, "route");
+ 
+ #define SB_NODE(NAME, NAME_STR) ENGINE_NODE_SB(NAME, NAME_STR);
+     SB_NODES
+@@ -5125,6 +5300,15 @@ main(int argc, char *argv[])
+     engine_add_input(&en_lb_data, &en_runtime_data,
+                      lb_data_runtime_data_handler);
+ 
++    engine_add_input(&en_route, &en_ovs_open_vswitch, NULL);
++    engine_add_input(&en_route, &en_sb_chassis, NULL);
++    engine_add_input(&en_route, &en_sb_port_binding,
++                     route_sb_port_binding_data_handler);
++    engine_add_input(&en_route, &en_runtime_data,
++                     route_runtime_data_handler);
++    engine_add_input(&en_route, &en_sb_advertised_route,
++                     route_sb_advertised_route_data_handler);
++
+     engine_add_input(&en_addr_sets, &en_sb_address_set,
+                      addr_sets_sb_address_set_handler);
+     engine_add_input(&en_port_groups, &en_sb_port_group,
+@@ -5310,6 +5494,9 @@ main(int argc, char *argv[])
+                      controller_output_mac_cache_handler);
+     engine_add_input(&en_controller_output, &en_bfd_chassis,
+                      controller_output_bfd_chassis_handler);
++    /* This is just temporary until the route output is actually used. */
++    engine_add_input(&en_controller_output, &en_route,
++                     controller_output_bfd_chassis_handler);
+ 
+     struct engine_arg engine_arg = {
+         .sb_idl = ovnsb_idl_loop.idl,
+@@ -5340,6 +5527,8 @@ main(int argc, char *argv[])
+                                 sbrec_static_mac_binding_by_datapath);
+     engine_ovsdb_node_add_index(&en_sb_chassis_template_var, "chassis",
+                                 sbrec_chassis_template_var_index_by_chassis);
++    engine_ovsdb_node_add_index(&en_sb_advertised_route, "datapath",
++                                sbrec_advertised_route_index_by_datapath);
+     engine_ovsdb_node_add_index(&en_ovs_flow_sample_collector_set, "id",
+                                 ovsrec_flow_sample_collector_set_by_id);
+     engine_ovsdb_node_add_index(&en_ovs_port, "qos", ovsrec_port_by_qos);
+diff --git a/controller/route.c b/controller/route.c
+new file mode 100644
+index 000000000..b3ff77b83
+--- /dev/null
++++ b/controller/route.c
+@@ -0,0 +1,197 @@
++/*
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at:
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <config.h>
++
++#include <net/if.h>
++
++#include "openvswitch/vlog.h"
++
++#include "lib/ovn-sb-idl.h"
++
++#include "binding.h"
++#include "ha-chassis.h"
++#include "local_data.h"
++#include "route.h"
++
++
++VLOG_DEFINE_THIS_MODULE(exchange);
++static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
++
++/* While the linux kernel can handle 2^32 routing tables, only so many can fit
++ * in the corresponding VRF interface name. */
++#define MAX_TABLE_ID 1000000000
++
++bool
++route_exchange_relevant_port(const struct sbrec_port_binding *pb)
++{
++    return (pb && smap_get_bool(&pb->options, "dynamic-routing", false));
++}
++
++uint32_t
++advertise_route_hash(const struct in6_addr *dst, unsigned int plen)
++{
++    uint32_t hash = hash_bytes(dst->s6_addr, 16, 0);
++    return hash_int(plen, hash);
++}
++
++static const struct sbrec_port_binding*
++find_route_exchange_pb(struct ovsdb_idl_index *sbrec_port_binding_by_name,
++                       const struct sbrec_chassis *chassis,
++                       const struct sset *active_tunnels,
++                       const struct sbrec_port_binding *pb)
++{
++    if (!pb) {
++        return NULL;
++    }
++    if (route_exchange_relevant_port(pb)) {
++      return pb;
++    }
++    const char *crp = smap_get(&pb->options, "chassis-redirect-port");
++    if (!crp) {
++        return NULL;
++    }
++    if (!lport_is_chassis_resident(sbrec_port_binding_by_name, chassis,
++                                   active_tunnels, crp)) {
++        return NULL;
++    }
++    const struct sbrec_port_binding *crpbp = lport_lookup_by_name(
++        sbrec_port_binding_by_name, crp);
++    if (route_exchange_relevant_port(crpbp)) {
++        return crpbp;
++    }
++    return NULL;
++}
++
++static void
++advertise_datapath_cleanup(struct advertise_datapath_entry *ad)
++{
++    struct advertise_route_entry *ar;
++    HMAP_FOR_EACH_SAFE (ar, node, &ad->routes) {
++        hmap_remove(&ad->routes, &ar->node);
++        free(ar);
++    }
++    hmap_destroy(&ad->routes);
++    sset_destroy(&ad->bound_ports);
++    free(ad);
++}
++
++void
++route_run(struct route_ctx_in *r_ctx_in,
++          struct route_ctx_out *r_ctx_out)
++{
++    const struct local_datapath *ld;
++    HMAP_FOR_EACH (ld, hmap_node, r_ctx_in->local_datapaths) {
++        if (!ld->n_peer_ports || ld->is_switch) {
++            continue;
++        }
++
++        bool relevant_datapath = false;
++        struct advertise_datapath_entry *ad = xzalloc(sizeof(*ad));
++        ad->key = ld->datapath->tunnel_key;
++        ad->db = ld->datapath;
++        hmap_init(&ad->routes);
++        sset_init(&ad->bound_ports);
++
++        /* This is a LR datapath, find LRPs with route exchange options
++         * that are bound locally. */
++        for (size_t i = 0; i < ld->n_peer_ports; i++) {
++            const struct sbrec_port_binding *local_peer
++                = ld->peer_ports[i].local;
++            const struct sbrec_port_binding *repb = find_route_exchange_pb(
++                r_ctx_in->sbrec_port_binding_by_name,
++                r_ctx_in->chassis,
++                r_ctx_in->active_tunnels,
++                local_peer);
++            if (!repb) {
++                continue;
++            }
++
++            ad->maintain_vrf |= smap_get_bool(&repb->options,
++                                          "maintain-vrf", false);
++            ad->use_netns |= smap_get_bool(&repb->options,
++                                       "use-netns", false);
++            relevant_datapath = true;
++            sset_add(&ad->bound_ports, local_peer->logical_port);
++        }
++
++        if (!relevant_datapath) {
++            advertise_datapath_cleanup(ad);
++            continue;
++        }
++        tracked_datapath_add(ld->datapath, TRACKED_RESOURCE_NEW,
++                             r_ctx_out->tracked_re_datapaths);
++
++        /* While tunnel_key would most likely never be negative, the compiler
++         * has opinions if we don't check before using it in snprintf below. */
++        if (ld->datapath->tunnel_key < 0 ||
++            ld->datapath->tunnel_key > MAX_TABLE_ID) {
++            VLOG_WARN_RL(&rl,
++                         "skip route sync for datapath "UUID_FMT", "
++                         "tunnel_key %"PRIi64" would make VRF interface name "
++                         "overflow.",
++                         UUID_ARGS(&ld->datapath->header_.uuid),
++                         ld->datapath->tunnel_key);
++            goto cleanup;
++        }
++
++        if (ad->maintain_vrf && ad->use_netns) {
++            VLOG_WARN_RL(&rl,
++                         "For Datapath %"PRIu64" both maintain-vrf and "
++                         "use-netns are set, this will never work",
++                         ld->datapath->tunnel_key);
++            goto cleanup;
++        }
++
++        struct sbrec_advertised_route *route_filter =
++            sbrec_advertised_route_index_init_row(
++                r_ctx_in->sbrec_advertised_route_by_datapath);
++        sbrec_advertised_route_index_set_datapath(route_filter, ld->datapath);
++        struct sbrec_advertised_route *route;
++        SBREC_ADVERTISED_ROUTE_FOR_EACH_EQUAL (route, route_filter,
++                r_ctx_in->sbrec_advertised_route_by_datapath) {
++            struct in6_addr prefix;
++            unsigned int plen;
++            if (!ip46_parse_cidr(route->ip_prefix, &prefix, &plen)) {
++                VLOG_WARN_RL(&rl, "bad 'ip_prefix' %s in route "
++                             UUID_FMT, route->ip_prefix,
++                             UUID_ARGS(&route->header_.uuid));
++                continue;
++            }
++
++            struct advertise_route_entry *ar = xzalloc(sizeof(*ar));
++            hmap_insert(&ad->routes, &ar->node,
++                        advertise_route_hash(&prefix, plen));
++            ar->addr = prefix;
++            ar->plen = plen;
++        }
++        sbrec_advertised_route_index_destroy_row(route_filter);
++
++        hmap_insert(r_ctx_out->announce_routes, &ad->node, ad->key);
++        continue;
++
++cleanup:
++        advertise_datapath_cleanup(ad);
++    }
++}
++
++void
++route_cleanup(struct hmap *announce_routes)
++{
++    struct advertise_datapath_entry *ad;
++    HMAP_FOR_EACH_SAFE (ad, node, announce_routes) {
++        hmap_remove(announce_routes, &ad->node);
++        advertise_datapath_cleanup(ad);
++    }
++}
+diff --git a/controller/route.h b/controller/route.h
+new file mode 100644
+index 000000000..2a54cf3e3
+--- /dev/null
++++ b/controller/route.h
+@@ -0,0 +1,73 @@
++/*
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at:
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef ROUTE_H
++#define ROUTE_H 1
++
++#include <stdbool.h>
++#include <netinet/in.h>
++#include "openvswitch/hmap.h"
++#include "sset.h"
++
++struct hmap;
++struct ovsdb_idl_index;
++struct sbrec_chassis;
++struct sbrec_port_binding;
++struct sset;
++
++struct route_ctx_in {
++    struct ovsdb_idl_txn *ovnsb_idl_txn;
++    struct ovsdb_idl_index *sbrec_port_binding_by_name;
++    const struct sbrec_chassis *chassis;
++    const struct sset *active_tunnels;
++    struct hmap *local_datapaths;
++    const struct sset *local_lports;
++    struct ovsdb_idl_index *sbrec_advertised_route_by_datapath;
++};
++
++struct route_ctx_out {
++    struct hmap *tracked_re_datapaths;
++    /* Contains struct advertise_datapath_entry */
++    struct hmap *announce_routes;
++};
++
++struct advertise_datapath_entry {
++    struct hmap_node node;
++    /* tunnel_key of the datapath */
++    int64_t key;
++    const struct sbrec_datapath_binding *db;
++    bool maintain_vrf;
++    bool use_netns;
++    struct hmap routes;
++    /* the name of the port bindings locally bound for this datapath and
++     * running route exchange logic. */
++    struct sset bound_ports;
++};
++
++struct advertise_route_entry {
++    struct hmap_node node;
++    struct in6_addr addr;
++    unsigned int plen;
++    /* used by the route-exchange module to determine if the route is
++     * already installed */
++    bool installed;
++};
++
++bool route_exchange_relevant_port(const struct sbrec_port_binding *pb);
++uint32_t advertise_route_hash(const struct in6_addr *dst, unsigned int plen);
++void route_run(struct route_ctx_in *,
++               struct route_ctx_out *);
++void route_cleanup(struct hmap *announce_routes);
++
++#endif /* ROUTE_H */
+diff --git a/tests/automake.mk b/tests/automake.mk
+index 3899c9e80..9244532fa 100644
+--- a/tests/automake.mk
++++ b/tests/automake.mk
+@@ -305,6 +305,7 @@ tests_ovstest_LDADD = $(OVS_LIBDIR)/daemon.lo \
+ 	controller/ovsport.$(OBJEXT) \
+ 	controller/patch.$(OBJEXT) \
+ 	controller/vif-plug.$(OBJEXT) \
++	controller/route.$(OBJEXT) \
+ 	northd/ipam.$(OBJEXT)
+ 
+ # Python tests.
+-- 
+2.43.0
+

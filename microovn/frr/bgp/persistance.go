@@ -35,11 +35,12 @@ func EnsureInterfacesInVrf(ctx context.Context, s state.State) error {
 		}
 		portVrf = strings.TrimSpace(portVrf)
 
-		portIP, err := ovnCmd.VSCtl(ctx, s, "get", "port", port, fmt.Sprintf("external-ids:%s", BgpIfaceIP))
-		if err != nil {
-			allErrors = errors.Join(allErrors, fmt.Errorf("failed to lookup IPv4 address of port '%s': %v", port, err))
-		}
-		portIP = strings.Trim(strings.TrimSpace(portIP), "\"")
+		portIP := ""
+		// portIP, err = ovnCmd.VSCtl(ctx, s, "get", "port", port, fmt.Sprintf("external-ids:%s", BgpIfaceIP))
+		// if err != nil {
+		// 	allErrors = errors.Join(allErrors, fmt.Errorf("failed to lookup IPv4 address of port '%s': %v", port, err))
+		// }
+		// portIP = strings.Trim(strings.TrimSpace(portIP), "\"")
 
 		err = moveInterfaceToVrf(ctx, port, portIP, portVrf)
 		if err != nil {

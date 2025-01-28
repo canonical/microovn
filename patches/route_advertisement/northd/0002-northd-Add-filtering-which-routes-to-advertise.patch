@@ -1,0 +1,251 @@
+From 0e66ac8d67ee92a1e3f8e51310af79670f94897f Mon Sep 17 00:00:00 2001
+From: Felix Huettner <felix.huettner@stackit.cloud>
+Date: Wed, 18 Dec 2024 11:24:55 +0100
+Subject: [Patch ovn 02/15] northd: Add filtering which routes to advertise.
+To: dev@openvswitch.org
+
+previously all routes of a logical router where announced. However in
+some cases it makes more sense to only announce static or connected
+routes. Therefor we add options to LR and LRP to define which routes to
+advertise.
+
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+---
+ NEWS                              |  3 ++
+ northd/en-advertised-route-sync.c | 18 +++++++
+ ovn-nb.xml                        | 78 ++++++++++++++++++++++++++++---
+ tests/ovn-northd.at               | 61 +++++++++++++++++++++++-
+ 4 files changed, 152 insertions(+), 8 deletions(-)
+
+diff --git a/NEWS b/NEWS
+index 0d1e9ff68..519d4d186 100644
+--- a/NEWS
++++ b/NEWS
+@@ -31,6 +31,9 @@ Post v24.09.0
+    - Add the option "dynamic-routing" to Logical Routers. If set to true all
+      static and connected routes attached to the router are shared to the
+      southbound "Route" table for sharing outside of OVN.
++     The routes can furthe be filtered by setting `dynamic-routing-connected`
++     and `dynamic-routing-static` on the LR or LRP. The LRP settings overwrite
++     the LR settings for all routes using this interface as an exit.
+ 
+ OVN v24.09.0 - 13 Sep 2024
+ --------------------------
+diff --git a/northd/en-advertised-route-sync.c b/northd/en-advertised-route-sync.c
+index 46ae3adf8..33097ed72 100644
+--- a/northd/en-advertised-route-sync.c
++++ b/northd/en-advertised-route-sync.c
+@@ -15,6 +15,7 @@
+ #include <config.h>
+ 
+ #include "openvswitch/vlog.h"
++#include "smap.h"
+ #include "stopwatch.h"
+ #include "northd.h"
+ 
+@@ -135,6 +136,13 @@ route_erase_entry(struct ar_entry *route_e)
+     free(route_e);
+ }
+ 
++static bool
++get_nbrp_or_nbr_option(const struct ovn_port *op, const char *key)
++{
++    return smap_get_bool(&op->nbrp->options, key,
++        smap_get_bool(&op->od->nbr->options, key, false));
++}
++
+ static void
+ advertised_route_table_sync(
+     struct ovsdb_idl_txn *ovnsb_txn,
+@@ -172,6 +180,16 @@ advertised_route_table_sync(
+                            false)) {
+             continue;
+         }
++        if (route->source == ROUTE_SOURCE_CONNECTED &&
++                !get_nbrp_or_nbr_option(route->out_port,
++                                        "dynamic-routing-connected")) {
++            continue;
++        }
++        if (route->source == ROUTE_SOURCE_STATIC &&
++                !get_nbrp_or_nbr_option(route->out_port,
++                                        "dynamic-routing-static")) {
++            continue;
++        }
+ 
+         char *ip_prefix = normalize_v46_prefix(&route->prefix,
+                                                route->plen);
+diff --git a/ovn-nb.xml b/ovn-nb.xml
+index 718d0126e..0ac03fda0 100644
+--- a/ovn-nb.xml
++++ b/ovn-nb.xml
+@@ -2951,13 +2951,45 @@ or
+         If set to <code>true</code> then this <ref table="Logical_Router"/>
+         can participate in dynamic routing with components outside of OVN.
+ 
+-        It will synchronize all routes to the soutbound
+-        <ref table="Route" db="OVN_SB"/> table that are relevant for the
+-        router. This includes:
+-        * all "connected" routes implicitly created by networks associated with
+-          this Logical Router
+-        * all <ref table="Logical_Router_Static_Route"/> that are applied to
+-          this Logical Router
++        Users will need to use the following settings to opt into individual
++        routes types that should be advertised. See:
++        * <ref column="options" key="dynamic-routing-connected"
++               table="Logical_Router"/>
++        * <ref column="options" key="dynamic-routing-static"
++               table="Logical_Router"/>
++        * <ref column="options" key="dynamic-routing-connected"
++               table="Logical_Router_Port"/>
++        * <ref column="options" key="dynamic-routing-static"
++               table="Logical_Router_Port"/>
++      </column>
++
++      <column name="options" key="dynamic-routing-connected"
++              type='{"type": "boolean"}'>
++        Only relevant if <ref column="options" key="dynamic-routing"
++        table="Logical_Router"/> is set to <code>true</code>.
++
++        If this is <code>true</code> as well then northd will synchronize all
++        "connected" routes to the southbound <ref table="Route" db="OVN_SB"/>
++        table. "Connected" here means routes implicitly created by networks
++        associated with the LRPs.
++
++        This value can be overwritten on a per LRP basis using
++        <ref column="options" key="dynamic-routing-connected"
++             table="Logical_Router_Port"/>.
++      </column>
++
++      <column name="options" key="dynamic-routing-static"
++              type='{"type": "boolean"}'>
++        Only relevant if <ref column="options" key="dynamic-routing"
++        table="Logical_Router"/> is set to <code>true</code>.
++
++        If this is <code>true</code> as well then northd will synchronize all
++        <ref table="Logical_Router_Static_Route"/> to the southbound
++        <ref table="Route" db="OVN_SB"/> table.
++
++        This value can be overwritten on a per LRP basis using
++        <ref column="options" key="dynamic-routing-static"
++             table="Logical_Router_Port"/>.
+       </column>
+     </group>
+ 
+@@ -3684,6 +3716,38 @@ or
+           learned by the <code>ovn-ic</code> daemon.
+         </p>
+       </column>
++
++      <column name="options" key="dynamic-routing-connected"
++              type='{"type": "boolean"}'>
++        Only relevant if <ref column="options" key="dynamic-routing"
++        table="Logical_Router"/> on the respective Logical_Router is set
++        to <code>true</code>.
++
++        If this is <code>true</code> as well then northd will synchronize all
++        "connected" routes associated with this LRP to the southbound
++        <ref table="Route" db="OVN_SB"/> table. "Connected" here means routes
++        implicitly created by network associated with this LRP.
++
++        If not set the value from <ref column="options"
++        key="dynamic-routing-connected" table="Logical_Router_Port"/> will be
++        used.
++      </column>
++
++      <column name="options" key="dynamic-routing-static"
++              type='{"type": "boolean"}'>
++        Only relevant if <ref column="options" key="dynamic-routing"
++        table="Logical_Router"/> on the respective Logical_Router is set
++        to <code>true</code>.
++
++        If this is <code>true</code> as well then northd will synchronize all
++        <ref table="Logical_Router_Static_Route"/> to the southbound
++        <ref table="Route" db="OVN_SB"/> table that use this LRP as an outgoin
++        interface.
++
++        If not set the value from <ref column="options"
++        key="dynamic-routing-static" table="Logical_Router_Port"/> will be
++        used.
++      </column>
+     </group>
+ 
+     <group title="Attachment">
+diff --git a/tests/ovn-northd.at b/tests/ovn-northd.at
+index d4038abc0..bd77d8d0b 100644
+--- a/tests/ovn-northd.at
++++ b/tests/ovn-northd.at
+@@ -14427,7 +14427,9 @@ ovn_start
+ 
+ # adding a router - still nothing here
+ check ovn-nbctl lr-add lr0
+-check ovn-nbctl --wait=sb set Logical_Router lr0 option:dynamic-routing=true
++check ovn-nbctl --wait=sb set Logical_Router lr0 option:dynamic-routing=true \
++                                 option:dynamic-routing-connected=true \
++                                 option:dynamic-routing-static=true
+ check_row_count Advertised_Route 0
+ datapath=$(ovn-sbctl --bare --columns _uuid list datapath_binding lr0)
+ 
+@@ -14476,3 +14478,60 @@ check_row_count Advertised_Route 0
+ AT_CLEANUP
+ ])
+ 
++OVN_FOR_EACH_NORTHD_NO_HV([
++AT_SETUP([dynamic-routing - sync to sb filtering])
++AT_KEYWORDS([dynamic-routing])
++ovn_start
++
++# we start with announcing everything on a lr with 2 lrps and 2 static routes
++check ovn-nbctl lr-add lr0
++check ovn-nbctl --wait=sb set Logical_Router lr0 option:dynamic-routing=true \
++                                 option:dynamic-routing-connected=true \
++                                 option:dynamic-routing-static=true
++check ovn-nbctl --wait=sb lrp-add lr0 lr0-sw0 00:00:00:00:ff:01 10.0.0.1/24
++sw0=$(ovn-sbctl --bare --columns _uuid list port_binding lr0-sw0)
++check ovn-nbctl --wait=sb lrp-add lr0 lr0-sw1 00:00:00:00:ff:02 10.0.1.1/24
++sw1=$(ovn-sbctl --bare --columns _uuid list port_binding lr0-sw1)
++check ovn-nbctl --wait=sb lr-route-add lr0 192.168.0.0/24 10.0.0.10
++check ovn-nbctl --wait=sb lr-route-add lr0 192.168.1.0/24 10.0.1.10
++check_row_count Advertised_Route 4
++datapath=$(ovn-sbctl --bare --columns _uuid list datapath_binding lr0)
++
++# disabeling connected routes just keeps the static ones
++check ovn-nbctl --wait=sb remove Logical_Router lr0 option dynamic-routing-connected
++check_row_count Advertised_Route 2
++AT_CHECK([ovn-sbctl --columns ip_prefix --bare find Advertised_Route datapath=$datapath logical_port=$sw0], [0], [dnl
++192.168.0.0/24
++])
++AT_CHECK([ovn-sbctl --columns ip_prefix --bare find Advertised_Route datapath=$datapath logical_port=$sw1], [0], [dnl
++192.168.1.0/24
++])
++
++# enabeling it on lr0-sw0 will just bring this one route back
++check ovn-nbctl --wait=sb set Logical_Router_Port lr0-sw0 option:dynamic-routing-connected=true
++check_row_count Advertised_Route 3
++check_row_count Advertised_Route 2 logical_port=$sw0
++check_row_count Advertised_Route 1 logical_port=$sw0 ip_prefix=10.0.0.0/24
++check_row_count Advertised_Route 1 logical_port=$sw0 ip_prefix=192.168.0.0/24
++
++# disabeling static routes just keeps the one explicit connected route
++check ovn-nbctl --wait=sb remove Logical_Router lr0 option dynamic-routing-static
++check_row_count Advertised_Route 1
++AT_CHECK([ovn-sbctl --columns ip_prefix --bare find Advertised_Route datapath=$datapath logical_port=$sw0], [0], [dnl
++10.0.0.0/24
++])
++
++# enabeling static routes on the LR, but disabeling them on lr0-sw0 also works
++check ovn-nbctl --wait=sb set Logical_Router lr0 option:dynamic-routing-static=true
++check ovn-nbctl --wait=sb set Logical_Router_Port lr0-sw0 option:dynamic-routing-static=false
++check_row_count Advertised_Route 2
++AT_CHECK([ovn-sbctl --columns ip_prefix --bare find Advertised_Route datapath=$datapath logical_port=$sw0], [0], [dnl
++10.0.0.0/24
++])
++AT_CHECK([ovn-sbctl --columns ip_prefix --bare find Advertised_Route datapath=$datapath logical_port=$sw1], [0], [dnl
++192.168.1.0/24
++])
++
++AT_CLEANUP
++])
++
+-- 
+2.43.0
+

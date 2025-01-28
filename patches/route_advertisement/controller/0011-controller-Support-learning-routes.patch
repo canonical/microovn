@@ -1,0 +1,495 @@
+From 21dead812c725270324ba0f8876e28700b2e1b4f Mon Sep 17 00:00:00 2001
+From: Felix Huettner <felix.huettner@stackit.cloud>
+Date: Thu, 19 Dec 2024 15:02:54 +0100
+Subject: [Patch ovn 11/15] controller: Support learning routes.
+To: dev@openvswitch.org
+
+we now learn all routes inside the vrfs we also advertise routes on.
+The routes are then placed in the southbound database for processing by
+northd.
+
+Routes are only selected if matching the following rules:
+1. must not be a route advertised by us
+2. must not be a local connected route (as we want to not learn transfer
+   networks)
+3. the prefix must not be a link local address
+
+However we can not reliably determine over which link we learned the
+route in case we have two LRPs of the same LR on the same chassis.
+For now we just assume the routes on both links are identical.
+Future commits will refine this.
+
+Signed-off-by: Felix Huettner <felix.huettner@stackit.cloud>
+---
+ controller/ovn-controller.c         |  25 ++++-
+ controller/route-exchange-netlink.c |  42 +++++++-
+ controller/route-exchange-netlink.h |  13 ++-
+ controller/route-exchange.c         | 151 +++++++++++++++++++++++++++-
+ controller/route-exchange.h         |   3 +
+ lib/ovn-util.c                      |  10 ++
+ lib/ovn-util.h                      |   1 +
+ tests/system-ovn.at                 |  28 ++++++
+ 8 files changed, 267 insertions(+), 6 deletions(-)
+
+diff --git a/controller/ovn-controller.c b/controller/ovn-controller.c
+index 0176b1095..12dc1c4b7 100644
+--- a/controller/ovn-controller.c
++++ b/controller/ovn-controller.c
+@@ -868,7 +868,8 @@ ctrl_register_ovs_idl(struct ovsdb_idl *ovs_idl)
+     SB_NODE(meter, "meter") \
+     SB_NODE(static_mac_binding, "static_mac_binding") \
+     SB_NODE(chassis_template_var, "chassis_template_var") \
+-    SB_NODE(advertised_route, "advertised_route")
++    SB_NODE(advertised_route, "advertised_route") \
++    SB_NODE(learned_route, "learned_route")
+ 
+ enum sb_engine_node {
+ #define SB_NODE(NAME, NAME_STR) SB_##NAME,
+@@ -4995,10 +4996,23 @@ route_sb_advertised_route_data_handler(struct engine_node *node, void *data)
+ static void
+ en_route_exchange_run(struct engine_node *node, void *data OVS_UNUSED)
+ {
++    struct ovsdb_idl_index *sbrec_learned_route_by_datapath =
++        engine_ovsdb_node_get_index(
++            engine_get_input("SB_learned_route", node),
++            "datapath");
++
++    struct ovsdb_idl_index *sbrec_port_binding_by_name =
++        engine_ovsdb_node_get_index(
++                engine_get_input("SB_port_binding", node),
++                "name");
++
+     struct ed_type_route *route_data =
+         engine_get_input_data("route", node);
+ 
+     struct route_exchange_ctx_in r_ctx_in = {
++        .ovnsb_idl_txn = engine_get_context()->ovnsb_idl_txn,
++        .sbrec_learned_route_by_datapath = sbrec_learned_route_by_datapath,
++        .sbrec_port_binding_by_name = sbrec_port_binding_by_name,
+         .announce_routes = &route_data->announce_routes,
+     };
+ 
+@@ -5233,6 +5247,9 @@ main(int argc, char *argv[])
+     struct ovsdb_idl_index *sbrec_advertised_route_index_by_datapath
+         = ovsdb_idl_index_create1(ovnsb_idl_loop.idl,
+                                   &sbrec_advertised_route_col_datapath);
++    struct ovsdb_idl_index *sbrec_learned_route_index_by_datapath
++        = ovsdb_idl_index_create1(ovnsb_idl_loop.idl,
++                                  &sbrec_learned_route_col_datapath);
+ 
+     ovsdb_idl_track_add_all(ovnsb_idl_loop.idl);
+     ovsdb_idl_omit_alert(ovnsb_idl_loop.idl,
+@@ -5350,6 +5367,10 @@ main(int argc, char *argv[])
+                      route_sb_advertised_route_data_handler);
+ 
+     engine_add_input(&en_route_exchange, &en_route, NULL);
++    engine_add_input(&en_route_exchange, &en_sb_learned_route,
++                     engine_noop_handler);
++    engine_add_input(&en_route_exchange, &en_sb_port_binding,
++                     engine_noop_handler);
+ 
+     engine_add_input(&en_addr_sets, &en_sb_address_set,
+                      addr_sets_sb_address_set_handler);
+@@ -5570,6 +5591,8 @@ main(int argc, char *argv[])
+                                 sbrec_chassis_template_var_index_by_chassis);
+     engine_ovsdb_node_add_index(&en_sb_advertised_route, "datapath",
+                                 sbrec_advertised_route_index_by_datapath);
++    engine_ovsdb_node_add_index(&en_sb_learned_route, "datapath",
++                                sbrec_learned_route_index_by_datapath);
+     engine_ovsdb_node_add_index(&en_ovs_flow_sample_collector_set, "id",
+                                 ovsrec_flow_sample_collector_set_by_id);
+     engine_ovsdb_node_add_index(&en_ovs_port, "qos", ovsrec_port_by_qos);
+diff --git a/controller/route-exchange-netlink.c b/controller/route-exchange-netlink.c
+index e065c49c1..c2a7551f3 100644
+--- a/controller/route-exchange-netlink.c
++++ b/controller/route-exchange-netlink.c
+@@ -26,6 +26,7 @@
+ #include "openvswitch/ofpbuf.h"
+ #include "openvswitch/vlog.h"
+ #include "packets.h"
++#include "ovn-util.h"
+ #include "route-table.h"
+ #include "route.h"
+ 
+@@ -171,8 +172,27 @@ re_nl_delete_route(uint32_t table_id, const struct in6_addr *dst,
+     return modify_route(RTM_DELROUTE, 0, table_id, dst, plen);
+ }
+ 
++static uint32_t
++route_hash(const struct in6_addr *dst, unsigned int plen)
++{
++    uint32_t hash = hash_bytes(dst->s6_addr, 16, 0);
++    return hash_int(plen, hash);
++}
++
++void
++re_nl_received_routes_destroy(struct hmap *host_routes)
++{
++    struct re_nl_received_route_node *rr;
++    HMAP_FOR_EACH_SAFE (rr, hmap_node, host_routes) {
++        hmap_remove(host_routes, &rr->hmap_node);
++        free(rr);
++    }
++    hmap_destroy(host_routes);
++}
++
+ struct route_msg_handle_data {
+     const struct hmap *routes;
++    struct hmap *learned_routes;
+ };
+ 
+ static void
+@@ -184,8 +204,25 @@ handle_route_msg_delete_routes(const struct route_table_msg *msg, void *data)
+     struct advertise_route_entry *ar;
+     int err;
+ 
+-    /* This route is not from us, we should not touch it. */
++    /* This route is not from us, so we learn it. */
+     if (rd->rtm_protocol != RTPROT_OVN) {
++        if (prefix_is_link_local(&rd->rta_dst, rd->rtm_dst_len)) {
++            return;
++        }
++        struct route_data_nexthop *nexthop;
++        LIST_FOR_EACH (nexthop, nexthop_node, &rd->nexthops) {
++            if (ipv6_is_zero(&nexthop->addr)) {
++                /* This is most likely an address on the local link.
++                 * As we just want to learn remote routes we do not need it.*/
++                continue;
++            }
++            struct re_nl_received_route_node *rr = xzalloc(sizeof *rr);
++            hmap_insert(handle_data->learned_routes, &rr->hmap_node,
++                        route_hash(&rd->rta_dst, rd->rtm_dst_len));
++            rr->addr = rd->rta_dst;
++            rr->plen = rd->rtm_dst_len;
++            rr->nexthop = nexthop->addr;
++        }
+         return;
+     }
+ 
+@@ -212,7 +249,7 @@ handle_route_msg_delete_routes(const struct route_table_msg *msg, void *data)
+ 
+ void
+ re_nl_sync_routes(uint32_t table_id,
+-                  const struct hmap *routes)
++                  const struct hmap *routes, struct hmap *learned_routes)
+ {
+     struct advertise_route_entry *ar;
+     HMAP_FOR_EACH (ar, node, routes) {
+@@ -224,6 +261,7 @@ re_nl_sync_routes(uint32_t table_id,
+      * in the system. */
+     struct route_msg_handle_data data = {
+         .routes = routes,
++        .learned_routes = learned_routes,
+     };
+     route_table_dump_one_table(table_id, handle_route_msg_delete_routes,
+                                &data);
+diff --git a/controller/route-exchange-netlink.h b/controller/route-exchange-netlink.h
+index f87ebd75d..566b38fde 100644
+--- a/controller/route-exchange-netlink.h
++++ b/controller/route-exchange-netlink.h
+@@ -16,6 +16,8 @@
+ #define ROUTE_EXCHANGE_NETLINK_H 1
+ 
+ #include <stdint.h>
++#include "openvswitch/hmap.h"
++#include <netinet/in.h>
+ 
+ /* This value is arbitrary but currently unused.
+  * See https://github.com/iproute2/iproute2/blob/main/etc/iproute2/rt_protos */
+@@ -24,6 +26,13 @@
+ struct in6_addr;
+ struct hmap;
+ 
++struct re_nl_received_route_node {
++    struct hmap_node hmap_node;
++    struct in6_addr addr;
++    unsigned int plen;
++    struct in6_addr nexthop;
++};
++
+ int re_nl_create_vrf(const char *ifname, uint32_t table_id);
+ int re_nl_delete_vrf(const char *ifname);
+ 
+@@ -34,7 +43,9 @@ int re_nl_delete_route(uint32_t table_id, const struct in6_addr *dst,
+ 
+ void re_nl_dump(uint32_t table_id);
+ 
++void re_nl_received_routes_destroy(struct hmap *);
+ void re_nl_sync_routes(uint32_t table_id,
+-                       const struct hmap *host_routes);
++                       const struct hmap *host_routes,
++                       struct hmap *learned_routes);
+ 
+ #endif /* route-exchange-netlink.h */
+diff --git a/controller/route-exchange.c b/controller/route-exchange.c
+index 90144f75f..50b4709c0 100644
+--- a/controller/route-exchange.c
++++ b/controller/route-exchange.c
+@@ -34,6 +34,143 @@ static struct vlog_rate_limit rl = VLOG_RATE_LIMIT_INIT(5, 20);
+ 
+ static struct sset _maintained_vrfs = SSET_INITIALIZER(&_maintained_vrfs);
+ 
++struct route_entry {
++    struct hmap_node hmap_node;
++
++    const struct sbrec_learned_route *sb_route;
++
++    const struct sbrec_datapath_binding *sb_db;
++    const struct sbrec_port_binding *logical_port;
++    char *ip_prefix;
++    char *nexthop;
++    bool stale;
++};
++
++static struct route_entry *
++route_alloc_entry(struct hmap *routes,
++                  const struct sbrec_datapath_binding *sb_db,
++                  const struct sbrec_port_binding *logical_port,
++                  const char *ip_prefix, const char *nexthop)
++{
++    struct route_entry *route_e = xzalloc(sizeof *route_e);
++
++    route_e->sb_db = sb_db;
++    route_e->logical_port = logical_port;
++    route_e->ip_prefix = xstrdup(ip_prefix);
++    route_e->nexthop = xstrdup(nexthop);
++    route_e->stale = false;
++    uint32_t hash = uuid_hash(&sb_db->header_.uuid);
++    hash = hash_string(logical_port->logical_port, hash);
++    hash = hash_string(ip_prefix, hash);
++    hmap_insert(routes, &route_e->hmap_node, hash);
++
++    return route_e;
++}
++
++static struct route_entry *
++route_lookup_or_add(struct hmap *route_map,
++                    const struct sbrec_datapath_binding *sb_db,
++                    const struct sbrec_port_binding *logical_port,
++                    const char *ip_prefix, const char *nexthop)
++{
++    struct route_entry *route_e;
++    uint32_t hash;
++
++    hash = uuid_hash(&sb_db->header_.uuid);
++    hash = hash_string(logical_port->logical_port, hash);
++    hash = hash_string(ip_prefix, hash);
++    HMAP_FOR_EACH_WITH_HASH (route_e, hmap_node, hash, route_map) {
++        if (!strcmp(route_e->nexthop, nexthop)) {
++            return route_e;
++        }
++    }
++
++    route_e = route_alloc_entry(route_map, sb_db,
++                                logical_port, ip_prefix, nexthop);
++    return route_e;
++}
++
++static void
++route_erase_entry(struct route_entry *route_e)
++{
++    free(route_e->ip_prefix);
++    free(route_e->nexthop);
++    free(route_e);
++}
++
++static void
++sb_sync_learned_routes(const struct sbrec_datapath_binding *datapath,
++                       const struct hmap *learned_routes,
++                       const struct sset *bound_ports,
++                       struct ovsdb_idl_txn *ovnsb_idl_txn,
++                       struct ovsdb_idl_index *sbrec_learned_route_by_datapath,
++                       struct ovsdb_idl_index *sbrec_port_binding_by_name)
++{
++    struct hmap sync_routes = HMAP_INITIALIZER(&sync_routes);
++    struct route_entry *route_e;
++    const struct sbrec_learned_route *sb_route;
++
++    struct sbrec_learned_route *filter =
++        sbrec_learned_route_index_init_row(sbrec_learned_route_by_datapath);
++    sbrec_learned_route_index_set_datapath(filter, datapath);
++    SBREC_LEARNED_ROUTE_FOR_EACH_EQUAL (sb_route, filter,
++                                        sbrec_learned_route_by_datapath) {
++        /* If the port is not local we don't care about it.
++         * Some other ovn-controller will handle it. */
++        if (!sset_contains(bound_ports,
++                           sb_route->logical_port->logical_port)) {
++            continue;
++        }
++        route_e = route_alloc_entry(&sync_routes,
++                                    sb_route->datapath,
++                                    sb_route->logical_port,
++                                    sb_route->ip_prefix,
++                                    sb_route->nexthop);
++        route_e->stale = true;
++        route_e->sb_route = sb_route;
++    }
++    sbrec_learned_route_index_destroy_row(filter);
++
++    struct re_nl_received_route_node *learned_route;
++    HMAP_FOR_EACH (learned_route, hmap_node, learned_routes) {
++        char *ip_prefix = normalize_v46_prefix(&learned_route->addr,
++                                               learned_route->plen);
++        char *nexthop = normalize_v46(&learned_route->nexthop);
++
++        const char *logical_port_name;
++        SSET_FOR_EACH (logical_port_name, bound_ports) {
++            const struct sbrec_port_binding *logical_port =
++                lport_lookup_by_name(sbrec_port_binding_by_name,
++                                     logical_port_name);
++            if (!logical_port) {
++                continue;
++            }
++            route_e = route_lookup_or_add(&sync_routes,
++                datapath,
++                logical_port, ip_prefix, nexthop);
++            route_e->stale = false;
++            if (!route_e->sb_route) {
++                sb_route = sbrec_learned_route_insert(ovnsb_idl_txn);
++                sbrec_learned_route_set_datapath(sb_route, datapath);
++                sbrec_learned_route_set_logical_port(sb_route, logical_port);
++                sbrec_learned_route_set_ip_prefix(sb_route, ip_prefix);
++                sbrec_learned_route_set_nexthop(sb_route, nexthop);
++                route_e->sb_route = sb_route;
++            }
++        }
++        free(ip_prefix);
++        free(nexthop);
++    }
++
++    HMAP_FOR_EACH_POP (route_e, hmap_node, &sync_routes) {
++        if (route_e->stale) {
++            sbrec_learned_route_delete(route_e->sb_route);
++        }
++        route_erase_entry(route_e);
++    }
++    hmap_destroy(&sync_routes);
++}
++
+ void
+ route_exchange_run(struct route_exchange_ctx_in *r_ctx_in,
+                    struct route_exchange_ctx_out *r_ctx_out OVS_UNUSED)
+@@ -57,7 +194,7 @@ route_exchange_run(struct route_exchange_ctx_in *r_ctx_in,
+                              "%"PRId64": %s.",
+                              vrf_name, ad->key,
+                              ovs_strerror(error));
+-                continue;
++                goto out;
+             }
+             sset_add(&_maintained_vrfs, vrf_name);
+         } else {
+@@ -67,7 +204,17 @@ route_exchange_run(struct route_exchange_ctx_in *r_ctx_in,
+             sset_find_and_delete(&old_maintained_vrfs, vrf_name);
+         }
+ 
+-        re_nl_sync_routes(ad->key, &ad->routes);
++        re_nl_sync_routes(ad->key, &ad->routes,
++                          &received_routes);
++
++        sb_sync_learned_routes(ad->db, &received_routes,
++                               &ad->bound_ports,
++                               r_ctx_in->ovnsb_idl_txn,
++                               r_ctx_in->sbrec_learned_route_by_datapath,
++                               r_ctx_in->sbrec_port_binding_by_name);
++
++out:
++        re_nl_received_routes_destroy(&received_routes);
+     }
+ 
+     /* Remove VRFs previously maintained by us not found in the above loop. */
+diff --git a/controller/route-exchange.h b/controller/route-exchange.h
+index 2c2a9ab84..73e9ed733 100644
+--- a/controller/route-exchange.h
++++ b/controller/route-exchange.h
+@@ -18,6 +18,9 @@
+ #include <stdbool.h>
+ 
+ struct route_exchange_ctx_in {
++    struct ovsdb_idl_txn *ovnsb_idl_txn;
++    struct ovsdb_idl_index *sbrec_learned_route_by_datapath;
++    struct ovsdb_idl_index *sbrec_port_binding_by_name;
+     /* Contains struct advertise_datapath_entry */
+     struct hmap *announce_routes;
+ };
+diff --git a/lib/ovn-util.c b/lib/ovn-util.c
+index ed847517a..507847280 100644
+--- a/lib/ovn-util.c
++++ b/lib/ovn-util.c
+@@ -822,6 +822,16 @@ normalize_v46_prefix(const struct in6_addr *prefix, unsigned int plen)
+     }
+ }
+ 
++char *
++normalize_v46(const struct in6_addr *prefix)
++{
++    if (IN6_IS_ADDR_V4MAPPED(prefix)) {
++        return normalize_ipv4_prefix(in6_addr_get_mapped_ipv4(prefix), 32);
++    } else {
++        return normalize_ipv6_prefix(prefix, 128);
++    }
++}
++
+ char *
+ str_tolower(const char *orig)
+ {
+diff --git a/lib/ovn-util.h b/lib/ovn-util.h
+index 31c2c68df..8d8fd989b 100644
+--- a/lib/ovn-util.h
++++ b/lib/ovn-util.h
+@@ -207,6 +207,7 @@ bool ip46_parse(const char *ip_str, struct in6_addr *ip);
+ char *normalize_ipv4_prefix(ovs_be32 ipv4, unsigned int plen);
+ char *normalize_ipv6_prefix(const struct in6_addr *ipv6, unsigned int plen);
+ char *normalize_v46_prefix(const struct in6_addr *prefix, unsigned int plen);
++char *normalize_v46(const struct in6_addr *prefix);
+ 
+ /* Returns a lowercase copy of orig.
+  * Caller must free the returned string.
+diff --git a/tests/system-ovn.at b/tests/system-ovn.at
+index b7afb29c2..f30571570 100644
+--- a/tests/system-ovn.at
++++ b/tests/system-ovn.at
+@@ -15047,6 +15047,20 @@ blackhole 192.0.2.3 proto 84
+ blackhole 192.0.2.10 proto 84
+ blackhole 198.51.100.0/24 proto 84])
+ 
++# now we test route learning
++check_row_count Learned_Route 0
++check ip route add 233.252.0.0/24 via 192.168.10.10 dev lo onlink vrf ovnvrf1337
++# for now we trigger a recompute as route watching is not yet implemented
++check ovn-appctl -t ovn-controller inc-engine/recompute
++check ovn-nbctl --wait=hv sync
++check_row_count Learned_Route 1
++lp=$(ovn-sbctl --bare --columns _uuid list port_binding internet-phys)
++AT_CHECK_UNQUOTED([ovn-sbctl --columns ip_prefix,nexthop,logical_port --bare find Learned_Route], [0], [dnl
++233.252.0.0/24
++192.168.10.10
++$lp
++])
++
+ OVS_APP_EXIT_AND_WAIT([ovn-controller])
+ 
+ as ovn-sb
+@@ -15251,6 +15265,20 @@ blackhole 192.0.2.3 proto 84
+ blackhole 192.0.2.10 proto 84
+ blackhole 198.51.100.0/24 proto 84])
+ 
++# now we test route learning
++check_row_count Learned_Route 0
++check ip route add 233.252.0.0/24 via 192.168.10.10 dev lo onlink vrf ovnvrf1337
++# for now we trigger a recompute as route watching is not yet implemented
++check ovn-appctl -t ovn-controller inc-engine/recompute
++check ovn-nbctl --wait=hv sync
++check_row_count Learned_Route 2
++lp=$(ovn-sbctl --bare --columns _uuid list port_binding internet-phys)
++AT_CHECK_UNQUOTED([ovn-sbctl --columns ip_prefix,nexthop,logical_port --bare find Learned_Route logical_port=$lp], [0], [dnl
++233.252.0.0/24
++192.168.10.10
++$lp
++])
++
+ as ovn-sb
+ OVS_APP_EXIT_AND_WAIT([ovsdb-server])
+ 
+-- 
+2.43.0
+
