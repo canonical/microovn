@@ -46,3 +46,34 @@ jobs:
     steps:
       - name: Check signed commits in PR
         uses: 1Password/check-signed-commits-action@v1
+
+  commit-message-check:
+    runs-on: ubuntu-latest
+    name: Check Commit Message Format
+    steps:
+      - name: Get PR Commits
+        id: get-pr-commits
+        uses: tim-actions/get-pr-commits@master
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate Commit Messages
+        run: |
+          echo '${{ steps.get-pr-commits.outputs.commits }}' | jq -r '.[] | .commit.message' | while read -r message; do
+            subject=$(echo "$message" | head -n 1)
+            body=$(echo "$message" | tail -n +2)
+
+            # Check subject line length
+            if [ ${#subject} -gt 50 ]; then
+              echo "Commit subject exceeds 50 characters: '$subject'"
+              exit 1
+            fi
+
+            # Check body line length
+            echo "$body" | while read -r line; do
+              if [ ${#line} -gt 72 ]; then
+                echo "Commit body line exceeds 72 characters: '$line'"
+                exit 1
+              fi
+            done
+          done
