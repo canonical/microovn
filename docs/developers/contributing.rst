@@ -23,6 +23,8 @@ Contributor guidelines
 * Each commit must be signed.
 * The commit message should focus on WHY the change is necessary, we get the
   what and how by looking at the code.
+* The commit message must follow the 50/72 rule for readability within 80
+  column width terminals.
 * Include a Signed-off-by header in the commit message.
 * MicroOVN makes use of the GitHub Pull Request workflow.  There is no
   meaningful way to manage interdependencies between GitHub PRs, so we expect
