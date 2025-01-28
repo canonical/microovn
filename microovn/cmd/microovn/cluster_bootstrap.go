@@ -19,17 +19,14 @@ func (c *cmdClusterBootstrap) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bootstrap",
 		Short: "Sets up a new cluster",
+		Args:  cobra.MatchAll(cobra.ExactArgs(0)),
 		RunE:  c.Run,
 	}
 
 	return cmd
 }
 
-func (c *cmdClusterBootstrap) Run(cmd *cobra.Command, args []string) error {
-	if len(args) != 0 {
-		return cmd.Help()
-	}
-
+func (c *cmdClusterBootstrap) Run(_ *cobra.Command, _ []string) error {
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
 		return fmt.Errorf("Unable to configure MicroOVN: %w", err)

@@ -76,6 +76,9 @@ cli_ovsovn_register_test_functions() {
     bats_test_function \
         --description "microovn --version" \
         -- microovn_version
+    bats_test_function \
+        --description "Test invalid arguments return error code 1" \
+        -- test_invalid_args_return_1
 }
 
 ovs-appctl_ovs-vswitchd() {
@@ -221,6 +224,29 @@ microovn_version() {
         # only need to check this on first container.
         break
     done
+}
+
+test_invalid_args_return_1() {
+    local commands=(
+        "microovn cluster add"
+        "microovn cluster remove"
+        "microovn cluster bootstrap invalid_arg"
+        "microovn cluster join"
+        "microovn certificates reissue"
+        "microovn enable"
+        "microovn disable"
+    )
+
+    for container in $TEST_CONTAINERS; do
+        for cmd in "${commands[@]}"; do
+            # Run the test command in the container
+            run lxc_exec "$container" "$cmd"
+
+            # Assert the return code is 1
+            assert_failure
+        done
+    done
+
 }
 
 cli_ovsovn_register_test_functions

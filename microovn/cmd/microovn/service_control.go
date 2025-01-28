@@ -31,7 +31,7 @@ func (c *cmdDisable) Command() *cobra.Command {
 	return cmd
 }
 
-func (c *cmdDisable) Run(cmd *cobra.Command, args []string) error {
+func (c *cmdDisable) Run(_ *cobra.Command, args []string) error {
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
 		return err
@@ -40,10 +40,6 @@ func (c *cmdDisable) Run(cmd *cobra.Command, args []string) error {
 	cli, err := m.LocalClient()
 	if err != nil {
 		return err
-	}
-
-	if len(args) == 0 {
-		return cmd.Help()
 	}
 
 	targetService := args[0]
@@ -78,7 +74,7 @@ func (c *cmdEnable) Command() *cobra.Command {
 	return cmd
 }
 
-func (c *cmdEnable) Run(cmd *cobra.Command, args []string) error {
+func (c *cmdEnable) Run(_ *cobra.Command, args []string) error {
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
 		return err
@@ -87,10 +83,6 @@ func (c *cmdEnable) Run(cmd *cobra.Command, args []string) error {
 	cli, err := m.LocalClient()
 	if err != nil {
 		return err
-	}
-
-	if len(args) == 0 {
-		return cmd.Help()
 	}
 
 	targetService := args[0]

@@ -19,17 +19,14 @@ func (c *cmdClusterJoin) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "join <TOKEN>",
 		Short: "Joins an existing cluster",
+		Args:  cobra.MatchAll(cobra.ExactArgs(1)),
 		RunE:  c.Run,
 	}
 
 	return cmd
 }
 
-func (c *cmdClusterJoin) Run(cmd *cobra.Command, args []string) error {
-	if len(args) != 1 {
-		return cmd.Help()
-	}
-
+func (c *cmdClusterJoin) Run(_ *cobra.Command, args []string) error {
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
 		return fmt.Errorf("Unable to configure MicroCluster: %w", err)
