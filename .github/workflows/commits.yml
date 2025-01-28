@@ -46,3 +46,21 @@ jobs:
     steps:
       - name: Check signed commits in PR
         uses: 1Password/check-signed-commits-action@v1
+
+  commit-message-check:
+    runs-on: ubuntu-latest
+    name: Check Commit Message Format
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Get PR Commits
+        id: get-pr-commits
+        uses: tim-actions/get-pr-commits@master
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate Commit Messages
+        run: |
+          echo '${{ steps.get-pr-commits.outputs.commits }}' | tools/commitcheck.sh;
+          exit $?
