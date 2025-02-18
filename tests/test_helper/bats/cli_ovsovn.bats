@@ -79,6 +79,9 @@ cli_ovsovn_register_test_functions() {
     bats_test_function \
         --description "Test invalid arguments return error code 1" \
         -- test_invalid_args_return_1
+    bats_test_function \
+        --description "Test waitready command"\
+        -- test_waitready
 }
 
 ovs-appctl_ovs-vswitchd() {
@@ -250,3 +253,16 @@ test_invalid_args_return_1() {
 }
 
 cli_ovsovn_register_test_functions
+
+test_waitready(){
+    for container in $TEST_CONTAINERS; do
+        run lxc_exec $container "snap stop microovn.daemon"
+        assert_success
+        run lxc_exec $container "microovn waitready -t 1"
+        assert_failure
+        run lxc_exec $container "snap start microovn.daemon"
+        assert_success
+        run lxc_exec $container "microovn waitready -t 10"
+        assert_success
+    done;
+}
