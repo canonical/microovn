@@ -65,6 +65,9 @@ func main() {
 	var cmdEnable = cmdEnable{common: &commonCmd}
 	app.AddCommand(cmdEnable.Command())
 
+	var cmdWaitReady = cmdWaitReady{common: &commonCmd}
+	app.AddCommand(cmdWaitReady.Command())
+
 	// Nested.
 	var cmdCluster = cmdCluster{common: &commonCmd}
 	app.AddCommand(cmdCluster.Command())
