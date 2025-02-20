@@ -32,6 +32,14 @@ jobs:
       with:
         commits: ${{ steps.get-pr-commits.outputs.commits }}
 
+    - name: Check out repository
+      uses: actions/checkout@v3
+
+    - name: Validate Commit Messages
+      run: |
+        echo '${{ steps.get-pr-commits.outputs.commits }}' | tools/commitcheck.sh;
+        exit $?
+
   signed-commits-check:
     runs-on: ubuntu-latest
     name: Check signed commits in PR
