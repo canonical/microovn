@@ -13,7 +13,7 @@ jobs:
     name: Canonical CLA signed
     steps:
       - name: Check if CLA signed
-        uses: canonical/has-signed-canonical-cla@v1
+        uses: canonical/has-signed-canonical-cla@v2
 
   dco-check:
     runs-on: ubuntu-latest
