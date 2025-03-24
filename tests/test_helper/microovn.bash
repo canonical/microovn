@@ -726,3 +726,15 @@ function microovn_delete_vif() {
     lxc_exec "$container" "microovn.ovs-vsctl del-port $if_name"
     lxc_exec "$container" "microovn.ovn-nbctl lsp-del $lsp_name"
 }
+
+function setup_snap_aliases(){
+    local containers=$*
+    for container in $containers; do
+        for cmd in $(lxc_exec "$container" "ls /snap/bin/" |
+                         grep -E 'microovn\.');
+            do lxc_exec "$container" \
+                "snap alias $(echo $cmd | sed 's/.*microovn\./microovn./') \
+                            $(echo $cmd | sed 's/.*microovn.//')"
+        done
+    done
+}
