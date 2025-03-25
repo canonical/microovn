@@ -201,7 +201,7 @@ tls_cluster_chassis_reissue_certificates() {
 
         run reissue_certificate "$container" "$service"
         assert_failure
-        assert_output -p "Can't issue certificate for service '$service'. Service is not enabled on this member."
+        assert_output -p "can't issue certificate for service '$service', service is not enabled on this member,"
 
         run lxc_exec "$container" "ls $cert_path"
         assert_failure

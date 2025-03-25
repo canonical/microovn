@@ -79,23 +79,24 @@ func issueCertificate(cn string, serviceName string, certType CertificateType, p
 	validFrom := time.Now().UTC()
 	serialNumber, err := rand.Int(rand.Reader, MaxSerialNumber)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to generate serial number: %w", err)
+		return nil, nil, fmt.Errorf("failed to generate serial number: %w", err)
 	}
 
-	if certType == CertificateTypeCA {
+	switch certType {
+	case CertificateTypeCA:
 		isCa = true
 		keyUsage = x509.KeyUsageCertSign | x509.KeyUsageCRLSign
 		validTo = validFrom.Add(CACertValidity)
-	} else if certType == CertificateTypeServer {
+	case CertificateTypeServer:
 		isCa = false
 		keyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageKeyAgreement | x509.KeyUsageContentCommitment
 		validTo = validFrom.Add(ServiceCertValidity)
-	} else if certType == CertificateTypeClient {
+	case CertificateTypeClient:
 		isCa = false
 		keyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment | x509.KeyUsageDataEncipherment | x509.KeyUsageKeyAgreement
 		validTo = validFrom.Add(ServiceCertValidity)
-	} else {
-		return nil, nil, fmt.Errorf("failed ot issue certificate: unknown certificate type")
+	default:
+		return nil, nil, fmt.Errorf("failed to issue certificate: unknown certificate type")
 	}
 
 	template := x509.Certificate{
@@ -346,7 +347,7 @@ func getServiceCertificatePaths(service string) (string, string, error) {
 	default:
 		certPath = ""
 		keyPath = ""
-		err = fmt.Errorf("unknown service '%s'. Can't generate certificate paths", service)
+		err = fmt.Errorf("unknown service '%s'. can't generate certificate paths", service)
 	}
 
 	return certPath, keyPath, err

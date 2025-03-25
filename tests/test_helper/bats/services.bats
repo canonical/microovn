@@ -26,7 +26,7 @@ service_tests() {
     for container in $TEST_CONTAINERS; do
         # enable enabled service
         run lxc_exec "$container" "microovn enable switch"
-        assert_output "Error: Failed to enable service 'switch': 'This Service is already enabled'"
+        assert_output "Error: failed to enable service 'switch': 'this service is already enabled'"
 
         # enable non existing service
         run lxc_exec "$container" "microovn enable switchh"
@@ -38,7 +38,7 @@ service_tests() {
 
         # disable disabled service
         run lxc_exec "$container" "microovn disable switch"
-        assert_output "Error: Failed to disable service 'switch': 'This service is not enabled'"
+        assert_output "Error: failed to disable service 'switch': 'this service is not enabled'"
 
         run lxc_exec "$container" "microovn status | grep -ozE '${container}[^-]*' | grep switch"
         assert_output ""
@@ -64,7 +64,7 @@ service_warning_tests() {
     assert_output -p "[central] Warning: Cluster with less than 3 nodes can't tolerate any node failures."
 
     run lxc_exec "microovn-services-3" "microovn disable central"
-    assert_output "Error: Failed to disable service 'central': 'You cannot delete the final enabled central service'"
+    assert_output "Error: failed to disable service 'central': 'you cannot delete the final enabled central service'"
 
     # ensure central is actually still enabled
     assert [ -n "$(run lxc_exec "microovn-services-3" "microovn status | grep -ozE 'microovn-services-3[^-]*' | grep central")"]

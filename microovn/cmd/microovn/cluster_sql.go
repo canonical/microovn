@@ -29,7 +29,7 @@ func (c *cmdClusterSQL) Run(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
 		err := cmd.Help()
 		if err != nil {
-			return fmt.Errorf("Unable to load help: %w", err)
+			return fmt.Errorf("unable to load help: %w", err)
 		}
 
 		if len(args) == 0 {
