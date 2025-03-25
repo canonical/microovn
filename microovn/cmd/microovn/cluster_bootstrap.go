@@ -29,13 +29,13 @@ func (c *cmdClusterBootstrap) Command() *cobra.Command {
 func (c *cmdClusterBootstrap) Run(_ *cobra.Command, _ []string) error {
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
-		return fmt.Errorf("Unable to configure MicroOVN: %w", err)
+		return fmt.Errorf("unable to configure microovn: %w", err)
 	}
 
 	// Get system hostname.
 	hostname, err := os.Hostname()
 	if err != nil {
-		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
+		return fmt.Errorf("failed to retrieve system hostname: %w", err)
 	}
 
 	// Get system address.

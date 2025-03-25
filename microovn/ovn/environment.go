@@ -113,7 +113,7 @@ func generateEnvironment(ctx context.Context, s state.State) error {
 	// Generate ovn.env.
 	fd, err := os.OpenFile(paths.OvnEnvFile(), os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0644)
 	if err != nil {
-		return fmt.Errorf("Couldn't open ovn.env: %w", err)
+		return fmt.Errorf("couldn't open ovn.env: %w", err)
 	}
 	defer fd.Close()
 
@@ -146,7 +146,7 @@ func generateEnvironment(ctx context.Context, s state.State) error {
 		"sbConnect": sbConnect,
 	})
 	if err != nil {
-		return fmt.Errorf("Couldn't render ovn.env: %w", err)
+		return fmt.Errorf("couldn't render ovn.env: %w", err)
 	}
 
 	return nil
@@ -157,7 +157,7 @@ func createPaths() error {
 	for _, path := range paths.RequiredDirs() {
 		err := os.MkdirAll(path, 0700)
 		if err != nil {
-			return fmt.Errorf("Unable to create %q: %w", path, err)
+			return fmt.Errorf("unable to create %q: %w", path, err)
 		}
 	}
 
@@ -177,7 +177,7 @@ func cleanupPaths() error {
 		errs = append(
 			errs,
 			fmt.Errorf(
-				"failed to create backup directory '%s'. Refusing to continue with data removal: %s",
+				"failed to create backup directory '%s', refusing to continue with data removal: %s",
 				backupPath,
 				err,
 			),
@@ -199,7 +199,7 @@ func cleanupPaths() error {
 	if len(errs) > 0 {
 		errs = append(
 			errs,
-			fmt.Errorf("failures occured during backup. Refusing to continue with data removal"),
+			fmt.Errorf("failures occured during backup, refusing to continue with data removal"),
 		)
 		return errors.Join(errs...)
 	}

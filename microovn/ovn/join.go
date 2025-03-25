@@ -48,7 +48,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	// Generate the configuration.
 	err = generateEnvironment(ctx, s)
 	if err != nil {
-		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
+		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
 
 	// Generate client certificate for managing OVN Central services
@@ -69,33 +69,33 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	// Start all the required services, and central if needed
 	err = node.EnableService(ctx, s, types.SrvSwitch)
 	if err != nil {
-		logger.Infof("failed to enable switch")
+		logger.Infof("Failed to enable switch")
 		return err
 	}
 
 	if srvCentral < 3 {
 		err = node.EnableService(ctx, s, types.SrvCentral)
 		if err != nil {
-			logger.Infof("failed to enable central")
+			logger.Infof("Failed to enable central")
 			return err
 		}
 	}
 
 	err = generateEnvironment(ctx, s)
 	if err != nil {
-		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
+		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
 
 	err = node.EnableService(ctx, s, types.SrvChassis)
 	if err != nil {
-		logger.Infof("failed to enable switch")
+		logger.Infof("Failed to enable switch")
 		return err
 	}
 
 	// Enable OVN chassis.
 	sbConnect, _, err := environmentString(ctx, s, 6642)
 	if err != nil {
-		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
+		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
 	}
 
 	// A custom encapsulation IP address can also be directly passed as an initConfig parameter.
@@ -124,7 +124,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	)
 
 	if err != nil {
-		return fmt.Errorf("Error configuring OVS parameters: %s", err)
+		return fmt.Errorf("error configuring OVS parameters: %s", err)
 	}
 
 	return nil
