@@ -141,11 +141,12 @@ func printOvsdbSchemaReport(cli *microClusterClient.Client, dbSpec *ovnCmd.Ovsdb
 			nodeName = node.Host
 		}
 		msg += fmt.Sprintf("\t%s: ", nodeName)
-		if node.Error == types.OvsdbSchemaFetchErrorGeneric {
+		switch node.Error {
+		case types.OvsdbSchemaFetchErrorGeneric:
 			msg += "Error. Failed to contact member\n"
-		} else if node.Error == types.OvsdbSchemaFetchErrorNotSupported {
+		case types.OvsdbSchemaFetchErrorNotSupported:
 			msg += "Missing API. MicroOVN needs upgrade\n"
-		} else {
+		default:
 			msg += fmt.Sprintf("%s\n", node.SchemaVersion)
 		}
 	}

@@ -59,8 +59,8 @@ func getExpectedSchemaVersion(s state.State, r *http.Request) response.Response 
 
 	expectedVersion, err := ovsdb.ExpectedOvsdbSchemaVersion(r.Context(), s, dbSpec)
 	if err != nil {
-		logger.Errorf("failed to get expected OVSDB schema version for '%s' database: %s", dbSpec.FriendlyName, err)
-		return response.ErrorResponse(500, "Internal Server Error")
+		logger.Errorf("Failed to get expected OVSDB schema version for '%s' database: %s", dbSpec.FriendlyName, err)
+		return response.ErrorResponse(500, "internal server error")
 	}
 
 	return response.SyncResponse(true, expectedVersion)
@@ -78,8 +78,8 @@ func getAllExpectedSchemaVersions(s state.State, r *http.Request) response.Respo
 	// Get local expected schema version and store it in the final result
 	localExpectedVersion, err := ovsdb.ExpectedOvsdbSchemaVersion(r.Context(), s, dbSpec)
 	if err != nil {
-		logger.Errorf("failed to get expected OVSDB schema version for '%s' database: %s", dbSpec.FriendlyName, err)
-		return response.ErrorResponse(500, "Internal Server Error")
+		logger.Errorf("Failed to get expected OVSDB schema version for '%s' database: %s", dbSpec.FriendlyName, err)
+		return response.ErrorResponse(500, "internal server error")
 	}
 
 	responseData := types.OvsdbSchemaReport{
@@ -94,7 +94,7 @@ func getAllExpectedSchemaVersions(s state.State, r *http.Request) response.Respo
 	clusterClient, err := s.Cluster(false)
 	if err != nil {
 		logger.Errorf("Failed to get a client for every cluster member: %s", err)
-		return response.ErrorResponse(500, "Internal Server Error")
+		return response.ErrorResponse(500, "internal server error")
 	}
 
 	// Fetch expected schema versions from each cluster member.
@@ -123,8 +123,8 @@ func getAllExpectedSchemaVersions(s state.State, r *http.Request) response.Respo
 func getActiveSchemaVersion(s state.State, r *http.Request) response.Response {
 	hasCentral, err := node.HasServiceActive(r.Context(), s, types.SrvCentral)
 	if err != nil {
-		logger.Errorf("failed to check if central is active on this node: %s", err)
-		return response.ErrorResponse(500, "Internal Server Error")
+		logger.Errorf("Failed to check if central is active on this node: %s", err)
+		return response.ErrorResponse(500, "internal server error")
 	}
 
 	dbSpec, errResponse := parseDbSpec(r)
@@ -141,8 +141,8 @@ func getActiveSchemaVersion(s state.State, r *http.Request) response.Response {
 
 	activeSchema, err := ovnCmd.OvsdbClient(r.Context(), s, dbSpec, 10, 30, "get-schema-version", dbSpec.SocketURL)
 	if err != nil {
-		logger.Errorf("failed to get active schema version for '%s' database: %s", dbSpec.FriendlyName, err)
-		return response.ErrorResponse(500, "Internal Server Error")
+		logger.Errorf("Failed to get active schema version for '%s' database: %s", dbSpec.FriendlyName, err)
+		return response.ErrorResponse(500, "internal server error")
 	}
 
 	return response.SyncResponse(true, strings.TrimSpace(activeSchema))
@@ -156,14 +156,14 @@ func getActiveSchemaVersion(s state.State, r *http.Request) response.Response {
 func forwardActiveSchemaVersion(s state.State, r *http.Request, dbSpec *ovnCmd.OvsdbSpec) response.Response {
 	centralNodes, err := node.FindService(r.Context(), s, "central")
 	if err != nil {
-		logger.Errorf("failed to find central node: %s", err)
-		return response.ErrorResponse(500, "Internal Server Error")
+		logger.Errorf("Failed to find central node: %s", err)
+		return response.ErrorResponse(500, "internal server error")
 	}
 
 	clusterClients, err := s.Cluster(false)
 	if err != nil {
-		logger.Errorf("failed to get cluster clients: %v", err)
-		return response.ErrorResponse(500, "Internal Server Error")
+		logger.Errorf("Failed to get cluster clients: %v", err)
+		return response.ErrorResponse(500, "internal server error")
 	}
 
 	for _, _client := range clusterClients {
@@ -192,7 +192,7 @@ func forwardActiveSchemaVersion(s state.State, r *http.Request, dbSpec *ovnCmd.O
 	}
 
 	logger.Error("None of the central nodes responded to the forwarded query")
-	return response.ErrorResponse(500, "Internal Server Error")
+	return response.ErrorResponse(500, "internal server error")
 }
 
 // parseDbSpec is a helper function that returns OvsdbSpec based on the database name
@@ -202,8 +202,8 @@ func forwardActiveSchemaVersion(s state.State, r *http.Request, dbSpec *ovnCmd.O
 func parseDbSpec(r *http.Request) (*ovnCmd.OvsdbSpec, response.Response) {
 	requestedDB, err := url.PathUnescape(mux.Vars(r)["db"])
 	if err != nil {
-		logger.Errorf("failed to parse requested DB name from url '%s'", r.URL)
-		return nil, response.ErrorResponse(500, "Internal Server Error")
+		logger.Errorf("Failed to parse requested DB name from url '%s'", r.URL)
+		return nil, response.ErrorResponse(500, "internal server error")
 	}
 	requestedDB = strings.ToLower(requestedDB)
 
@@ -216,7 +216,7 @@ func parseDbSpec(r *http.Request) (*ovnCmd.OvsdbSpec, response.Response) {
 	dbSpec, err := ovnCmd.NewOvsdbSpec(dbType)
 	if err != nil {
 		logger.Errorf("%s", err)
-		return nil, response.ErrorResponse(500, "Internal Server Error")
+		return nil, response.ErrorResponse(500, "internal server error")
 	}
 	return dbSpec, nil
 }

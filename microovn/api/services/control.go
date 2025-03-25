@@ -32,10 +32,10 @@ func enableService(s state.State, r *http.Request) response.Response {
 	requestedService, err := url.PathUnescape(mux.Vars(r)["service"])
 	if err != nil {
 		logger.Errorf("Failed to get service: %s", err)
-		return response.ErrorResponse(500, "Internal server error")
+		return response.ErrorResponse(500, "internal server error")
 	}
 	if !types.CheckValidService(requestedService) {
-		return response.InternalError(errors.New("Service does not exist"))
+		return response.InternalError(errors.New("service does not exist"))
 	}
 
 	var extraConfig types.ExtraServiceConfig
@@ -53,7 +53,7 @@ func enableService(s state.State, r *http.Request) response.Response {
 	scr.Warnings, err = node.ServiceWarnings(r.Context(), s)
 	if err != nil {
 		logger.Errorf("Failed to generate warnings for service: %s: %s", requestedService, err)
-		return response.ErrorResponse(500, "Internal server error")
+		return response.ErrorResponse(500, "internal server error")
 	}
 	scr.Message = requestedService + " enabled"
 
@@ -69,10 +69,10 @@ func disableService(s state.State, r *http.Request) response.Response {
 	requestedService, err := url.PathUnescape(mux.Vars(r)["service"])
 	if err != nil {
 		logger.Errorf("Failed to get service: %s", err)
-		return response.ErrorResponse(500, "Internal server error")
+		return response.ErrorResponse(500, "internal server error")
 	}
 	if !types.CheckValidService(requestedService) {
-		return response.InternalError(errors.New("Service does not exist"))
+		return response.InternalError(errors.New("service does not exist"))
 	}
 	err = node.DisableService(r.Context(), s, requestedService)
 	if err != nil {
@@ -83,7 +83,7 @@ func disableService(s state.State, r *http.Request) response.Response {
 	scr.Warnings, err = node.ServiceWarnings(r.Context(), s)
 	if err != nil {
 		logger.Errorf("Failed to generate warnings for service: %s: %s", requestedService, err)
-		return response.ErrorResponse(500, "Internal server error")
+		return response.ErrorResponse(500, "internal server error")
 	}
 	scr.Message = requestedService + " disabled"
 

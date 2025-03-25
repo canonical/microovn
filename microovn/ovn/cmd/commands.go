@@ -53,7 +53,8 @@ func NewOvsdbSpec(dbType OvsdbType) (*OvsdbSpec, error) {
 	var dbSpec *OvsdbSpec
 	var err error
 
-	if dbType == OvsdbTypeNBLocal {
+	switch dbType {
+	case OvsdbTypeNBLocal:
 		dbSpec = &OvsdbSpec{
 			SocketURL:    fmt.Sprintf("unix:%s", paths.OvnNBDatabaseSock()),
 			Schema:       paths.OvsdbNbSchema(),
@@ -62,7 +63,7 @@ func NewOvsdbSpec(dbType OvsdbType) (*OvsdbSpec, error) {
 			ShortName:    "nb",
 			IsCentral:    true,
 		}
-	} else if dbType == OvsdbTypeSBLocal {
+	case OvsdbTypeSBLocal:
 		dbSpec = &OvsdbSpec{
 			SocketURL:    fmt.Sprintf("unix:%s", paths.OvnSBDatabaseSock()),
 			Schema:       paths.OvsdbSbSchema(),
@@ -71,7 +72,7 @@ func NewOvsdbSpec(dbType OvsdbType) (*OvsdbSpec, error) {
 			ShortName:    "sb",
 			IsCentral:    true,
 		}
-	} else if dbType == OvsdbTypeSwitchLocal {
+	case OvsdbTypeSwitchLocal:
 		dbSpec = &OvsdbSpec{
 			SocketURL:    fmt.Sprintf("unix:%s", paths.OvsDatabaseSock()),
 			Schema:       paths.OvsdbSwitchSchema(),
@@ -80,7 +81,7 @@ func NewOvsdbSpec(dbType OvsdbType) (*OvsdbSpec, error) {
 			ShortName:    "switch",
 			IsCentral:    false,
 		}
-	} else {
+	default:
 		err = errors.New("unknown ovsdb type")
 	}
 
@@ -119,11 +120,12 @@ func WaitForDBState(ctx context.Context, _ state.State, db *OvsdbSpec, dbState s
 func ovnDBCtl(ctx context.Context, s state.State, dbType OvsdbType, timeout int, args ...string) (string, error) {
 	var baseCmd string
 
-	if dbType == OvsdbTypeNBLocal {
+	switch dbType {
+	case OvsdbTypeNBLocal:
 		baseCmd = "ovn-nbctl"
-	} else if dbType == OvsdbTypeSBLocal {
+	case OvsdbTypeSBLocal:
 		baseCmd = "ovn-sbctl"
-	} else {
+	default:
 		return "", errors.New("unknown DB type. OVN commands work only with NB or SB database")
 	}
 
@@ -137,7 +139,7 @@ func ovnDBCtl(ctx context.Context, s state.State, dbType OvsdbType, timeout int,
 		return "", err
 	}
 
-	if !(slices.Contains(args, "--timeout") || slices.Contains(args, "-t")) {
+	if !slices.Contains(args, "--timeout") && !slices.Contains(args, "-t") {
 		args = append([]string{"--timeout", "30"}, args...)
 	}
 
@@ -222,7 +224,7 @@ func VSCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 		return "", err
 	}
 
-	if !(slices.Contains(args, "--timeout") || slices.Contains(args, "-t")) {
+	if !slices.Contains(args, "--timeout") && !slices.Contains(args, "-t") {
 		args = append([]string{"--timeout", "30"}, args...)
 	}
 
