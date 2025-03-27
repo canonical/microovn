@@ -252,8 +252,6 @@ test_invalid_args_return_1() {
 
 }
 
-cli_ovsovn_register_test_functions
-
 test_waitready(){
     for container in $TEST_CONTAINERS; do
         run lxc_exec $container "snap stop microovn.daemon"
@@ -266,3 +264,5 @@ test_waitready(){
         assert_success
     done;
 }
+
+cli_ovsovn_register_test_functions
