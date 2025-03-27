@@ -29,13 +29,13 @@ func (c *cmdClusterJoin) Command() *cobra.Command {
 func (c *cmdClusterJoin) Run(_ *cobra.Command, args []string) error {
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {
-		return fmt.Errorf("Unable to configure MicroCluster: %w", err)
+		return fmt.Errorf("unable to configure microcluster: %w", err)
 	}
 
 	// Get system hostname.
 	hostname, err := os.Hostname()
 	if err != nil {
-		return fmt.Errorf("Failed to retrieve system hostname: %w", err)
+		return fmt.Errorf("failed to retrieve system hostname: %w", err)
 	}
 
 	// Get system address.

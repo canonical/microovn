@@ -29,7 +29,7 @@ func getClusterTableName(ctx context.Context, tx *sql.Tx) (string, error) {
 	}
 
 	if len(tables) != 1 || tables[0] == "" {
-		return "", fmt.Errorf("No cluster members table found")
+		return "", fmt.Errorf("no cluster members table found")
 	}
 
 	return tables[0], nil

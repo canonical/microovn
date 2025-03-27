@@ -53,14 +53,14 @@ func refresh(ctx context.Context, s state.State) error {
 	// Generate the configuration.
 	err = generateEnvironment(ctx, s)
 	if err != nil {
-		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
+		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
 
 	// Restart OVN Northd service to account for NB/SB cluster changes.
 	if hasCentral {
 		err = snap.Restart("ovn-northd")
 		if err != nil {
-			return fmt.Errorf("Failed to restart OVN northd: %w", err)
+			return fmt.Errorf("failed to restart OVN northd: %w", err)
 		}
 	}
 
@@ -69,7 +69,7 @@ func refresh(ctx context.Context, s state.State) error {
 		// Reconfigure OVS to use OVN.
 		sbConnect, _, err := environmentString(ctx, s, 6642)
 		if err != nil {
-			return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
+			return fmt.Errorf("failed to get OVN SB connect string: %w", err)
 		}
 
 		_, err = ovnCmd.VSCtl(
@@ -80,7 +80,7 @@ func refresh(ctx context.Context, s state.State) error {
 		)
 
 		if err != nil {
-			return fmt.Errorf("Failed to update OVS's 'ovn-remote' configuration")
+			return fmt.Errorf("failed to update OVS's 'ovn-remote' configuration")
 		}
 	}
 
@@ -90,11 +90,11 @@ func refresh(ctx context.Context, s state.State) error {
 func updateOvnListenConfig(ctx context.Context, s state.State) error {
 	nbDB, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
 	if err != nil {
-		return fmt.Errorf("Failed to get path to OVN NB database socket: %w", err)
+		return fmt.Errorf("failed to get path to OVN NB database socket: %w", err)
 	}
 	sbDB, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeSBLocal)
 	if err != nil {
-		return fmt.Errorf("Failed to get path to OVN SB database socket: %w", err)
+		return fmt.Errorf("failed to get path to OVN SB database socket: %w", err)
 	}
 
 	protocol := networkProtocol(ctx, s)
@@ -107,7 +107,7 @@ func updateOvnListenConfig(ctx context.Context, s state.State) error {
 		fmt.Sprintf("p%s:6641:[::]", protocol),
 	)
 	if err != nil {
-		return errors.Errorf("Error setting ovn NB connection string: %s", err)
+		return errors.Errorf("error setting ovn NB connection string: %s", err)
 	}
 
 	_, err = ovnCmd.SBCtl(
@@ -119,7 +119,7 @@ func updateOvnListenConfig(ctx context.Context, s state.State) error {
 		fmt.Sprintf("p%s:6642:[::]", protocol),
 	)
 	if err != nil {
-		return errors.Errorf("Error setting ovn SB connection string: %s", err)
+		return errors.Errorf("error setting ovn SB connection string: %s", err)
 	}
 
 	return nil

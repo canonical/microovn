@@ -37,7 +37,7 @@ func (c *cmdClusterAdd) Run(_ *cobra.Command, args []string) error {
 
 	token, err := m.NewJoinToken(context.Background(), args[0], time.Duration(c.flagTokenDuration*float64(time.Second)))
 	if err != nil {
-		return fmt.Errorf("Unable to add server to MicroCluster, name %q is taken:\n%w",
+		return fmt.Errorf("unable to add server to microcluster, name %q is taken:\n%w",
 			args[0],
 			err)
 	}

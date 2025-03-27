@@ -76,7 +76,7 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 		// Get system name.
 		hostName, err := os.Hostname()
 		if err != nil {
-			return fmt.Errorf("Failed to retrieve system hostname: %w", err)
+			return fmt.Errorf("failed to retrieve system hostname: %w", err)
 		}
 
 		// Get system address.
