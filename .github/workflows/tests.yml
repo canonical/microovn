@@ -190,12 +190,13 @@ jobs:
     env:
       COVERAGE_DIR: ${{ github.workspace }}/.coverage
       COVERAGE_MERGED: ${{ github.workspace }}/.coverage/_merged
-      COVERAGE_MERGED_PROFILE: ${{ github.workspace }}/.coverage/_merged/profile.out
     steps:
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -yqq golang
+          go install github.com/axw/gocov/gocov@latest
+          go install github.com/AlekSi/gocov-xml@latest
           go install github.com/boumenot/gocover-cobertura@v1.2.0
 
       - name: Checkout code
@@ -212,12 +213,29 @@ jobs:
           mkdir -p "$COVERAGE_MERGED"
           coverage_inputs=$(find "$COVERAGE_DIR" -type d -name coverage | tr '\n' ',' | sed 's/,$//g')
           go tool covdata merge -i="$coverage_inputs" -o="$COVERAGE_MERGED"
-          go tool covdata textfmt -i="$COVERAGE_MERGED" -o="$COVERAGE_MERGED_PROFILE"
+          go tool covdata textfmt -i="$COVERAGE_MERGED" -o="${COVERAGE_DIR}"/coverage.out
+
+      - name: Convert coverage files
+        run: |
+          $HOME/go/bin/gocov convert "${COVERAGE_DIR}"/coverage.out > "${COVERAGE_DIR}"/coverage.json
+          $HOME/go/bin/gocov-xml < "${COVERAGE_DIR}"/coverage.json > "${COVERAGE_DIR}"/coverage-go.xml
+
+      - name: Run TICS
+        uses: tiobe/tics-github-action@88cb795a736d2ca885753bec6ed2c8b03e3f892f # v3.3.0
+        with:
+          mode: qserver
+          project: MicroOVN
+          viewerUrl: https://canonical.tiobe.com/tiobeweb/STAGING/api/cfg?name=default
+          branchdir: ${{ github.workspace }}
+          ticsAuthToken: ${{ secrets.TICSAUTHTOKEN }}
+          installTics: true
+          calc: ALL
+          tmpdir: /tmp/tics
 
       - name: Generate cobertura.xml
         run: |
           cd microovn/
-          $HOME/go/bin/gocover-cobertura < "$COVERAGE_MERGED_PROFILE" > "$COVERAGE_DIR/cobertura.xml"
+          $HOME/go/bin/gocover-cobertura < "${COVERAGE_DIR}"/coverage.out > "$COVERAGE_DIR/cobertura.xml"
 
       - name: Upload cobertura.xml
         uses: actions/upload-artifact@v4
