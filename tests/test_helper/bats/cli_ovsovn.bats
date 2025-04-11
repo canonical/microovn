@@ -241,7 +241,6 @@ test_invalid_args_return_1() {
         "microovn certificates reissue"
         "microovn enable"
         "microovn disable"
-        "microovn path"
     )
 
     for container in $TEST_CONTAINERS; do
@@ -281,6 +280,10 @@ test_paths(){
         assert_output '/var/snap/microovn/common/data/central/db/ovnnb_db.db'
         run lxc_exec $container "microovn path thisisnotapath"
         assert_failure
+        run lxc_exec $container "microovn path | grep CentralDBNBPath"
+        assert_output 'CentralDBNBPath: /var/snap/microovn/common/data/central/db/ovnnb_db.db'
+        run lxc_exec $container "microovn path | grep EnvDir | sed 's/.*: //g'"
+        assert_output '/var/snap/microovn/common/data/env'
     done;
 }
 
