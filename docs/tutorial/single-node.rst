@@ -2,6 +2,12 @@
 Single-node
 ===========
 
+.. only:: integrated
+
+   .. note::
+
+      MicroCloud users can disregard the instructions on this page, because the MicroCloud setup process handles MicroOVN installation.
+
 This tutorial shows how to install MicroOVN in the simplest way possible.
 
 .. caution::
