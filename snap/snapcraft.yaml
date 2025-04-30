@@ -334,7 +334,7 @@ parts:
     plugin: autotools
     source: https://github.com/ovn-org/ovn.git
     source-type: git
-    source-tag: v24.09.0
+    source-branch: branch-25.03
     override-build: |
       # build OVS first
       cd ovs
@@ -347,11 +347,6 @@ parts:
       make -j$CRAFT_PARALLEL_BUILD_COUNT
       # build OVN
       cd ..
-      # apply patches related to the route leaking/learning
-      git am  $CRAFT_PROJECT_DIR/patches/route_leaking/0*.patch
-      patch -p1 < $CRAFT_PROJECT_DIR/patches/route_leaking/dont-delete-other-routes.patch
-      git am  $CRAFT_PROJECT_DIR/patches/allow_ipv6_ra/*.patch
-      git am  $CRAFT_PROJECT_DIR/patches/ipv4_over_ipv6/*.patch
       ./boot.sh
       ./configure \
         --prefix=/usr \
