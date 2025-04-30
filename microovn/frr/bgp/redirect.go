@@ -286,7 +286,7 @@ func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExt
 	for _, extConnection := range extConnections {
 		lrpName := getLrpName(s, extConnection.Iface)
 		_, err = ovnCmd.NBCtlCluster(ctx,
-			"lrp-set-options", lrpName, "maintain-vrf=true", "redistribute-nat=true", "redistribute-lb-vips=true",
+			"lrp-set-options", lrpName, "dynamic-routing-maintain-vrf=true", "dynamic-routing-redistribute=nat,lb",
 		)
 		if err != nil {
 			return fmt.Errorf("failed to enable vrf for LRP '%s': %v", lrpName, err)

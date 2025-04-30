@@ -334,13 +334,10 @@ parts:
     plugin: autotools
     source: https://github.com/ovn-org/ovn.git
     source-type: git
-    source-commit: eba60b27864875e96a9367ea6a49325edcc6587b
+    source-branch: branch-25.03
     override-build: |
       # build OVS first
       cd ovs
-      for patch in $CRAFT_PROJECT_DIR/patches/ovs/*.patch; do
-          git am < $patch
-      done
       ./boot.sh
       ./configure \
         --enable-ssl \
@@ -350,9 +347,6 @@ parts:
       make -j$CRAFT_PARALLEL_BUILD_COUNT
       # build OVN
       cd ..
-      for patch in $CRAFT_PROJECT_DIR/patches/ovn/*.patch; do
-          git am < $patch
-      done
       ./boot.sh
       ./configure \
         --prefix=/usr \

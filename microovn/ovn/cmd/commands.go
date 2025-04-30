@@ -175,7 +175,7 @@ func NBCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 //
 // Warning: This function will fail if local MicroOVN node is not bootstrapped.
 func NBCtlCluster(ctx context.Context, args ...string) (string, error) {
-	if !(slices.Contains(args, "--timeout") || slices.Contains(args, "-t")) {
+	if !slices.Contains(args, "--timeout") && !slices.Contains(args, "-t") {
 		args = append([]string{"--timeout", "30"}, args...)
 	}
 
