@@ -35,13 +35,16 @@ function frr_start_bgp_unnumbered() {
         neighbor $interface interface remote-as external
         !
         address-family ipv4 unicast
+          neighbor $interface default-originate
           neighbor $interface soft-reconfiguration inbound
           neighbor $interface prefix-list accept-all in
         exit-address-family
         !
         address-family ipv6 unicast
+          neighbor $interface default-originate
           neighbor $interface soft-reconfiguration inbound
           neighbor $interface activate
+          neighbor $interface prefix-list accept-all in
         exit-address-family
         !
 EOF
