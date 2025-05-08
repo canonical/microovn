@@ -366,6 +366,8 @@ ip prefix-list no-default seq 10 permit 0.0.0.0/0 le 32
 ipv6 prefix-list no-default seq 5 deny ::/0
 ipv6 prefix-list no-default seq 10 permit ::/0 le 128
 `)
+	// XXX Accept any prefixes from our peer.
+	fmt.Fprintf(&confBuilder, "ip prefix-list accept-all seq 5 permit any\n")
 	fmt.Fprintf(&confBuilder, "router bgp %s vrf %s\n", asn, vrfName)
 	for _, connection := range extConnections {
 		routerID := generateBGPRouterID(getLrpName(s, connection.Iface))
@@ -381,6 +383,10 @@ ipv6 prefix-list no-default seq 10 permit ::/0 le 128
 		)
 		fmt.Fprint(&confBuilder, "redistribute kernel\n")
 		fmt.Fprintf(&confBuilder,
+			"neighbor %s prefix-list accept-all in\n",
+			getBgpRedirectIfaceName(connection.Iface),
+		)
+		fmt.Fprintf(&confBuilder,
 			"neighbor %s prefix-list no-default out\n",
 			getBgpRedirectIfaceName(connection.Iface),
 		)
@@ -394,6 +400,10 @@ ipv6 prefix-list no-default seq 10 permit ::/0 le 128
 		)
 		fmt.Fprintf(&confBuilder,
 			"neighbor %s soft-reconfiguration inbound\n",
+			getBgpRedirectIfaceName(connection.Iface),
+		)
+		fmt.Fprintf(&confBuilder,
+			"neighbor %s prefix-list accept-all in\n",
 			getBgpRedirectIfaceName(connection.Iface),
 		)
 		fmt.Fprintf(&confBuilder,
