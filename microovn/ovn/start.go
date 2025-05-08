@@ -30,6 +30,11 @@ func Start(ctx context.Context, s state.State) error {
 		return err
 	}
 
+	err = node.ActivateEnabledServices(ctx, s, true)
+	if err != nil {
+		return fmt.Errorf("failed to enable required services: %w", err)
+	}
+
 	// Re-generate the configuration.
 	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {

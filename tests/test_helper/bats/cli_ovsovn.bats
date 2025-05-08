@@ -79,6 +79,9 @@ cli_ovsovn_register_test_functions() {
     bats_test_function \
         --description "Test waitready command"\
         -- test_waitready
+    bats_test_function \
+        --description "Test enable disable microovn"\
+        -- test_disable_microovn
 }
 
 ovs-appctl_ovs-vswitchd() {
@@ -240,3 +243,23 @@ test_waitready(){
         assert_success
     done;
 }
+
+test_disable_microovn(){
+    for container in $TEST_CONTAINERS; do
+        run lxc_exec $container "snap disable microovn"
+        assert_success
+        run lxc_exec $container "snap enable microovn"
+        assert_success
+        sleep 5
+        run lxc_exec $container "microovn status"
+        assert_success
+        run lxc_exec $container "microovn.ovs-vsctl show"
+        assert_success
+        run lxc_exec $container "microovn.ovn-nbctl --wait=sb lr-add test"
+        assert_success
+        run lxc_exec $container "microovn.ovn-nbctl --wait=sb lr-del test"
+        assert_success
+    done;
+}
+
+cli_ovsovn_register_test_functions
