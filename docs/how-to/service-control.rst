@@ -89,6 +89,15 @@ run on ``second``:
    OVN Northbound: OK (7.3.0)
    OVN Southbound: OK (20.33.0)
 
+.. note::
+
+   We can also disable services on one node from another node using the optional
+   ``--node`` argument, allowing for easier configuration of services.
+
+   .. code-block:: none
+
+   microovn disable switch --node third
+
 
 Enable a MicroOVN service
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -156,6 +165,15 @@ run on ``second``:
    OVN Database summary:
    OVN Northbound: OK (7.3.0)
    OVN Southbound: OK (20.33.0)
+
+.. note::
+
+   We can also enable services on one node from another node using the optional
+   ``--node`` argument, allowing for easier configuration of services.
+
+   .. code-block:: none
+
+   microovn enable switch --node third
 
 Uses
 ~~~~

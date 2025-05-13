@@ -23,6 +23,7 @@ services_register_test_functions() {
 }
 
 service_tests() {
+    read -r -a containers <<< "$TEST_CONTAINERS"
     for container in $TEST_CONTAINERS; do
         # enable enabled service
         run lxc_exec "$container" "microovn enable switch"
@@ -49,6 +50,34 @@ service_tests() {
         # enable disabled service
         run lxc_exec "$container" "microovn enable switch"
         assert_output "Service switch enabled"
+
+        assert [ -n "$(run lxc_exec "$container" "microovn status | grep -ozE '${container}[^-]*' | grep switch")"]
+        assert [ -n "$(run lxc_exec "$container" "snap services microovn | grep switch | grep enabled")"]
+
+        # disable service remotely with nonexisting container
+        run lxc_exec "$container" "microovn disable switch --node vriskaserket"
+        assert_failure
+        assert_output "Error: failed to disable service 'switch': 'Failed to get cluster member for request target name \"vriskaserket\": CoreClusterMember not found'"
+
+        # enable service remotely with nonexisting container
+        run lxc_exec "$container" "microovn enable switch --node vriskaserket"
+        assert_failure
+        assert_output "Error: failed to enable service 'switch': 'Failed to get cluster member for request target name \"vriskaserket\": CoreClusterMember not found'"
+
+        # disable service remotely
+        run lxc_exec "${containers[0]}" "microovn disable switch --node ${container}"
+        assert_output "Service switch disabled"
+
+        run lxc_exec "$container" "microovn status | grep -ozE '${container}[^-]*' | grep switch"
+        assert_output ""
+
+        run lxc_exec "$container" "snap services microovn | grep switch | grep enabled"
+        assert_output ""
+
+        # enable disabled service remotely
+        run lxc_exec "${containers[0]}" "microovn enable switch --node ${container}"
+        assert_output "Service switch enabled"
+
 
         assert [ -n "$(run lxc_exec "$container" "microovn status | grep -ozE '${container}[^-]*' | grep switch")"]
         assert [ -n "$(run lxc_exec "$container" "snap services microovn | grep switch | grep enabled")"]
