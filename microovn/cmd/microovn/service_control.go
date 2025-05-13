@@ -13,7 +13,8 @@ import (
 )
 
 type cmdDisable struct {
-	common *CmdControl
+	common   *CmdControl
+	nodeName string
 }
 
 func (c *cmdDisable) Command() *cobra.Command {
@@ -28,6 +29,13 @@ func (c *cmdDisable) Command() *cobra.Command {
 		RunE:      c.Run,
 	}
 
+	cmd.Flags().StringVar(
+		&c.nodeName,
+		"node",
+		"",
+		"Optional name of the node to target",
+	)
+
 	return cmd
 }
 
@@ -40,6 +48,13 @@ func (c *cmdDisable) Run(_ *cobra.Command, args []string) error {
 	cli, err := m.LocalClient()
 	if err != nil {
 		return err
+	}
+
+	if c.nodeName != "" {
+		cli, err = client.GetClientFromName(cli, m, c.nodeName)
+		if err != nil {
+			return err
+		}
 	}
 
 	targetService := args[0]
@@ -56,7 +71,8 @@ func (c *cmdDisable) Run(_ *cobra.Command, args []string) error {
 }
 
 type cmdEnable struct {
-	common *CmdControl
+	common   *CmdControl
+	nodeName string
 }
 
 func (c *cmdEnable) Command() *cobra.Command {
@@ -71,6 +87,13 @@ func (c *cmdEnable) Command() *cobra.Command {
 		RunE:      c.Run,
 	}
 
+	cmd.Flags().StringVar(
+		&c.nodeName,
+		"node",
+		"",
+		"Optional name of the node to target",
+	)
+
 	return cmd
 }
 
@@ -83,6 +106,13 @@ func (c *cmdEnable) Run(_ *cobra.Command, args []string) error {
 	cli, err := m.LocalClient()
 	if err != nil {
 		return err
+	}
+
+	if c.nodeName != "" {
+		cli, err = client.GetClientFromName(cli, m, c.nodeName)
+		if err != nil {
+			return err
+		}
 	}
 
 	targetService := args[0]

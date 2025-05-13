@@ -64,6 +64,18 @@ func disableService(s state.State, r *http.Request) response.Response {
 		logger.Errorf("Failed to get service: %s", err)
 		return response.ErrorResponse(500, "internal server error")
 	}
+
+	cluster, err := s.Cluster(true)
+	if err != nil {
+		logger.Errorf("Failed to get a client for every cluster member: %v", err)
+		return response.ErrorResponse(500, "internal server error")
+	}
+	logger.Infof("%d:", len(cluster))
+	for _, c := range cluster {
+		curl := c.URL()
+		logger.Infof("Clusterurl: %s", curl.String())
+	}
+
 	if !types.CheckValidService(requestedService) {
 		return response.InternalError(errors.New("service does not exist"))
 	}
@@ -82,3 +94,11 @@ func disableService(s state.State, r *http.Request) response.Response {
 
 	return response.SyncResponse(true, scr)
 }
+
+// func disableServiceOn(ctx context.Context, s state.State, service types.SrvName, string Machine) error {
+// 	cluster, err = s.Cluster(true)
+// 	if err != nil {
+// 		return fmt.Errorf("Failed to get a client for every cluster member: %v", err)
+// 	}
+// 	return nil
+// }

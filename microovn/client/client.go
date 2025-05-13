@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/microcluster/v2/client"
+	"github.com/canonical/microcluster/v2/microcluster"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
@@ -190,4 +191,26 @@ func RegenerateEnvironment(ctx context.Context, c *client.Client) (types.Regener
 	}
 	return responseData, nil
 
+}
+
+// GetClientFromName gets a microcluster client by its name, returning an error
+// if one is not found
+func GetClientFromName(c *client.Client, m *microcluster.MicroCluster, nodeName string) (*client.Client, error) {
+	clusterMembers, err := c.GetClusterMembers(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	for _, clusterMember := range clusterMembers {
+		if clusterMember.Name == nodeName {
+			cli, err := m.RemoteClient(clusterMember.Address.String())
+			if err != nil {
+				return nil, err
+			}
+
+			return cli, nil
+		}
+	}
+
+	return nil, errors.New("no such node")
 }
