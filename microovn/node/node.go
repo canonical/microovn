@@ -60,17 +60,14 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName) e
 
 	switch service {
 	case types.SrvCentral:
-		err = leaveCentral(ctx, s)
+		leaveCentral(ctx, s)
 	case types.SrvChassis:
-		err = leaveChassis(ctx, s)
+		leaveChassis(ctx, s)
 	default:
-		err = snap.Stop(service, true)
-		if err != nil {
-			err = fmt.Errorf("snapctl error, likely due to service not existing:\n %w", err)
-		}
+		deactivateService(service, true)
 	}
 
-	return err
+	return nil
 }
 
 // EnableService - start snap service(s) (runtime state) and add it to the
@@ -106,10 +103,7 @@ func EnableService(ctx context.Context, s state.State, service types.SrvName) er
 	case types.SrvChassis:
 		err = joinChassis(ctx, s)
 	default:
-		err = snap.Start(service, true)
-		if err != nil {
-			err = fmt.Errorf("snapctl error, likely due to service not existing:\n%w", err)
-		}
+		err = activateService(service, true)
 	}
 
 	return err
@@ -235,26 +229,12 @@ func joinCentral(ctx context.Context, s state.State) error {
 		return fmt.Errorf("failed to generate TLS certificate for ovn-northd service")
 	}
 
-	err = snap.Start("ovn-ovsdb-server-nb", true)
-	if err != nil {
-		return fmt.Errorf("failed to start OVN NB: %w", err)
-	}
-
-	err = snap.Start("ovn-ovsdb-server-sb", true)
-	if err != nil {
-		return fmt.Errorf("failed to start OVN SB: %w", err)
-	}
-
-	err = snap.Start("ovn-northd", true)
-	if err != nil {
-		return fmt.Errorf("failed to start OVN northd: %w", err)
-	}
-	return nil
+	return activateService(types.SrvCentral, true)
 }
 
 // leaveCentral safely stops the central service's child services, and leaves
 // the central database cluster safely.
-func leaveCentral(ctx context.Context, s state.State) error {
+func leaveCentral(ctx context.Context, s state.State) {
 	// Leave SB and NB clusters
 	logger.Info("Leaving OVN Northbound cluster")
 	_, err := ovnCmd.AppCtl(ctx, s, paths.OvnNBControlSock(), "cluster/leave", "OVN_Northbound")
@@ -299,24 +279,10 @@ func leaveCentral(ctx context.Context, s state.State) error {
 		logger.Warnf("Failed to move Southbound database to backup: %s", err)
 	}
 
-	err = snap.Stop("ovn-northd", true)
-	if err != nil {
-		logger.Warnf("Failed to stop OVN northd service: %s", err)
-	}
-
-	err = snap.Stop("ovn-ovsdb-server-nb", true)
-	if err != nil {
-		logger.Warnf("Failed to stop OVN NB service: %s", err)
-	}
-
-	err = snap.Stop("ovn-ovsdb-server-sb", true)
-	if err != nil {
-		logger.Warnf("Failed to stop OVN SB service: %s", err)
-	}
-	return nil
+	deactivateService(types.SrvCentral, true)
 }
 
-func leaveChassis(ctx context.Context, s state.State) error {
+func leaveChassis(ctx context.Context, s state.State) {
 	chassisName := s.Name()
 
 	// Gracefully exit OVN controller causing chassis to be automatically removed.
@@ -326,11 +292,7 @@ func leaveChassis(ctx context.Context, s state.State) error {
 		logger.Warnf("Failed to gracefully stop OVN Controller: %s", err)
 	}
 
-	err = snap.Stop(types.SrvChassis, true)
-	if err != nil {
-		logger.Warnf("Failed to stop Chassis service: %s", err)
-	}
-	return nil
+	deactivateService(types.SrvChassis, true)
 }
 
 func joinChassis(ctx context.Context, s state.State) error {
@@ -339,11 +301,7 @@ func joinChassis(ctx context.Context, s state.State) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate TLS certificate for ovn-controller service")
 	}
-	err = snap.Start("chassis", true)
-	if err != nil {
-		return fmt.Errorf("failed to start OVN chassis: %w", err)
-	}
-	return nil
+	return activateService(types.SrvChassis, true)
 }
 
 // DisableAllServices is a function to disable alot of services
@@ -355,4 +313,86 @@ func DisableAllServices(ctx context.Context, s state.State) error {
 		}
 	}
 	return nil
+}
+
+func activateService(service types.SrvName, enable bool) error {
+	switch service {
+	case types.SrvCentral:
+		err := snap.Start("ovn-ovsdb-server-nb", enable)
+		if err != nil {
+			return fmt.Errorf("failed to start OVN NB: %w", err)
+		}
+
+		err = snap.Start("ovn-ovsdb-server-sb", enable)
+		if err != nil {
+			return fmt.Errorf("failed to start OVN SB: %w", err)
+		}
+
+		err = snap.Start("ovn-northd", enable)
+		if err != nil {
+			return fmt.Errorf("failed to start OVN northd: %w", err)
+		}
+	case types.SrvChassis:
+		err := snap.Start("chassis", enable)
+		if err != nil {
+			return fmt.Errorf("failed to start OVN chassis: %w", err)
+		}
+	default:
+		err := snap.Start(service, enable)
+		if err != nil {
+			return fmt.Errorf("snapctl error, likely due to service not existing:\n%w", err)
+		}
+	}
+	return nil
+}
+
+func deactivateService(service types.SrvName, disable bool) {
+	switch service {
+	case types.SrvCentral:
+		err := snap.Stop("ovn-northd", disable)
+		if err != nil {
+			logger.Warnf("Failed to stop OVN northd: %s", err)
+		}
+
+		err = snap.Stop("ovn-ovsdb-server-nb", disable)
+		if err != nil {
+			logger.Warnf("Failed to stop OVN NB: %s", err)
+		}
+
+		err = snap.Stop("ovn-ovsdb-server-sb", disable)
+		if err != nil {
+			logger.Warnf("Failed to stop OVN SB: %s", err)
+		}
+	case types.SrvChassis:
+		err := snap.Stop("chassis", disable)
+		if err != nil {
+			logger.Warnf("Failed to stop OVN chassis: %s", err)
+		}
+	default:
+		err := snap.Stop(service, disable)
+		if err != nil {
+			logger.Warnf("Snapctl error, likely due to service not existing:\n%s", err)
+		}
+	}
+}
+
+// ActivateEnabledServices iterates through all enabled services on the nodes
+// and ensures the corresponding snap services are active
+func ActivateEnabledServices(ctx context.Context, s state.State, enable bool) error {
+	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		// Get list of all active local services.
+		name := s.Name()
+		services, err := database.GetServices(ctx, tx, database.ServiceFilter{Member: &name})
+		if err != nil {
+			return err
+		}
+		for _, srv := range services {
+			err = activateService(srv.Service, enable)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return err
 }
