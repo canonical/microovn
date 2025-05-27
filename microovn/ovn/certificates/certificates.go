@@ -61,11 +61,11 @@ const (
 // both "parent" and "signer" arguments must be empty (nil).
 //
 // This function returns PEM encoded certificate, private key and error (if any occurred).
-func issueCertificate(cn string, serviceName string, certType CertificateType, parent *x509.Certificate, signer *ecdsa.PrivateKey) ([]byte, []byte, error) {
+func issueCertificate(cn string, serviceName string, certType CertificateType, parent *x509.Certificate, signer any) ([]byte, []byte, error) {
 	var (
 		isCa     bool
 		keyUsage x509.KeyUsage
-		signKey  *ecdsa.PrivateKey
+		signKey  any
 		validTo  time.Time
 	)
 	// Generate certificate's private key
@@ -128,7 +128,7 @@ func issueCertificate(cn string, serviceName string, certType CertificateType, p
 		return nil, nil, fmt.Errorf("failed to create certificate for %s: %w", serviceName, err)
 	}
 
-	key, err := x509.MarshalECPrivateKey(keyPair)
+	key, err := x509.MarshalPKCS8PrivateKey(keyPair)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -225,7 +225,7 @@ func DumpCA(ctx context.Context, s state.State) error {
 
 // GetCA pulls PEM encoded CA certificate and private key from shared database and returns
 // them as parsed objects x509.Certificate and ecdsa.PrivateKey (+ error if any occurred).
-func GetCA(ctx context.Context, s state.State) (*x509.Certificate, *ecdsa.PrivateKey, error) {
+func GetCA(ctx context.Context, s state.State) (*x509.Certificate, any, error) {
 	var err error
 	var CACertRecord *database.ConfigItem
 	var CAKeyRecord *database.ConfigItem
@@ -262,9 +262,15 @@ func GetCA(ctx context.Context, s state.State) (*x509.Certificate, *ecdsa.Privat
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse CA certificate: %s", err)
 	}
-	caKey, err := x509.ParseECPrivateKey(keyData.Bytes)
+	caKey, err := x509.ParsePKCS8PrivateKey(keyData.Bytes)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse CA Private Key: %s", err)
+		// Backwards compatibility with older MicroOVN releases that used
+		// x509.MarshalECPrivateKey for encoding.
+		var ecErr error
+		caKey, ecErr = x509.ParseECPrivateKey(keyData.Bytes)
+		if ecErr != nil {
+			return nil, nil, fmt.Errorf("failed to parse CA Private Key (%s) (%s)", err, ecErr)
+		}
 	}
 
 	return caCert, caKey, nil
