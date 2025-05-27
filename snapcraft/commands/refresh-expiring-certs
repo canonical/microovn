@@ -33,6 +33,13 @@ refresh_service_cert() {
 }
 
 refresh_ca() {
+    echo "Checking if CA certificate is automatically renewable"
+    local auto_renew
+    auto_renew=$(echo "$CERT_LIST" | jq -r '.ca.auto_renew')
+    if [ "$auto_renew" = "false" ]; then
+        echo "CA is not eligible for renewal. Skipping"
+        return
+    fi
     echo "Checking CA certificate expiration"
     CERT_PATH=$(echo "$CERT_LIST" | jq -r '.ca.cert')
     if ! _is_expiring "$CERT_PATH"; then

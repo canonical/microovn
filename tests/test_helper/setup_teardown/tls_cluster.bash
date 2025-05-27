@@ -11,8 +11,12 @@ setup_file() {
     export TEST_CONTAINERS
     export CENTRAL_CONTAINERS
     export CHASSIS_CONTAINERS
-    launch_containers $TEST_CONTAINERS
-    wait_containers_ready $TEST_CONTAINERS
+    # Note(mkalcok): Tests for automatic renewal of expiring certificates need
+    # to manipulate system time. This is not possible in an LXD container,
+    # so we run these tests in the VM.
+    # https://discuss.linuxcontainers.org/t/change-containers-date-and-time/15639/2
+    launch_vms $TEST_CONTAINERS
+    wait_vms_ready $TEST_CONTAINERS
     install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINERS
     bootstrap_cluster $TEST_CONTAINERS
 

@@ -92,3 +92,9 @@ type CaInfo struct {
 	AutoRenew bool   `json:"auto_renew"`
 	Error     string `json:"error"`
 }
+
+// CustomCaRequest is a request to POST /1.0/ca
+type CustomCaRequest struct {
+	Certificate string `json:"certificate"`
+	PrivateKey  string `json:"private_key"`
+}
