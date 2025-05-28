@@ -40,7 +40,7 @@ teardown() {
                   $container \
                   "$(test_is_ipv6_test && echo inet6 || echo inet)")
         if [ $i -eq 1 ]; then
-            microovn_init_create_cluster "$container" "$addr" ""
+            microovn_init_create_cluster "$container" "$addr" "" "" ""
         else
             local token
             token=$(microovn_cluster_get_join_token \

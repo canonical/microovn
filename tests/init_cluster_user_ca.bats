@@ -1,0 +1,1 @@
+test_helper/bats/init_cluster_user_ca.bats
