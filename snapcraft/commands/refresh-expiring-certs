@@ -21,6 +21,11 @@ refresh_service_cert() {
     echo "Checking $SERVICE certificate expiration"
     CERT_PATH=$(echo "$CERT_LIST" | jq -r --arg s "$SERVICE" '.[$s].cert')
 
+    if [ "$CERT_PATH" == "null" ]; then
+        echo "Service $SERVICE is not present on the node. Skipping"
+        return
+    fi
+
     if ! _is_expiring "$CERT_PATH"; then
         echo "Certificate $CERT_PATH is about to expire, refreshing..."
         "$MICROOVN" certificates reissue "$SERVICE"
