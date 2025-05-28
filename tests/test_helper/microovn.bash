@@ -115,6 +115,8 @@ function microovn_init_create_cluster() {
     local container=$1; shift
     local address=$1; shift
     local custom_encapsulation_ip=$1; shift
+    local user_ca_crt=$1; shift
+    local user_ca_key=$1; shift
 
     custom_encapsulation_ip_dialog=""
     if [ -n "$custom_encapsulation_ip" ]; then
@@ -137,6 +139,33 @@ EOF
 )
     fi
 
+    local user_ca_dialog=""
+    if [ -z "$user_ca_crt" ] || [ -z "$user_ca_key" ]; then
+        echo "# Automatically generating CA" >&3
+        user_ca_dialog=$(cat <<EOF
+expect "Would you like to provide your own CA certificate and private key for issuing OVN TLS certificates?" {
+    send "\n"
+}
+EOF
+)
+    else
+        echo "# Using CA supplied by the user" >&3
+        user_ca_dialog=$(cat <<EOF
+expect "Would you like to provide your own CA certificate and private key for issuing OVN TLS certificates?" {
+    send "yes\n"
+}
+
+expect "Please enter the path to the CA certificate file:" {
+    send "$user_ca_crt\n"
+}
+
+expect "Please enter the path to the CA private key file:" {
+    send "$user_ca_key\n"
+}
+EOF
+)
+    fi
+
     cat << EOF | lxc_exec "$container" "expect -"
 spawn "sudo" "microovn" "init"
 
@@ -153,6 +182,8 @@ expect "Please choose a name for this system" {
 }
 
 $custom_encapsulation_ip_dialog
+
+$user_ca_dialog
 
 expect "Would you like to add additional servers to the cluster?" {
     send "no\n"

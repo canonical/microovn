@@ -48,6 +48,27 @@ func (c *cmdInit) wantsCustomEncapsulationIP() (string, string, error) {
 
 	return "", "", nil
 }
+func (c *cmdInit) wantsCustomCA() (string, string, error) {
+	wantsCustomCA, err := c.common.asker.AskBool("Would you like to provide your own CA certificate and private key for issuing OVN TLS certificates? (yes/no) [default=no]: ", "no")
+	if err != nil {
+		return "", "", err
+	}
+
+	if wantsCustomCA {
+		certPath, err := c.common.asker.AskString("Please enter the path to the CA certificate file: ", "", validate.Required(validate.IsNotEmpty))
+		if err != nil {
+			return "", "", err
+		}
+
+		keyPath, err := c.common.asker.AskString("Please enter the path to the CA private key file: ", "", validate.Required(validate.IsNotEmpty))
+		if err != nil {
+			return "", "", err
+		}
+		return certPath, keyPath, nil
+	}
+
+	return "", "", nil
+}
 
 func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 	// Connect to the daemon.
@@ -93,7 +114,7 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 			return err
 		}
 
-		var optionalConfig map[string]string
+		optionalConfig := make(map[string]string)
 		if wantsBootstrap {
 			mode = "bootstrap"
 
@@ -110,8 +131,17 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 				}
 
 				if key != "" && encapIP != "" {
-					optionalConfig = map[string]string{key: encapIP}
+					optionalConfig[key] = encapIP
 				}
+			}
+
+			certPath, keyPath, err := c.wantsCustomCA()
+			if err != nil {
+				return err
+			}
+			if certPath != "" && keyPath != "" {
+				optionalConfig["ovn-ca-cert"] = certPath
+				optionalConfig["ovn-ca-key"] = keyPath
 			}
 
 			// Bootstrap the cluster.
