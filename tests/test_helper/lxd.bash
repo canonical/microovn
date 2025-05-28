@@ -10,7 +10,7 @@ function launch_containers_args() {
         # arguments and allow empty string.
         # shellcheck disable=SC2086
         lxc launch -q "$image" "$container" $launch_args < \
-            "$BATS_TEST_DIRNAME/lxd-instance-config.yaml"
+            "$BATS_TEST_DIRNAME/resources/lxd/instance-config.yaml"
     done
 }
 
