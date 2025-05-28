@@ -189,6 +189,21 @@ function lxc_file_push() {
     lxc file push -q "$file_path" "$container_path"
 }
 
+# lxc_file_replace LOCAL_SRC CONTAINER_DST
+#
+# This function allows pushing files to LXC containers
+# even if the target file already exists in the destination.
+# LOCAL_SRC argument should be local path to the file to be copied,
+# and CONTAINER_DST should be the destination in format
+# "<container_name>/path/to/dst"
+function lxc_file_replace() {
+    local local_src=$1; shift
+    local container_dst=$1; shift
+
+    lxc file delete -q "$container_dst" >/dev/null 2>&1 || true
+    lxc file push -q "$local_src" "$container_dst"
+}
+
 # lxc_pull_dir CONTAINER_PATH DST
 #
 # Copy directory and all its contents from CONTAINER_PATH to DST.
