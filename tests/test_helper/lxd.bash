@@ -20,6 +20,17 @@ function launch_containers() {
     launch_containers_args "" "$containers"
 }
 
+function launch_vms() {
+    local containers=$*; shift
+
+    local image="${MICROOVN_TEST_CONTAINER_IMAGE:-ubuntu:lts}"
+
+    for container in $containers; do
+        echo "# Launching '$image' VM: $container" >&3
+        lxc launch -q "$image" "$container" --vm
+    done
+}
+
 function create_lxd_network() {
     local bridge_name=$1; shift
 
@@ -104,14 +115,54 @@ function connect_containers_to_network_ipv6() {
     echo "$output"
 }
 
+# _wait_instance_ready INSTANCE
+#
+# Wait until cloud-init and snap seeding completed on the LXC
+# INSTANCE. This signals that the INSTANCE is ready to be used
+function _wait_instance_ready() {
+    local instance=$1; shift
+    echo "# Waiting for $instance to be ready" >&3
+    lxc_exec "$instance" "cloud-init status --wait &&
+                           snap wait system seed.loaded"
+}
+
+# wait_containers_ready  CONTAINERS
+#
+# Wait until all CONTAINERS (space separated string of LXC container
+# names) are ready to be used. This ensures that cloud-init succeeded
+# and snapd is ready to install snaps.
 function wait_containers_ready() {
     local containers=$*
 
     for container in $containers; do
-        echo "# Waiting for $container to be ready" >&3
-        lxc_exec "$container" "cloud-init status --wait &&
-                               snap wait system seed.loaded"
+        _wait_instance_ready "$container"
     done
+}
+
+# wait_vms_ready  VMS
+#
+# Wait until all VMS (space separated string of LXC virtual machine
+# names) are ready to be used. This ensures that the LXD agent is ready
+# to receive `lxc exec` commands, cloud-init succeeded and snapd is ready
+# to install snaps.
+function wait_vms_ready() {
+    local vms=$*
+    local vm
+    for vm in $vms; do
+        wait_until "lxd_agent_ready $vm"
+        _wait_instance_ready "$vm"
+    done
+}
+
+# lxd_agent_ready INSTANCE
+#
+# This function returns 0 if LXD agent on the INSTANCE is ready, which
+# signals that 'lxc exec' can be executed.
+# https://discuss.linuxcontainers.org/t/lxd-start-vm-wait/15906/2
+function lxd_agent_ready() {
+    local instance=$1; shift
+    echo "# Waiting for LXC agent on $instance to start" >&3
+    ! lxc info "$instance" | grep -q "Processes: -1"
 }
 
 function delete_containers() {
