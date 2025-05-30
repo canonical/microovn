@@ -78,7 +78,10 @@ tls_cluster_central_list_certificates() {
     local container=""
     container=$(echo "$CENTRAL_CONTAINERS" | awk '{print $1;}')
     local expected_output='{
-  "ca": "/var/snap/microovn/common/data/pki/cacert.pem",
+  "ca": {
+    "cert": "/var/snap/microovn/common/data/pki/cacert.pem",
+    "auto_renew": true
+  },
   "ovnnb": {
     "cert": "/var/snap/microovn/common/data/pki/ovnnb-cert.pem",
     "key": "/var/snap/microovn/common/data/pki/ovnnb-privkey.pem"
@@ -112,7 +115,10 @@ tls_cluster_chassis_list_certificates() {
     local container=""
     container=$(echo "$CHASSIS_CONTAINERS" | awk '{print $1;}')
     local expected_output='{
-  "ca": "/var/snap/microovn/common/data/pki/cacert.pem",
+  "ca": {
+    "cert": "/var/snap/microovn/common/data/pki/cacert.pem",
+    "auto_renew": true
+  },
   "ovnnb": null,
   "ovnsb": null,
   "ovn-northd": null,

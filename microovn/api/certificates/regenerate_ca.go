@@ -20,6 +20,18 @@ import (
 var RegenerateCaEndpoint = rest.Endpoint{
 	Path: "ca",
 	Put:  rest.EndpointAction{Handler: regenerateCaPut, AllowUntrusted: false, ProxyTarget: true},
+	Get:  rest.EndpointAction{Handler: infoCaGet, AllowUntrusted: false, ProxyTarget: true},
+}
+
+// infoCaGet returns additional information about CA certificate
+func infoCaGet(s state.State, r *http.Request) response.Response {
+	autoRenew, err := certificates.IsCaRenewable(r.Context(), s)
+	if err != nil {
+		logger.Errorf("Error checking if CA is renewable: %v", err)
+		errMsg := "Failed to get CA renewability. See logs for more details."
+		return response.SyncResponse(false, types.CaInfo{AutoRenew: false, Error: errMsg})
+	}
+	return response.SyncResponse(true, types.CaInfo{AutoRenew: autoRenew})
 }
 
 // regenerateCaPut implements PUT method for /1.0/ca endpoint. The function issues new CA certificate

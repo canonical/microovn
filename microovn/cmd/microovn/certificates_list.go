@@ -20,6 +20,14 @@ type cmdCertificatesList struct {
 	FormatFlag   string
 }
 
+// caCertInfo is structure that holds path to the CA certificate and
+// information about whether microOVN will automatically renew it when
+// it nears it's expiration.
+type caCertInfo struct {
+	Cert      string `json:"cert"`
+	AutoRenew bool   `json:"auto_renew"`
+}
+
 // certBundle is structure for holding path to certificate and related private key
 type certBundle struct {
 	Cert string `json:"cert"`
@@ -28,7 +36,7 @@ type certBundle struct {
 
 // ovnCertificatePaths is structure that holds paths to all certificates used by OVN
 type ovnCertificatePaths struct {
-	Ca      string      `json:"ca"`
+	Ca      *caCertInfo `json:"ca"`
 	Nb      *certBundle `json:"ovnnb"`
 	Sb      *certBundle `json:"ovnsb"`
 	Northd  *certBundle `json:"ovn-northd"`
@@ -59,9 +67,6 @@ func (c *cmdCertificatesList) Command() *cobra.Command {
 
 // Run method is an implementation of "microovn certificates list" subcommand
 func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
-	var expectedCertificates ovnCertificatePaths
-	expectedCertificates.Ca = paths.PkiCaCertFile()
-
 	// Get name of the local node
 	localHostname, err := os.Hostname()
 	if err != nil {
@@ -76,6 +81,19 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 	cli, err := m.LocalClient()
 	if err != nil {
 		return err
+	}
+
+	var expectedCertificates ovnCertificatePaths
+	caInfo, err := client.GetCaInfo(context.Background(), cli)
+	if err != nil {
+		return err
+	}
+	if caInfo.Error != "" {
+		return fmt.Errorf(caInfo.Error)
+	}
+	expectedCertificates.Ca = &caCertInfo{
+		Cert:      paths.PkiCaCertFile(),
+		AutoRenew: caInfo.AutoRenew,
 	}
 
 	// Get list of all services in microovn
@@ -129,10 +147,11 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 // "certificates" argument
 func printOvnCertStatus(certificates *ovnCertificatePaths) {
 	fmt.Println("[OVN CA]")
-	if certificates.Ca == "" {
+	if certificates.Ca.Cert == "" {
 		fmt.Println("Error: missing")
 	} else {
-		printFileStatus(certificates.Ca)
+		printFileStatus(certificates.Ca.Cert)
+		fmt.Printf("Auto-renew: %t\n", certificates.Ca.AutoRenew)
 	}
 
 	fmt.Println("\n[OVN Northbound Service]")
