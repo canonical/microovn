@@ -85,3 +85,10 @@ func NewRegenerateCaResponse() *RegenerateCaResponse {
 		Errors:               make([]string, 0),
 	}
 }
+
+// CaInfo is a response to GET /1.0/ca and returns additional information about
+// the CA certificate.
+type CaInfo struct {
+	AutoRenew bool   `json:"auto_renew"`
+	Error     string `json:"error"`
+}

@@ -77,6 +77,22 @@ func RegenerateCA(ctx context.Context, c *client.Client) (types.RegenerateCaResp
 
 }
 
+// GetCaInfo queries microovn daemon about additional information about the CA
+// certificate.
+func GetCaInfo(ctx context.Context, c *client.Client) (types.CaInfo, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	response := types.CaInfo{}
+
+	err := c.Query(queryCtx, "GET", types.APIVersion, api.NewURL().Path("ca"), nil, &response)
+	if err != nil {
+		return response, fmt.Errorf("failed to get CA info: %w", err)
+	}
+
+	return response, err
+}
+
 // GetExpectedOvsdbSchemaVersion queries given MicroOVN node and returns an expected schema version for the specified
 // database. This is not necessarily the schema version that's being used by currently running OVN/OVS processes on the
 // node. Rather it's a version of a schema that was supplied with currently installed OVN/OVS packages on the node.
