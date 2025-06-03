@@ -74,7 +74,43 @@ func RegenerateCA(ctx context.Context, c *client.Client) (types.RegenerateCaResp
 	}
 
 	return *response, nil
+}
 
+// SetCA sends a request to set a user-provided CA certificate and private key.
+// It triggers re-issue of all OVN service certificates on all MicroOVN cluster members.
+func SetCA(ctx context.Context, c *client.Client, certPEM, keyPEM string) (types.RegenerateCaResponse, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	response := types.NewRegenerateCaResponse()
+
+	request := types.CustomCaRequest{
+		Certificate: certPEM,
+		PrivateKey:  keyPEM,
+	}
+
+	err := c.Query(queryCtx, "POST", types.APIVersion, api.NewURL().Path("ca"), request, &response)
+	if err != nil {
+		return *response, fmt.Errorf("failed to set CA certificate and key: %w", err)
+	}
+
+	return *response, nil
+}
+
+// GetCaInfo queries microovn daemon about additional information about the CA
+// certificate.
+func GetCaInfo(ctx context.Context, c *client.Client) (types.CaInfo, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	response := types.CaInfo{}
+
+	err := c.Query(queryCtx, "GET", types.APIVersion, api.NewURL().Path("ca"), nil, &response)
+	if err != nil {
+		return response, fmt.Errorf("failed to get CA info: %w", err)
+	}
+
+	return response, err
 }
 
 // GetExpectedOvsdbSchemaVersion queries given MicroOVN node and returns an expected schema version for the specified

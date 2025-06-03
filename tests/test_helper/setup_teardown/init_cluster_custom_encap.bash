@@ -31,7 +31,7 @@ setup_file() {
                "$(test_is_ipv6_test && echo inet6 || echo inet)")
         assert [ -n "$addr" ]
         if [ -z "$leader" ]; then
-            microovn_init_create_cluster "$container" "$addr" "$ip_east_west"
+            microovn_init_create_cluster "$container" "$addr" "$ip_east_west" "" ""
             leader="$container"
         else
             local token

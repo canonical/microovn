@@ -20,7 +20,7 @@ type cmdCertificatesRegenerateCa struct {
 func (c *cmdCertificatesRegenerateCa) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "regenerate-ca",
-		Short: "Recreate new CA certificate and re-issue certificates for existing services across whole cluster.",
+		Short: "Recreate new self-signed CA certificate and re-issue certificates for existing services across whole cluster.",
 		RunE:  c.Run,
 	}
 

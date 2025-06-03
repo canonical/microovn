@@ -24,5 +24,8 @@ func (c *cmdCertificates) Command() *cobra.Command {
 	certificatesRegenerateCa := cmdCertificatesRegenerateCa{common: c.common, certificates: c}
 	cmd.AddCommand(certificatesRegenerateCa.Command())
 
+	certificatesSetCustmCa := cmdCertificatesSetCA{common: c.common, certificates: c}
+	cmd.AddCommand(certificatesSetCustmCa.Command())
+
 	return cmd
 }
