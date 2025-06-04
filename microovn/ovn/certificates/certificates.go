@@ -365,15 +365,9 @@ func GetCA(ctx context.Context, s state.State) (*x509.Certificate, any, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse CA certificate: %s", err)
 	}
-	caKey, err := x509.ParsePKCS8PrivateKey(keyData.Bytes)
+	caKey, err := parsePrivateKey(keyData.Bytes)
 	if err != nil {
-		// Backwards compatibility with older MicroOVN releases that used
-		// x509.MarshalECPrivateKey for encoding.
-		var ecErr error
-		caKey, ecErr = x509.ParseECPrivateKey(keyData.Bytes)
-		if ecErr != nil {
-			return nil, nil, fmt.Errorf("failed to parse CA Private Key (%s) (%s)", err, ecErr)
-		}
+		return nil, nil, fmt.Errorf("failed to parse CA private key: %s", err)
 	}
 
 	return caCert, caKey, nil
@@ -460,4 +454,27 @@ func getServiceCertificatePaths(service string) (string, string, error) {
 	}
 
 	return certPath, keyPath, err
+}
+
+// parsePrivateKey attempts to parse raw bytes of the private key in multiple formats:
+//   - PKCS8
+//   - PKCS1
+//   - EC
+//
+// Since crypto/x509 package doesn't seem to have general "ParsePrivateKey" function, we
+// need to manually try parsing the key from any format that we intend to support.
+func parsePrivateKey(rawPrivateKey []byte) (any, error) {
+	parsedPrivateKey, err := x509.ParsePKCS8PrivateKey(rawPrivateKey)
+	if err == nil {
+		return parsedPrivateKey, nil
+	}
+	parsedPrivateKey, err = x509.ParseECPrivateKey(rawPrivateKey)
+	if err == nil {
+		return parsedPrivateKey, nil
+	}
+	parsedPrivateKey, err = x509.ParsePKCS1PrivateKey(rawPrivateKey)
+	if err == nil {
+		return parsedPrivateKey, nil
+	}
+	return nil, err
 }
