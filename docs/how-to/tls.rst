@@ -136,21 +136,30 @@ Alternative to the automatic self-signed CA certificate is for the user to
 provide their own CA certificate and private key. This can be done when
 initialising a cluster via :command:`init`, or anytime afterwards via
 :command:`certificates set-ca`. The certificate and the key are provided as a
-path to a file on disk. MicroOVN stores the contents of these files in its
-database, so it's safe to remove the files afterwards.
+path to a file on disk. The certificate and private key can be passed via stdin
+when using :command:`certificates set-ca --combined`. MicroOVN stores the
+contents of these files in its database, so it's safe to remove the files
+afterwards.
 
 .. note::
 
    With MicroOVN being a confined snap, it has limited accessibility
    to the host filesystem. The most reliable way to provide the certificate
    and the key file, is to put them into `/var/snap/microovn/common` and let
-   the MicroOVN to read it from there.
+   the MicroOVN to read it from there, or by piping them in using the --combined
+   option.
 
 Example of replacing current CA:
 
 .. code-block:: none
 
    microovn certificates set-ca --cert /var/snap/microovn/common/ca.crt --key /var/snap/microovn/common/ca.key
+
+Or via stdin:
+
+.. code-block:: none
+
+   cat /var/snap/microovn/common/ca.crt /var/snap/microovn/common/ca.key | microovn certificates set-ca --combined
 
 Similar to the :command:`certificates regenerate-ca`, this triggers reissue of
 all service and client certificates on the OVN cluster. The command's output

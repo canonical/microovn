@@ -69,3 +69,4 @@ unencrypted
 uptime
 vSwitch
 yaml
+stdin
