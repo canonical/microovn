@@ -47,4 +47,5 @@ cluster_bootstrapped_with_user_ca() {
     done
 }
 
+
 init_cluster_user_ca_register_test_functions

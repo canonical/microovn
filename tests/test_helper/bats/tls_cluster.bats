@@ -404,6 +404,12 @@ tls_cluster_set_user_ca() {
     for container in $CHASSIS_CONTAINERS; do
         verify_chassis_cert_files "$container"
     done
+
+
+    container=$(echo "$TEST_CONTAINERS" | awk '{print $1;}')
+    run lxc_exec "$container" "microovn certificates set-ca --cert $USER_CA_CRT --key $USER_CA_KEY"
+    assert_success
+    assert_output -p "New CA certificate: Not Issued"
 }
 
 tls_cluster_upgrade_from_version_without_ca_auto_renew() {

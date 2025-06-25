@@ -42,16 +42,15 @@ func regenerateCaPut(s state.State, r *http.Request) response.Response {
 	responseData := types.NewRegenerateCaResponse()
 	// Only one recipient of this request needs to update the CA in the shared DB
 	if !client.IsNotification(r) {
-		var err error
 		logger.Info("Re-issuing CA certificate and private key")
-		err = certificates.GenerateNewCACertificate(r.Context(), s)
+		CaUpdate, err := certificates.GenerateNewCACertificate(r.Context(), s)
 		if err != nil {
 			logger.Errorf("Failed to generate new CA certificate: %v", err)
 			responseData.NewCa = false
 			return response.SyncResponse(false, &responseData)
 		}
 
-		responseData.NewCa = true
+		responseData.NewCa = CaUpdate
 	}
 
 	return updateOvnClusterCertificates(s, r, responseData)
@@ -74,14 +73,14 @@ func setCaPost(s state.State, r *http.Request) response.Response {
 			return response.SyncResponse(false, &responseData)
 		}
 
-		err = certificates.SetNewCACertificate(r.Context(), s, customCaRequest.Certificate, customCaRequest.PrivateKey)
+		CaUpdate, err := certificates.SetNewCACertificate(r.Context(), s, customCaRequest.Certificate, customCaRequest.PrivateKey)
 		if err != nil {
 			logger.Errorf("Failed to set custom user-provided CA certificate: %v", err)
 			responseData.NewCa = false
 			return response.SyncResponse(false, &responseData)
 		}
 
-		responseData.NewCa = true
+		responseData.NewCa = CaUpdate
 	}
 
 	return updateOvnClusterCertificates(s, r, responseData)
@@ -92,6 +91,10 @@ func updateOvnClusterCertificates(s state.State, r *http.Request, responseData *
 	// If this is the initial node that received the request, notify the rest of the nodes
 	// in the cluster to update their OVN certificates
 	if !client.IsNotification(r) {
+		if !responseData.NewCa {
+			logger.Info("Cluster certificates do not need updating")
+			return response.SyncResponse(true, &responseData)
+		}
 		// Get clients for rest of the cluster members
 		cluster, err := s.Cluster(true)
 		if err != nil {

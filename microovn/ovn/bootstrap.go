@@ -57,12 +57,12 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 
 	// Generate CA certificate and key
 	if len(certPem) != 0 && len(keyPem) != 0 {
-		err = certificates.SetNewCACertificate(ctx, s, string(certPem), string(keyPem))
+		_, err = certificates.SetNewCACertificate(ctx, s, string(certPem), string(keyPem))
 		if err != nil {
 			return err
 		}
 	} else {
-		err = certificates.GenerateNewCACertificate(ctx, s)
+		_, err = certificates.GenerateNewCACertificate(ctx, s)
 		if err != nil {
 			return err
 		}
