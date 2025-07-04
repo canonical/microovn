@@ -10,6 +10,14 @@ linters:
     - ineffassign
     - revive
     - staticcheck
+  settings:
+    revive:
+      rules:
+        - name: var-naming
+          arguments:
+            - [] # AllowList
+            - [] # DenyList
+            - - skip-package-name-checks: true # Extra parameter (upper-case-const|skip-package-name-checks)
   exclusions:
     generated: lax
     rules:

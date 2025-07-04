@@ -1,6 +1,7 @@
 name: Tests
 on:
   push:
+    branches: [main]
   pull_request:
   schedule:
     - cron: '14 3 * * 1'
@@ -226,3 +227,53 @@ jobs:
           path: ${{ env.COVERAGE_DIR }}/cobertura.xml
           include-hidden-files: true
 
+  tics:
+    name: Tiobe TICS
+    runs-on: ubuntu-24.04
+    env:
+      COVERAGE_DIR: ${{ github.workspace }}/.coverage
+    needs:
+      - generate-coverage
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create coverage data dir
+        run: |
+          mkdir -p ${{ env.COVERAGE_DIR }}
+
+      - name: Download coverage data
+        uses: actions/download-artifact@v4
+        with:
+          name: cobertura.xml
+          path: ${{ env.COVERAGE_DIR }}
+
+      # This type of the TICS run creates a persistent measurement point against
+      # which we measure subsequent changes. Therefore, it is created only on push to
+      # the main branch or during the bi-weekly scheduled runs.
+      - name: "Full TICS run (mode: qserver)"
+        if: ${{ (github.event_name == 'push') || (github.event_name == 'cron') }}
+        uses: tiobe/tics-github-action@v3
+        env:
+          TICSAUTHTOKEN: ${{ secrets.TICSAUTHTOKEN }}
+        with:
+          mode: qserver
+          project: microovn
+          viewerUrl: https://canonical.tiobe.com/tiobeweb/TICS/api/cfg?name=GoProjects
+          ticsAuthToken: ${{ secrets.TICSAUTHTOKEN }}
+          installTics: true
+
+      # This type of the TICS run compares current state of the code against the last
+      # persistent measurement point. We run in on proposed pull requests.
+      - name: "Comparative TICS run (mode: client)"
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: tiobe/tics-github-action@v3
+        env:
+          TICSAUTHTOKEN: ${{ secrets.TICSAUTHTOKEN }}
+        with:
+          mode: client
+          project: microovn
+          viewerUrl: https://canonical.tiobe.com/tiobeweb/TICS/api/cfg?name=GoProjects
+          ticsAuthToken: ${{ secrets.TICSAUTHTOKEN }}
+          installTics: true
