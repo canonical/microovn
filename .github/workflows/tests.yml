@@ -226,3 +226,35 @@ jobs:
           path: ${{ env.COVERAGE_DIR }}/cobertura.xml
           include-hidden-files: true
 
+  tics:
+    name: Tiobe TICS
+    runs-on: ubuntu-24.04
+    env:
+      COVERAGE_DIR: ${{ github.workspace }}/.coverage
+    needs:
+      - generate-coverage
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create coverage data dir
+        run: |
+          mkdir -p ${{ env.COVERAGE_DIR }}
+
+      - name: Download coverage data
+        uses: actions/download-artifact@v4
+        with:
+          name: cobertura.xml
+          path: ${{ env.COVERAGE_DIR }}
+
+      - name: Run TICS
+        uses: tiobe/tics-github-action@v3
+        env:
+          TICSAUTHTOKEN: ${{ secrets.TICSAUTHTOKEN }}
+        with:
+          mode: qserver
+          project: microovn
+          viewerUrl: https://canonical.tiobe.com/tiobeweb/TICS/api/cfg?name=GoProjects
+          ticsAuthToken: ${{ secrets.TICSAUTHTOKEN }}
+          installTics: true
