@@ -248,6 +248,12 @@ jobs:
       SRC_DIR: ${{ github.workspace }}/microovn/
     needs:
       - generate-coverage
+    # TICS execution requires access to an auth. token which is not available in the forks of this
+    # repository. We allow this job to run only if it has access to the token:
+    #  * On "push" action
+    #  * On scheduled action
+    #  * On pull request created from the main repository (not fork)
+    if: ${{ (github.event_name != 'pull_request') || (github.repository == github.event.pull_request.head.repo.full_name) }}
 
     steps:
       - name: Checkout code
