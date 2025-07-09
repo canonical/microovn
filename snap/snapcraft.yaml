@@ -267,9 +267,16 @@ parts:
       
       # Conditionally build MicroOVN with coverage instrumentation
       EXTRA_BUILD_ARGS=""
+      EXTRA_TEST_ARGS=""
+
+      rm -rf "$CRAFT_STAGE/.coverage"
+      UNIT_TEST_COVERAGE_DIR="$CRAFT_STAGE/.coverage/unit_test/coverage"
+      mkdir -p "$UNIT_TEST_COVERAGE_DIR"
+
       echo "" > $CRAFT_STAGE/coverage.env
       if [ "$MICROOVN_COVERAGE" = "yes" ]; then
         EXTRA_BUILD_ARGS="-cover"
+        EXTRA_TEST_ARGS="-args -test.gocoverdir=$UNIT_TEST_COVERAGE_DIR"
         cp "$CRAFT_PROJECT_DIR/snapcraft/coverage.env.ignore" "$CRAFT_STAGE/coverage.env"
       fi
 
@@ -287,7 +294,7 @@ parts:
 
       # Run any unit tests.
       LD_LIBRARY_PATH=${CRAFT_STAGE}/lib/:${CRAFT_STAGE}/usr/local/lib/ \
-          go test ./...
+          go test $EXTRA_BUILD_ARGS ./... $EXTRA_TEST_ARGS
 
       # Determine versions of packages used to build MicroOVN
       # Note (mkalcok): This code reaches into other snapcraft parts via hardcoded paths
@@ -326,6 +333,21 @@ parts:
                -tags=libsqlite3 \
                $EXTRA_BUILD_ARGS \
                ./cmd/microovnd
+
+    override-prime: |
+      craftctl default
+
+      set -ex
+      # Load dynamic configuration options for MicroOVN snap build
+      source $CRAFT_PART_BUILD/build-aux/environment
+
+      # Prime unit test coverage data if MicroOVN is being built with coverage
+      # support
+      rm -rf "$CRAFT_PRIME/.coverage"
+      if [ "$MICROOVN_COVERAGE" = "yes" ]; then
+        cp -r "$CRAFT_STAGE/.coverage" "$CRAFT_PRIME/"
+      fi
+
     prime:
       - bin/microovn
       - bin/microovnd
