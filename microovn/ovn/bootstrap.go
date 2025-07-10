@@ -12,6 +12,7 @@ import (
 	"github.com/canonical/microovn/microovn/node"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/ovn/environment"
 )
 
 // Bootstrap will initialize a new OVN deployment.
@@ -21,7 +22,7 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 	defer muHook.Unlock()
 
 	// Create our storage.
-	err := createPaths()
+	err := environment.CreatePaths()
 	if err != nil {
 		return err
 	}
@@ -74,7 +75,7 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 	}
 
 	// Generate the configuration.
-	err = generateEnvironment(ctx, s)
+	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
@@ -102,7 +103,7 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 		return err
 	}
 
-	err = generateEnvironment(ctx, s)
+	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
@@ -114,7 +115,7 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 	}
 
 	// Configure OVS to use OVN.
-	sbConnect, _, err := environmentString(ctx, s, 6642)
+	sbConnect, _, err := environment.ConnectionString(ctx, s, 6642)
 	if err != nil {
 		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
 	}
