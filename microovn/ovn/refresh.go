@@ -12,6 +12,7 @@ import (
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/node"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/ovn/environment"
 	"github.com/canonical/microovn/microovn/snap"
 )
 
@@ -34,7 +35,7 @@ func refresh(ctx context.Context, s state.State) error {
 	defer muHook.Unlock()
 
 	// Create our storage.
-	err := createPaths()
+	err := environment.CreatePaths()
 	if err != nil {
 		return err
 	}
@@ -51,7 +52,7 @@ func refresh(ctx context.Context, s state.State) error {
 	}
 
 	// Generate the configuration.
-	err = generateEnvironment(ctx, s)
+	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
@@ -67,7 +68,7 @@ func refresh(ctx context.Context, s state.State) error {
 	// Enable OVN chassis.
 	if hasSwitch {
 		// Reconfigure OVS to use OVN.
-		sbConnect, _, err := environmentString(ctx, s, 6642)
+		sbConnect, _, err := environment.ConnectionString(ctx, s, 6642)
 		if err != nil {
 			return fmt.Errorf("failed to get OVN SB connect string: %w", err)
 		}
@@ -97,7 +98,7 @@ func updateOvnListenConfig(ctx context.Context, s state.State) error {
 		return fmt.Errorf("failed to get path to OVN SB database socket: %w", err)
 	}
 
-	protocol := networkProtocol(ctx, s)
+	protocol := environment.NetworkProtocol(ctx, s)
 	_, err = ovnCmd.NBCtl(
 		ctx,
 		s,

@@ -13,6 +13,7 @@ import (
 	"github.com/canonical/microovn/microovn/node"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/ovn/environment"
 )
 
 // Join will join an existing OVN deployment.
@@ -22,7 +23,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	defer muHook.Unlock()
 
 	// Create our storage.
-	err := createPaths()
+	err := environment.CreatePaths()
 	if err != nil {
 		return err
 	}
@@ -46,7 +47,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	}
 
 	// Generate the configuration.
-	err = generateEnvironment(ctx, s)
+	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
@@ -81,7 +82,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 		}
 	}
 
-	err = generateEnvironment(ctx, s)
+	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
@@ -93,7 +94,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	}
 
 	// Enable OVN chassis.
-	sbConnect, _, err := environmentString(ctx, s, 6642)
+	sbConnect, _, err := environment.ConnectionString(ctx, s, 6642)
 	if err != nil {
 		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
 	}
