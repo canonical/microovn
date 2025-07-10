@@ -64,11 +64,18 @@ service_warning_tests() {
     assert_output -p "[central] Warning: Cluster with less than 3 nodes can't tolerate any node failures."
 
     run lxc_exec "microovn-services-3" "microovn disable central"
-    assert_output "Error: failed to disable service 'central': 'you cannot delete the final enabled central service'"
+    assert_output "Error: failed to disable service 'central': 'cannot disable last central node without explicit confirmation'"
 
     # ensure central is actually still enabled
     assert [ -n "$(run lxc_exec "microovn-services-3" "microovn status | grep -ozE 'microovn-services-3[^-]*' | grep central")"]
     assert [ -n "$(run lxc_exec "microovn-services-3" "snap services microovn | grep ovn-northd | grep enabled")"]
+
+    # Explicitly allow disabling last central node
+    run lxc_exec "microovn-services-3" "microovn disable central --allow-disable-last-central"
+
+    # ensure central was disabled
+    assert [ -z "$(run lxc_exec "microovn-services-3" "microovn status | grep -ozE 'microovn-services-3[^-]*' | grep central")"]
+    assert [ -n "$(run lxc_exec "microovn-services-3" "snap services microovn | grep ovn-northd | grep disabled")"]
 }
 
 

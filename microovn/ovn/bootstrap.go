@@ -116,7 +116,6 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 	}
 
 	// Configure OVS to use OVN.
-
 	err = ovnCluster.UpdateOvnListenConfig(ctx, s)
 	if err != nil {
 		return err

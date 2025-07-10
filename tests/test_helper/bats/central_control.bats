@@ -17,6 +17,10 @@ central_register_test_functions() {
     bats_test_function \
         --description "Testing of central node migration" \
         -- central_tests
+
+    bats_test_function \
+        --description "Test re-initialization of OVN central after scaling it to 0" \
+        -- central_reinit
 }
 
 # this takes a space seperated array of containers and then disables central
@@ -92,6 +96,87 @@ central_tests() {
     assert [ -n "$(run lxc_exec "${containers_to_upgrade[4]}" "snap services microovn | grep ovn-northd | grep enabled")"]
     assert [ -n "$(run lxc_exec "${containers_to_upgrade[5]}" "microovn status | grep -ozE 'microovn-central-control-6[^-]*' | grep central")"]
     assert [ -n "$(run lxc_exec "${containers_to_upgrade[5]}" "snap services microovn | grep ovn-northd | grep enabled")"]
+}
+
+# This test disables 'central' on all nodes, effectively destroying the OVN central cluster.
+# Afterwards it re-enables 'central' service to ensure that the cluster can be re-initialized.
+central_reinit() {
+    local all_containers
+    read -r -a all_containers <<< "$TEST_CONTAINERS"
+
+    local ctl_path="/var/snap/microovn/common/run/ovn/"
+
+    # Disable central on every node that has it enabled
+    local original_cluster_id_nb
+    local original_cluster_id_sb
+    local central_found=0
+    local container
+    for container in $TEST_CONTAINERS; do
+        if lxc_exec "$container" "snap services microovn | grep microovn.ovn-ovsdb-server-nb | grep -w enabled"; then
+            central_found=1
+
+            # Record original OVN cluster IDs
+            if [ -z "$original_cluster_id_nb" ]; then
+                original_cluster_id_nb=$(microovn_ovndb_cluster_id "$container" "nb")
+            fi
+            if [ -z "$original_cluster_id_sb" ]; then
+            original_cluster_id_sb=$(microovn_ovndb_cluster_id "$container" "sb")
+            fi
+
+            # Disable central service on the node
+            echo "# Disabling central service on $container"
+            lxc_exec "$container" "microovn disable central --allow-disable-last-central"
+        fi
+    done
+
+    # Ensure that at least one node had central service enabled and the original cluster ID was recorded
+    assert_equal "$central_found" "1"
+    assert [ -n "$original_cluster_id_nb" ]
+    assert [ -n "$original_cluster_id_sb" ]
+
+    # re-enable central service on first 3 nodes
+    local i
+    local already_in_cluster=""
+    for i in {0..2}; do
+        container=${all_containers[$i]}
+        echo "# Enabling central service on $container"
+        lxc_exec "$container" "microovn enable central"
+
+        # Wait for the local DB to come up
+        microovn_wait_ovndb_state "$container" nb connected 32
+        microovn_wait_ovndb_state "$container" sb connected 32
+
+        # Wait for the node to appear in the cluster connection list
+        if [ -n "$already_in_cluster" ]; then
+            wait_ovsdb_cluster_container_join "$(microovn_ovndb_server_id "$container" "nb")" "$ctl_path/ovnnb_db.ctl" "OVN_Northbound" 30 $already_in_cluster
+            wait_ovsdb_cluster_container_join "$(microovn_ovndb_server_id "$container" "sb")" "$ctl_path/ovnsb_db.ctl" "OVN_Southbound" 30 $already_in_cluster
+        fi
+        already_in_cluster="$already_in_cluster $container"
+    done
+
+
+    # Ensure that OVN cluster with new cluster ID was created
+    local new_cluster_id_nb
+    local new_cluster_id_sb
+    new_cluster_id_nb=$(microovn_ovndb_cluster_id "${all_containers[0]}" "nb")
+    new_cluster_id_sb=$(microovn_ovndb_cluster_id "${all_containers[0]}" "sb")
+    assert [ -n "$new_cluster_id_nb" ]
+    assert [ -n "$new_cluster_id_sb" ]
+    assert [ "$new_cluster_id_nb" != "$original_cluster_id_nb" ]
+    assert [ "$new_cluster_id_sb" != "$original_cluster_id_sb" ]
+
+    # Ensure the controllers (chassis) re-register in the SB database
+    # ovn-controller will complain about "stale data"[0] if MicroOVN doesn't
+    # properly wipe the state
+    # [0] https://mail.openvswitch.org/pipermail/ovs-dev/2020-August/373583.html
+    local sb_status
+    sb_status=$(lxc_exec "${all_containers[0]}" "microovn.ovn-sbctl show")
+
+    for container in $TEST_CONTAINERS; do
+        if lxc_exec "$container" "snap services microovn | grep microovn.chassis | grep -w enabled"; then
+            grep -E "^Chassis $container\$" <<< "$sb_status"
+        fi
+    done
 }
 
 central_register_test_functions

@@ -229,8 +229,6 @@ microovn_version() {
     done
 }
 
-cli_ovsovn_register_test_functions
-
 test_waitready(){
     for container in $TEST_CONTAINERS; do
         run lxc_exec $container "snap stop microovn.daemon"
