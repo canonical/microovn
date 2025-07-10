@@ -28,6 +28,13 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 		return err
 	}
 
+	// The default behavior on bootstrap is to enable all services
+	enableServices := requestedServices{
+		Central: true,
+		Chassis: true,
+		Switch:  true,
+	}
+
 	// Parse custom bootstrap options from initConfig
 	ovnEncapIP := s.Address().Hostname()
 	var certPem []byte
@@ -54,6 +61,16 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 				return fmt.Errorf("failed to read CA private key: %w", err)
 			}
 			continue
+		}
+
+		// Get requested services
+		if k == "ovn-services" {
+			if v != "auto" {
+				enableServices, err = newRequestedServices(v)
+				if err != nil {
+					return fmt.Errorf("failed to parse requested services: %w", err)
+				}
+			}
 		}
 	}
 
@@ -92,51 +109,56 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 
 	// Start all the required services
 
-	err = node.EnableService(ctx, s, types.SrvSwitch)
-	if err != nil {
-		logger.Infof("Failed to enable switch")
-		return err
+	if enableServices.Switch {
+		err = node.EnableService(ctx, s, types.SrvSwitch)
+		if err != nil {
+			logger.Infof("Failed to enable switch")
+			return err
+		}
 	}
 
-	err = node.EnableService(ctx, s, types.SrvCentral)
-	if err != nil {
-		logger.Infof("Failed to enable central")
-		return err
+	if enableServices.Central {
+		err = node.EnableService(ctx, s, types.SrvCentral)
+		if err != nil {
+			logger.Infof("Failed to enable central")
+			return err
+		}
+
+		err = environment.GenerateEnvironment(ctx, s)
+		if err != nil {
+			return fmt.Errorf("failed to generate the daemon configuration: %w", err)
+		}
+
+		err = ovnCluster.UpdateOvnListenConfig(ctx, s)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = environment.GenerateEnvironment(ctx, s)
-	if err != nil {
-		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
-	}
+	if enableServices.Chassis {
+		err = node.EnableService(ctx, s, types.SrvChassis)
+		if err != nil {
+			logger.Infof("Failed to enable ovn-controller")
+			return err
+		}
 
-	err = node.EnableService(ctx, s, types.SrvChassis)
-	if err != nil {
-		logger.Infof("Failed to enable switch")
-		return err
-	}
+		_, err = ovnCmd.VSCtl(
+			ctx,
+			s,
+			"set", "open_vswitch", ".",
+			fmt.Sprintf("external_ids:system-id=%s", s.Name()),
+			"external_ids:ovn-encap-type=geneve",
+			fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIP),
+		)
 
-	// Configure OVS to use OVN.
-	err = ovnCluster.UpdateOvnListenConfig(ctx, s)
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return fmt.Errorf("error configuring OVS parameters: %s", err)
+		}
 
-	_, err = ovnCmd.VSCtl(
-		ctx,
-		s,
-		"set", "open_vswitch", ".",
-		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
-		"external_ids:ovn-encap-type=geneve",
-		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIP),
-	)
-
-	if err != nil {
-		return fmt.Errorf("error configuring OVS parameters: %s", err)
-	}
-
-	err = ovnCluster.UpdateOvnControllerRemoteConfig(ctx, s)
-	if err != nil {
-		return err
+		err = ovnCluster.UpdateOvnControllerRemoteConfig(ctx, s)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
