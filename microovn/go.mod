@@ -9,7 +9,6 @@ require (
 	github.com/canonical/microcluster/v2 v2.0.5
 	github.com/gorilla/mux v1.8.1
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.8.1
 )
 
@@ -35,6 +34,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mattn/go-sqlite3 v1.14.24 // indirect
 	github.com/muhlemmer/gu v0.3.1 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/sftp v1.13.7 // indirect
 	github.com/pkg/xattr v0.4.10 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect

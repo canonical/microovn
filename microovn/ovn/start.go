@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microovn/microovn/node"
+	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/environment"
 	"github.com/canonical/microovn/microovn/ovn/ovsdb"
@@ -46,7 +47,7 @@ func Start(ctx context.Context, s state.State) error {
 	}
 
 	if centralActive {
-		err = updateOvnListenConfig(ctx, s)
+		err = ovnCluster.UpdateOvnListenConfig(ctx, s)
 		if err != nil {
 			logger.Warnf("Failed to update OVN listening configs. There might be connectivity issues.")
 		}

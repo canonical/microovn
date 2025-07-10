@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/node"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
+	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/environment"
 )
@@ -120,7 +121,7 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
 	}
 
-	err = updateOvnListenConfig(ctx, s)
+	err = ovnCluster.UpdateOvnListenConfig(ctx, s)
 	if err != nil {
 		return err
 	}
