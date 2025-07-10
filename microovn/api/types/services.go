@@ -6,6 +6,11 @@ import (
 	"log"
 )
 
+// DisableServiceRequest defines structure of a request to disable OVN services on the node
+type DisableServiceRequest struct {
+	AllowDisableLastCentral bool `json:"allowDisableLastCentral"` // If set to true, MicroOVN will allow removal of the last ovn-central cluster member. Effectively removing the central cluster and its data.
+}
+
 // Services - Slice with Service records.
 type Services []Service
 

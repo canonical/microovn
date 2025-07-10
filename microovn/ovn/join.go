@@ -12,6 +12,7 @@ import (
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/node"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
+	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/environment"
 )
@@ -94,11 +95,6 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	}
 
 	// Enable OVN chassis.
-	sbConnect, _, err := environment.ConnectionString(ctx, s, 6642)
-	if err != nil {
-		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
-	}
-
 	// A custom encapsulation IP address can also be directly passed as an initConfig parameter.
 	// This block is typically executed by a `microovn cluster init` or by an external project
 	// triggering this join hook.
@@ -119,13 +115,17 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 		s,
 		"set", "open_vswitch", ".",
 		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
-		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
 		"external_ids:ovn-encap-type=geneve",
 		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIP),
 	)
 
 	if err != nil {
 		return fmt.Errorf("error configuring OVS parameters: %s", err)
+	}
+
+	err = ovnCluster.UpdateOvnControllerRemoteConfig(ctx, s)
+	if err != nil {
+		return err
 	}
 
 	return nil
