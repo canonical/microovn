@@ -120,7 +120,7 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
 	}
 
-	err = updateOvnListenConfig(ctx, s)
+	err = environment.UpdateOvnListenConfig(ctx, s)
 	if err != nil {
 		return err
 	}

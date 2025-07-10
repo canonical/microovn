@@ -46,7 +46,7 @@ func Start(ctx context.Context, s state.State) error {
 	}
 
 	if centralActive {
-		err = updateOvnListenConfig(ctx, s)
+		err = environment.UpdateOvnListenConfig(ctx, s)
 		if err != nil {
 			logger.Warnf("Failed to update OVN listening configs. There might be connectivity issues.")
 		}
