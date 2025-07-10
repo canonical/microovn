@@ -115,11 +115,6 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 	}
 
 	// Configure OVS to use OVN.
-	sbConnect, _, err := environment.ConnectionString(ctx, s, 6642)
-	if err != nil {
-		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
-	}
-
 	err = environment.UpdateOvnListenConfig(ctx, s)
 	if err != nil {
 		return err
@@ -130,13 +125,17 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 		s,
 		"set", "open_vswitch", ".",
 		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
-		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
 		"external_ids:ovn-encap-type=geneve",
 		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIP),
 	)
 
 	if err != nil {
 		return fmt.Errorf("error configuring OVS parameters: %s", err)
+	}
+
+	err = environment.UpdateOvnControllerRemoteConfig(ctx, s)
+	if err != nil {
+		return err
 	}
 
 	return nil
