@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/cluster"
 	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microovn/microovn/ovn/environment"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/database"
@@ -40,13 +41,16 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName) e
 	// other check if central because we need to do a database transaction,
 	// and if this check is moved into the later "if central" then we
 	// will need to handle the database check on each branch of the if
+	lastCentral := false
 	if service == types.SrvCentral {
 		centrals, err := FindService(ctx, s, service)
 		if err != nil {
 			return err
 		}
+		// TODO: We should probably have some --i-really-mean-it flag
+		// from the client request before allowing this
 		if len(centrals) == 1 {
-			return errors.New("you cannot delete the final enabled central service")
+			lastCentral = true
 		}
 	}
 
@@ -60,7 +64,7 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName) e
 
 	switch service {
 	case types.SrvCentral:
-		leaveCentral(ctx, s)
+		leaveCentral(ctx, s, lastCentral)
 	case types.SrvChassis:
 		leaveChassis(ctx, s)
 	default:
@@ -202,6 +206,7 @@ func ServiceWarnings(ctx context.Context, s state.State) (types.WarningSet, erro
 	if err != nil {
 		return output, err
 	}
+	// TODO: Update sync warnings when last node is removed
 	if (len(centrals) % 2) == 0 {
 		output.EvenCentral = true
 	}
@@ -229,12 +234,16 @@ func joinCentral(ctx context.Context, s state.State) error {
 		return fmt.Errorf("failed to generate TLS certificate for ovn-northd service")
 	}
 
-	return activateService(types.SrvCentral, true)
+	err = activateService(types.SrvCentral, true)
+	if err != nil {
+		return err
+	}
+	return environment.UpdateOvnListenConfig(ctx, s)
 }
 
 // leaveCentral safely stops the central service's child services, and leaves
 // the central database cluster safely.
-func leaveCentral(ctx context.Context, s state.State) {
+func leaveCentral(ctx context.Context, s state.State, lastMember bool) {
 	// Leave SB and NB clusters
 	logger.Info("Leaving OVN Northbound cluster")
 	_, err := ovnCmd.AppCtl(ctx, s, paths.OvnNBControlSock(), "cluster/leave", "OVN_Northbound")
@@ -248,25 +257,27 @@ func leaveCentral(ctx context.Context, s state.State) {
 		logger.Warnf("Failed to leave OVN Southbound cluster: %s", err)
 	}
 
-	// Wait for NB and SB cluster members to complete departure process
-	nbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
-	if err == nil {
-		err = ovnCmd.WaitForDBState(ctx, s, nbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
-		if err != nil {
-			logger.Warnf("Failed to wait for NB cluster departure: %s", err)
+	if !lastMember {
+		// Wait for NB and SB cluster members to complete departure process
+		nbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
+		if err == nil {
+			err = ovnCmd.WaitForDBState(ctx, s, nbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
+			if err != nil {
+				logger.Warnf("Failed to wait for NB cluster departure: %s", err)
+			}
+		} else {
+			logger.Warnf("Failed to get NB database specification: %s", err)
 		}
-	} else {
-		logger.Warnf("Failed to get NB database specification: %s", err)
-	}
 
-	sbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeSBLocal)
-	if err == nil {
-		err = ovnCmd.WaitForDBState(ctx, s, sbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
-		if err != nil {
-			logger.Warnf("Failed to wait for SB cluster departure: %s", err)
+		sbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeSBLocal)
+		if err == nil {
+			err = ovnCmd.WaitForDBState(ctx, s, sbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
+			if err != nil {
+				logger.Warnf("Failed to wait for SB cluster departure: %s", err)
+			}
+		} else {
+			logger.Warnf("Failed to get SB database specification: %s", err)
 		}
-	} else {
-		logger.Warnf("Failed to get SB database specification: %s", err)
 	}
 
 	err = os.Rename(paths.CentralDBNBPath(), paths.CentralDBNBBackupPath())

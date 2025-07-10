@@ -1,4 +1,4 @@
-package ovn
+package environment
 
 import (
 	"context"
@@ -17,6 +17,7 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/cluster"
 	"github.com/canonical/microcluster/v2/state"
+	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
@@ -31,9 +32,9 @@ OVN_SB_CONNECT="{{ .sbConnect }}"
 OVN_LOCAL_IP="{{ .localAddr }}"
 `))
 
-// networkProtocol returns appropriate network protocol that should be used
+// NetworkProtocol returns appropriate network protocol that should be used
 // by OVN services.
-func networkProtocol(ctx context.Context, s state.State) string {
+func NetworkProtocol(ctx context.Context, s state.State) string {
 	_, _, err := certificates.GetCA(ctx, s)
 	if err != nil {
 		return "tcp"
@@ -41,8 +42,11 @@ func networkProtocol(ctx context.Context, s state.State) string {
 	return "ssl"
 }
 
-// Builds environment variable strings for OVN.
-func environmentString(ctx context.Context, s state.State, port int) (string, string, error) {
+// ConnectionString builds a string that defines connection endpoints of OVN
+// cluster services. It can be used to tell services (i.e. ovn-controller) about
+// the location of OVN central services.
+// Example return value: "ssl:10.0.0.1:6641,ssl:10.0.0.2:6641,ssl:10.0.0.3:6641"
+func ConnectionString(ctx context.Context, s state.State, port int) (string, string, error) {
 	var err error
 	var servers []database.Service
 	var clusterMap map[string]cluster.CoreClusterMember
@@ -71,7 +75,7 @@ func environmentString(ctx context.Context, s state.State, port int) (string, st
 
 	addresses := make([]string, 0, len(servers))
 	var initialString string
-	protocol := networkProtocol(ctx, s)
+	protocol := NetworkProtocol(ctx, s)
 	for i, server := range servers {
 		member := clusterMap[server.Member]
 		memberAddr, err := netip.ParseAddrPort(member.Address)
@@ -98,14 +102,15 @@ func environmentString(ctx context.Context, s state.State, port int) (string, st
 	return strings.Join(addresses, ","), initialString, nil
 }
 
-func generateEnvironment(ctx context.Context, s state.State) error {
+// GenerateEnvironment generates the OVN environment file.
+func GenerateEnvironment(ctx context.Context, s state.State) error {
 	// Get the servers.
-	nbConnect, nbInitial, err := environmentString(ctx, s, 6641)
+	nbConnect, nbInitial, err := ConnectionString(ctx, s, 6641)
 	if err != nil {
 		return err
 	}
 
-	sbConnect, sbInitial, err := environmentString(ctx, s, 6642)
+	sbConnect, sbInitial, err := ConnectionString(ctx, s, 6642)
 	if err != nil {
 		return err
 	}
@@ -152,7 +157,8 @@ func generateEnvironment(ctx context.Context, s state.State) error {
 	return nil
 }
 
-func createPaths() error {
+// CreatePaths creates the required directories for OVN.
+func CreatePaths() error {
 	// Create our various paths.
 	for _, path := range paths.RequiredDirs() {
 		err := os.MkdirAll(path, 0700)
@@ -164,9 +170,9 @@ func createPaths() error {
 	return nil
 }
 
-// cleanupPaths backs up directories defined by paths.BackupDirs and then removes directories
-// created by createPaths function. This effectively removes any data created during MicroOVN runtime.
-func cleanupPaths() error {
+// CleanupPaths backs up directories defined by paths.BackupDirs and then removes directories
+// created by CreatePaths function. This effectively removes any data created during MicroOVN runtime.
+func CleanupPaths() error {
 	var errs []error
 
 	// Create timestamped backup dir
@@ -214,4 +220,78 @@ func cleanupPaths() error {
 	}
 
 	return errors.Join(errs...)
+}
+
+// UpdateOvnListenConfig configures the OVN NB and SB databases to listen on the appropriate ports.
+func UpdateOvnListenConfig(ctx context.Context, s state.State) error {
+	nbDB, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
+	if err != nil {
+		return fmt.Errorf("failed to get path to OVN NB database socket: %w", err)
+	}
+	sbDB, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeSBLocal)
+	if err != nil {
+		return fmt.Errorf("failed to get path to OVN SB database socket: %w", err)
+	}
+
+	protocol := NetworkProtocol(ctx, s)
+	_, err = ovnCmd.NBCtl(
+		ctx,
+		s,
+		"--no-leader-only",
+		fmt.Sprintf("--db=%s", nbDB.SocketURL),
+		"set-connection",
+		fmt.Sprintf("p%s:6641:[::]", protocol),
+	)
+	if err != nil {
+		return fmt.Errorf("error setting ovn NB connection string: %s", err)
+	}
+
+	_, err = ovnCmd.SBCtl(
+		ctx,
+		s,
+		"--no-leader-only",
+		fmt.Sprintf("--db=%s", sbDB.SocketURL),
+		"set-connection",
+		fmt.Sprintf("p%s:6642:[::]", protocol),
+	)
+	if err != nil {
+		return fmt.Errorf("error setting ovn SB connection string: %s", err)
+	}
+
+	return nil
+}
+
+func UpdateOvnControllerRemoteConfig(ctx context.Context, s state.State) error {
+
+	// Reconfigure OVS to use OVN.
+	sbConnect, _, err := ConnectionString(ctx, s, 6642)
+	if err != nil {
+		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
+	}
+
+	if len(sbConnect) != 0 {
+		_, err = ovnCmd.VSCtl(
+			ctx,
+			s,
+			"set", "open_vswitch", ".",
+			fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
+		)
+
+		if err != nil {
+			return fmt.Errorf("failed to update OVS's 'ovn-remote' configuration")
+		}
+	} else {
+		// In case when there are no OVN central services, we need to make sure
+		// that we remove potential leftover configuration
+		_, err = ovnCmd.VSCtl(
+			ctx,
+			s,
+			"remove", "open_vswitch", ".", "external_ids", "ovn-remote",
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update OVS's 'ovn-remote' configuration")
+		}
+	}
+
+	return nil
 }
