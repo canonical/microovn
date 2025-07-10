@@ -115,6 +115,16 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 		}
 
 		optionalConfig := make(map[string]string)
+
+		// TODO: Perhaps we need to change this question to get comma separated values
+		selectedServices, err := c.common.asker.AskChoice("Please select services you would like to enable on this node (central/chassis/auto) [default=auto]: ", []string{"central", "chassis", "auto"}, "auto")
+		if err != nil {
+			return err
+		}
+		if selectedServices != "auto" {
+			optionalConfig["ovn-services"] = selectedServices
+		}
+
 		if wantsBootstrap {
 			mode = "bootstrap"
 
@@ -167,7 +177,7 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 				}
 
 				if key != "" && encapIP != "" {
-					optionalConfig = map[string]string{key: encapIP}
+					optionalConfig[key] = encapIP
 				}
 			}
 
