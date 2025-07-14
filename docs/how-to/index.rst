@@ -15,3 +15,4 @@ a basic understanding of OVN.
    major-upgrades
    ovn-underlay
    service-control
+   datapath-only-mode

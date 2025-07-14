@@ -22,6 +22,7 @@ observability
 OLM
 pre
 ReadMe
+subcommands
 subdirectories
 subtree
 subfolders

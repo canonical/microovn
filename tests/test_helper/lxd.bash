@@ -215,3 +215,27 @@ function lxc_pull_dir() {
 
     lxc file pull -q --recursive "$container_path" "$dst"
 }
+
+# lxc_file_transfer SRC_CONTAINER SRC_PATH DST_CONTAINER DST_PATH
+#
+# Move file from SRC_PATH on SRC_CONTAINER to DST_PATH on DST_CONTAINER. Since
+# the file needs to be temporarily stored on the host running the tests, this function
+# needs to have write permission to create temporary folders via mktemp.
+# After the transfer, the file is owned by the 'ubuntu' user on the DST_CONTAINER
+function lxc_file_transfer() {
+    local src_container=$1; shift
+    local src_path=$1; shift
+    local dst_container=$1; shift
+    local dst_path=$1; shift
+
+    local transfer_dir
+    transfer_dir=$(mktemp -d)
+    echo "# Transferring file from $src_container$src_path"
+    lxc file pull "$src_container$src_path" "$transfer_dir"
+
+    echo "# Transferring file to $dst_container$dst_path"
+    lxc file push "$transfer_dir/$(basename "$src_path")" "$dst_container$dst_path"
+
+    rm -rf "$transfer_dir"
+}
+

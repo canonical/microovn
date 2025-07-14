@@ -75,6 +75,9 @@ func main() {
 	var cmdCertificates = cmdCertificates{common: &commonCmd}
 	app.AddCommand(cmdCertificates.Command())
 
+	var cmdConfig = cmdConfig{common: &commonCmd}
+	app.AddCommand(cmdConfig.Command())
+
 	app.InitDefaultHelpCmd()
 
 	err := app.Execute()
