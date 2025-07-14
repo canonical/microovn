@@ -42,6 +42,15 @@ func NetworkProtocol(ctx context.Context, s state.State) string {
 	return "ssl"
 }
 
+// IsExternalCentralConfigured returns True if the config option "ovn.central-ips" was explicitly configured
+func IsExternalCentralConfigured(ctx context.Context, s state.State) (bool, error) {
+	ovnRemoteConfig, err := config.GetConfig(ctx, s, "ovn.central-ips")
+	if err != nil {
+		return false, err
+	}
+	return ovnRemoteConfig != nil, nil
+}
+
 // remoteAddressesFromConfig attempts to retrieve a list of IP addresses that should be used for
 // connecting to ovn-central services from the config option "ovn.central-ips". The return value is nil
 // if the config option is not set in the database.

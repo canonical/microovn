@@ -182,5 +182,6 @@ has same effect as selecting ``auto``.
 .. note::
 
    The default behaviour for selecting services is to always enable ``switch``
-   and ``chassis`` services. The ``central`` service is enabled only if there's less
-   than 3 nodes with ``central`` service enabled in the cluster.
+   and ``chassis`` services. The ``central`` service is enabled only if configuration
+   option :doc:`ovn.central-ips </reference/config/ovn-central-ips>` is not set and
+   there are less than 3 nodes with ``central`` service enabled in the cluster.
