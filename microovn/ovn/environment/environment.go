@@ -18,6 +18,7 @@ import (
 	"github.com/canonical/microcluster/v2/cluster"
 	"github.com/canonical/microcluster/v2/state"
 
+	"github.com/canonical/microovn/microovn/config"
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
 	"github.com/canonical/microovn/microovn/ovn/paths"
@@ -41,17 +42,30 @@ func NetworkProtocol(ctx context.Context, s state.State) string {
 	return "ssl"
 }
 
-// ConnectionString builds a string that defines connection endpoints of OVN
-// cluster services. It can be used to tell services (i.e. ovn-controller) about
-// the location of OVN central services.
-// Example return value: "ssl:10.0.0.1:6641,ssl:10.0.0.2:6641,ssl:10.0.0.3:6641"
-func ConnectionString(ctx context.Context, s state.State, port int) (string, string, error) {
-	var err error
-	var servers []database.Service
-	var clusterMap map[string]cluster.CoreClusterMember
-	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
+// remoteAddressesFromConfig attempts to retrieve a list of IP addresses that should be used for
+// connecting to ovn-central services from the config option "ovn.central-ips". The return value is nil
+// if the config option is not set in the database.
+func remoteAddressesFromConfig(ctx context.Context, s state.State) ([]string, error) {
+	ovnRemoteConfig, err := config.GetConfig(ctx, s, "ovn.central-ips")
+	if err != nil {
+		return nil, err
+	}
+
+	if ovnRemoteConfig == nil {
+		return nil, nil
+	}
+
+	return strings.Split(ovnRemoteConfig.Value, ","), nil
+
+}
+
+// defaultRemoteAddresses generates a list of IP addresses that should be used for connecting to ovn-central services
+// by returning addresses of MicroOVN cluster members with service "central" enabled.
+func defaultRemoteAddresses(ctx context.Context, s state.State) ([]string, error) {
+	var addrList []string
+	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		serviceName := "central"
-		servers, err = database.GetServices(ctx, tx, database.ServiceFilter{Service: &serviceName})
+		servers, err := database.GetServices(ctx, tx, database.ServiceFilter{Service: &serviceName})
 		if err != nil {
 			return err
 		}
@@ -61,30 +75,58 @@ func ConnectionString(ctx context.Context, s state.State, port int) (string, str
 			return err
 		}
 
-		clusterMap = make(map[string]cluster.CoreClusterMember, len(clusterMembers))
 		for _, clusterMember := range clusterMembers {
-			clusterMap[clusterMember.Name] = clusterMember
+			for _, server := range servers {
+				if server.Member == clusterMember.Name {
+					parsedAddr, err := netip.ParseAddrPort(clusterMember.Address)
+					if err != nil {
+						return err
+					}
+					// clusterMember.Address is a string containing an IP address and a
+					// Port. We need to parse it into a raw address string
+					addrList = append(addrList, parsedAddr.Addr().String())
+					break
+				}
+			}
 		}
 
 		return nil
 	})
+	return addrList, err
+}
+
+// ConnectionString builds a string that defines connection endpoints of OVN
+// cluster services. It can be used to tell services (i.e. ovn-controller) about
+// the location of OVN central services.
+// Example return value: "ssl:10.0.0.1:6641,ssl:10.0.0.2:6641,ssl:10.0.0.3:6641"
+func ConnectionString(ctx context.Context, s state.State, port int) (string, string, error) {
+	// Attempt to get the list of ovn-central nodes from the config.
+	addrList, err := remoteAddressesFromConfig(ctx, s)
 	if err != nil {
 		return "", "", err
 	}
 
-	addresses := make([]string, 0, len(servers))
+	// If the option was not set, fall back to using MicroOVN nodes with "central" service enabled
+	if addrList == nil {
+		addrList, err = defaultRemoteAddresses(ctx, s)
+		if err != nil {
+			return "", "", err
+		}
+	}
+
+	// Transform the list of bare IP addresses into the format understood by the OVN, "<protocol>:<IP>:<PORT>"
+	addresses := make([]string, 0, len(addrList))
 	var initialString string
 	protocol := NetworkProtocol(ctx, s)
-	for i, server := range servers {
-		member := clusterMap[server.Member]
-		memberAddr, err := netip.ParseAddrPort(member.Address)
+	for i, rawAddress := range addrList {
+		parsedAddr, err := netip.ParseAddr(rawAddress)
 		if err != nil {
 			return "", "", err
 		}
 
 		if i == 0 {
-			initialString = memberAddr.Addr().String()
-			if memberAddr.Addr().Is6() {
+			initialString = parsedAddr.String()
+			if parsedAddr.Is6() {
 				initialString = "[" + initialString + "]"
 			}
 		}
@@ -93,7 +135,7 @@ func ConnectionString(ctx context.Context, s state.State, port int) (string, str
 			addresses,
 			fmt.Sprintf("%s:%s",
 				protocol,
-				net.JoinHostPort(memberAddr.Addr().String(), strconv.Itoa(port)),
+				net.JoinHostPort(parsedAddr.String(), strconv.Itoa(port)),
 			),
 		)
 	}

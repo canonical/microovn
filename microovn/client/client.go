@@ -228,3 +228,39 @@ func RegenerateEnvironment(ctx context.Context, c *client.Client) (types.Regener
 	return responseData, nil
 
 }
+
+// SetConfig sends a request to the MicroOVN server that sets or updates a value of a configuration option.
+func SetConfig(ctx context.Context, c *client.Client, key string, value string) (types.SetConfigResponse, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+
+	requestData := types.SetConfigRequest{Key: key, Value: value}
+	responseData := types.SetConfigResponse{}
+	err := c.Query(queryCtx, "POST", types.APIVersion, api.NewURL().Path("config"), requestData, &responseData)
+
+	return responseData, err
+}
+
+// GetConfig sends a request to the MicroOVN server that retrieves the current value of a configuration option.
+func GetConfig(ctx context.Context, c *client.Client, key string) (types.GetConfigResponse, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+
+	requestData := types.GetConfigRequest{Key: key}
+	responseData := types.GetConfigResponse{}
+	err := c.Query(queryCtx, "GET", types.APIVersion, api.NewURL().Path("config"), requestData, &responseData)
+
+	return responseData, err
+}
+
+// DeleteConfig sends a request to the MicroOVN server that completely removes a configuration option and its value.
+func DeleteConfig(ctx context.Context, c *client.Client, key string) (types.DeleteConfigResponse, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+
+	requestData := types.DeleteConfigRequest{Key: key}
+	responseData := types.DeleteConfigResponse{}
+	err := c.Query(queryCtx, "DELETE", types.APIVersion, api.NewURL().Path("config"), requestData, &responseData)
+
+	return responseData, err
+}

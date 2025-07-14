@@ -3,6 +3,7 @@ package api
 
 import (
 	"github.com/canonical/microcluster/v2/rest"
+	"github.com/canonical/microovn/microovn/api/config"
 	"github.com/canonical/microovn/microovn/api/ovsdb"
 
 	"github.com/canonical/microovn/microovn/api/certificates"
@@ -28,6 +29,7 @@ var Server = map[string]rest.Server{
 					ovsdb.ActiveSchemaVersion,
 					ovsdb.AllExpectedSchemaVersions,
 					ovsdb.ExpectedSchemaVersion,
+					config.ConfigEndoint,
 				},
 			},
 		},

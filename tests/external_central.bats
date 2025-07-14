@@ -1,0 +1,1 @@
+test_helper/bats/external_central.bats

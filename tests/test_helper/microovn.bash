@@ -767,3 +767,17 @@ function microovn_delete_vif() {
     lxc_exec "$container" "microovn.ovs-vsctl del-port $if_name"
     lxc_exec "$container" "microovn.ovn-nbctl lsp-del $lsp_name"
 }
+
+# ovn_chassis_registered CONTAINER CHASSIS
+#
+# Using ovn-sbctl on CONTAINER check that CHASSIS is registered
+# in the Southbound database.
+#
+# Returns success if CHASSIS is registered, failure otherwise.
+function ovn_chassis_registered() {
+    local container=$1; shift
+    local chassis=$1; shift
+
+    run lxc_exec "$container" "microovn.ovn-sbctl show"
+    grep -E "^Chassis $chassis\$" <<< "$output"
+}
