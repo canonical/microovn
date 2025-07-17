@@ -23,8 +23,9 @@ The status of all services is displayed by running:
 ``central service``
 -------------------
 
-This is responsible for the database control. The database is clustered and uses
-the `RAFT <https://docs.openvswitch.org/en/latest/ref/ovsdb.7/#clustered-database-service-model>`_
+This is responsible for the OVN Southbound and Northbound database control. The database
+is clustered and uses the
+`RAFT <https://docs.openvswitch.org/en/latest/ref/ovsdb.7/#clustered-database-service-model>`_
 algorithm for consensus it can handle (n-1)/2 failures, where n is the number of
 nodes.
 
@@ -36,6 +37,17 @@ This service controls the following `Snap services`_:
 - ``microovn.ovn-ovsdb-server-nb``
 - ``microovn.ovn-ovsdb-server-sb``
 - ``microovn.ovn-northd``
+
+.. caution::
+
+   If the last instance of the central service is disabled via the
+   ``microovn disable central --allow-disable-last-central`` command, the Southbound
+   and Northbound databases are removed completely. Subsequent call to
+   ``microovn enable central`` will re-initialise new, empty, databases.
+
+   The contents of the previously removed databases can be found in the backup
+   directory (``/var/snap/microovn/common/backup_<timestamp>``) on the last node
+   that disabled the central service.
 
 ``chassis service``
 -------------------

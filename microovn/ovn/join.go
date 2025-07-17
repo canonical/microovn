@@ -12,7 +12,9 @@ import (
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/node"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
+	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/ovn/environment"
 )
 
 // Join will join an existing OVN deployment.
@@ -22,7 +24,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	defer muHook.Unlock()
 
 	// Create our storage.
-	err := createPaths()
+	err := environment.CreatePaths()
 	if err != nil {
 		return err
 	}
@@ -45,8 +47,43 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 		return err
 	}
 
+	// The default behavior on join is to always enable chassis and switch, but enable
+	// central only if:
+	//   * external OVN central wasn't configured
+	//   * or if there are less than 3 MicroOVN nodes with 'central' service enabled
+	externalOvnCentral, err := environment.IsExternalCentralConfigured(ctx, s)
+	if err != nil {
+		return err
+	}
+	enableServices := requestedServices{
+		Central: !externalOvnCentral && srvCentral < 3,
+		Chassis: true,
+		Switch:  true,
+	}
+
+	// Parse custom bootstrap options from initConfig
+	ovnEncapIP := s.Address().Hostname()
+	for k, v := range initConfig {
+		// Configure OVS to either use a custom encapsulation IP for the geneve tunel
+		// or the hostname of the node.
+		if k == "ovn-encap-ip" {
+			ovnEncapIP = v
+			continue
+		}
+
+		// Get requested services
+		if k == "ovn-services" {
+			if v != "auto" {
+				enableServices, err = newRequestedServices(v)
+				if err != nil {
+					return fmt.Errorf("failed to parse requested services: %w", err)
+				}
+			}
+		}
+	}
+
 	// Generate the configuration.
-	err = generateEnvironment(ctx, s)
+	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
@@ -67,64 +104,52 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	}
 
 	// Start all the required services, and central if needed
-	err = node.EnableService(ctx, s, types.SrvSwitch)
-	if err != nil {
-		logger.Infof("Failed to enable switch")
-		return err
+
+	if enableServices.Switch {
+		err = node.EnableService(ctx, s, types.SrvSwitch)
+		if err != nil {
+			logger.Infof("Failed to enable switch")
+			return err
+		}
 	}
 
-	if srvCentral < 3 {
+	if enableServices.Central {
 		err = node.EnableService(ctx, s, types.SrvCentral)
 		if err != nil {
 			logger.Infof("Failed to enable central")
 			return err
 		}
-	}
 
-	err = generateEnvironment(ctx, s)
-	if err != nil {
-		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
-	}
-
-	err = node.EnableService(ctx, s, types.SrvChassis)
-	if err != nil {
-		logger.Infof("Failed to enable switch")
-		return err
-	}
-
-	// Enable OVN chassis.
-	sbConnect, _, err := environmentString(ctx, s, 6642)
-	if err != nil {
-		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
-	}
-
-	// A custom encapsulation IP address can also be directly passed as an initConfig parameter.
-	// This block is typically executed by a `microovn cluster init` or by an external project
-	// triggering this join hook.
-	var ovnEncapIP string
-	for k, v := range initConfig {
-		if k == "ovn-encap-ip" {
-			ovnEncapIP = v
-			break
+		err = environment.GenerateEnvironment(ctx, s)
+		if err != nil {
+			return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 		}
 	}
 
-	if ovnEncapIP == "" {
-		ovnEncapIP = s.Address().Hostname()
-	}
+	if enableServices.Chassis {
+		err = node.EnableService(ctx, s, types.SrvChassis)
+		if err != nil {
+			logger.Infof("Failed to enable ovn-controller")
+			return err
+		}
 
-	_, err = ovnCmd.VSCtl(
-		ctx,
-		s,
-		"set", "open_vswitch", ".",
-		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
-		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
-		"external_ids:ovn-encap-type=geneve",
-		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIP),
-	)
+		_, err = ovnCmd.VSCtl(
+			ctx,
+			s,
+			"set", "open_vswitch", ".",
+			fmt.Sprintf("external_ids:system-id=%s", s.Name()),
+			"external_ids:ovn-encap-type=geneve",
+			fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIP),
+		)
 
-	if err != nil {
-		return fmt.Errorf("error configuring OVS parameters: %s", err)
+		if err != nil {
+			return fmt.Errorf("error configuring OVS parameters: %s", err)
+		}
+
+		err = ovnCluster.UpdateOvnControllerRemoteConfig(ctx, s)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

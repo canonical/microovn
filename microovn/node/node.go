@@ -15,6 +15,7 @@ import (
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
+	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 	"github.com/canonical/microovn/microovn/snap"
@@ -26,7 +27,7 @@ import (
 // NOTE: this function does not update the environment file,
 // if central is disabled then the environment files for the other nodes will be
 // incorrect, please call with a method of updating the clusters env files afterwards
-func DisableService(ctx context.Context, s state.State, service types.SrvName) error {
+func DisableService(ctx context.Context, s state.State, service types.SrvName, allowLastCentral bool) error {
 	exists, err := HasServiceActive(ctx, s, service)
 
 	if err != nil {
@@ -40,13 +41,20 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName) e
 	// other check if central because we need to do a database transaction,
 	// and if this check is moved into the later "if central" then we
 	// will need to handle the database check on each branch of the if
+	lastCentral := false
 	if service == types.SrvCentral {
 		centrals, err := FindService(ctx, s, service)
 		if err != nil {
 			return err
 		}
+
 		if len(centrals) == 1 {
-			return errors.New("you cannot delete the final enabled central service")
+			if !allowLastCentral {
+				logger.Warnf("Disabling of the last central node was not allowed because explicit confirmation was not given.")
+				return errors.New("cannot disable last central node without explicit confirmation")
+			}
+			logger.Info("Disabling last enabled central service, this will leave the cluster without a central service.")
+			lastCentral = true
 		}
 	}
 
@@ -60,7 +68,7 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName) e
 
 	switch service {
 	case types.SrvCentral:
-		leaveCentral(ctx, s)
+		leaveCentral(ctx, s, lastCentral)
 	case types.SrvChassis:
 		leaveChassis(ctx, s)
 	default:
@@ -202,6 +210,11 @@ func ServiceWarnings(ctx context.Context, s state.State) (types.WarningSet, erro
 	if err != nil {
 		return output, err
 	}
+	if len(centrals) == 0 {
+		// There's no need to process warnings if all central service nodes were disabled.
+		return output, nil
+	}
+
 	if (len(centrals) % 2) == 0 {
 		output.EvenCentral = true
 	}
@@ -229,12 +242,16 @@ func joinCentral(ctx context.Context, s state.State) error {
 		return fmt.Errorf("failed to generate TLS certificate for ovn-northd service")
 	}
 
-	return activateService(types.SrvCentral, true)
+	err = activateService(types.SrvCentral, true)
+	if err != nil {
+		return err
+	}
+	return ovnCluster.UpdateOvnListenConfig(ctx, s)
 }
 
 // leaveCentral safely stops the central service's child services, and leaves
 // the central database cluster safely.
-func leaveCentral(ctx context.Context, s state.State) {
+func leaveCentral(ctx context.Context, s state.State, lastMember bool) {
 	// Leave SB and NB clusters
 	logger.Info("Leaving OVN Northbound cluster")
 	_, err := ovnCmd.AppCtl(ctx, s, paths.OvnNBControlSock(), "cluster/leave", "OVN_Northbound")
@@ -248,25 +265,27 @@ func leaveCentral(ctx context.Context, s state.State) {
 		logger.Warnf("Failed to leave OVN Southbound cluster: %s", err)
 	}
 
-	// Wait for NB and SB cluster members to complete departure process
-	nbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
-	if err == nil {
-		err = ovnCmd.WaitForDBState(ctx, s, nbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
-		if err != nil {
-			logger.Warnf("Failed to wait for NB cluster departure: %s", err)
+	if !lastMember {
+		// Wait for NB and SB cluster members to complete departure process
+		nbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
+		if err == nil {
+			err = ovnCmd.WaitForDBState(ctx, s, nbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
+			if err != nil {
+				logger.Warnf("Failed to wait for NB cluster departure: %s", err)
+			}
+		} else {
+			logger.Warnf("Failed to get NB database specification: %s", err)
 		}
-	} else {
-		logger.Warnf("Failed to get NB database specification: %s", err)
-	}
 
-	sbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeSBLocal)
-	if err == nil {
-		err = ovnCmd.WaitForDBState(ctx, s, sbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
-		if err != nil {
-			logger.Warnf("Failed to wait for SB cluster departure: %s", err)
+		sbDatabase, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeSBLocal)
+		if err == nil {
+			err = ovnCmd.WaitForDBState(ctx, s, sbDatabase, ovnCmd.OvsdbRemoved, ovnCmd.DefaultDBConnectWait)
+			if err != nil {
+				logger.Warnf("Failed to wait for SB cluster departure: %s", err)
+			}
+		} else {
+			logger.Warnf("Failed to get SB database specification: %s", err)
 		}
-	} else {
-		logger.Warnf("Failed to get SB database specification: %s", err)
 	}
 
 	err = os.Rename(paths.CentralDBNBPath(), paths.CentralDBNBBackupPath())
@@ -307,7 +326,7 @@ func joinChassis(ctx context.Context, s state.State) error {
 // DisableAllServices is a function to disable alot of services
 func DisableAllServices(ctx context.Context, s state.State) error {
 	for _, service := range types.ServiceNames {
-		err := DisableService(ctx, s, service)
+		err := DisableService(ctx, s, service, false)
 		if err != nil {
 			logger.Warnf("%s", err)
 		}

@@ -1,9 +1,11 @@
+Datapath
 ECDSA
 ECDH
 CLI
 CVE
 ESM
 Geneve
+IPs
 LTS
 LXD
 Livepatch
@@ -24,6 +26,7 @@ RSA
 RST
 RTD
 Snapcraft
+SSL
 TLS
 UI
 VMs
@@ -34,6 +37,7 @@ backport
 bugfixes
 codebase
 composability
+config
 datapaths
 devel
 downscaling
@@ -44,6 +48,7 @@ golangci
 hostname
 installable
 interdependencies
+ips
 lifecycle
 linter
 linters
@@ -52,6 +57,7 @@ manpage
 microovn
 mitigations
 northd
+ovn
 ovs
 ovsdb
 plaintext
@@ -61,6 +67,7 @@ readthedocs
 schemas
 shellcheck
 snapcraft
+subcommands
 submodules
 sudo
 systemd

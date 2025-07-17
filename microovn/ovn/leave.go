@@ -7,6 +7,7 @@ import (
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microovn/microovn/node"
+	"github.com/canonical/microovn/microovn/ovn/environment"
 )
 
 // Leave function gracefully departs from the OVN cluster before the member is removed from MicroOVN
@@ -26,7 +27,7 @@ func Leave(ctx context.Context, s state.State, _ bool) error {
 	}
 
 	logger.Info("Cleaning up runtime and data directories.")
-	err = cleanupPaths()
+	err = environment.CleanupPaths()
 	if err != nil {
 		logger.Warn(err.Error())
 	}

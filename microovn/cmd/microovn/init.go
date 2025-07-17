@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
@@ -70,6 +72,24 @@ func (c *cmdInit) wantsCustomCA() (string, string, error) {
 	return "", "", nil
 }
 
+func (c *cmdInit) selectServices() (string, error) {
+	validServices := []string{"central", "chassis", "switch", "auto"}
+	serviceList, err := c.common.asker.AskString("Please select comma-separated list services you would like to enable on this node (central/chassis/switch) or let MicroOVN automatically decide (auto) [default=auto]: ", "auto", validate.IsAny)
+	if err != nil {
+		return "", err
+	}
+	selectedServices := strings.Split(serviceList, ",")
+	for _, service := range selectedServices {
+		if !slices.Contains(validServices, service) {
+			return "", fmt.Errorf("invalid service selected: %s", service)
+		}
+		if service == "auto" && len(selectedServices) > 1 {
+			return "", fmt.Errorf("cannot select multiple services when using auto")
+		}
+	}
+	return strings.Join(selectedServices, ","), nil
+}
+
 func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 	// Connect to the daemon.
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
@@ -115,6 +135,13 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 		}
 
 		optionalConfig := make(map[string]string)
+
+		selectedServices, err := c.selectServices()
+		if err != nil {
+			return err
+		}
+		optionalConfig["ovn-services"] = selectedServices
+
 		if wantsBootstrap {
 			mode = "bootstrap"
 
@@ -167,7 +194,7 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 				}
 
 				if key != "" && encapIP != "" {
-					optionalConfig = map[string]string{key: encapIP}
+					optionalConfig[key] = encapIP
 				}
 			}
 

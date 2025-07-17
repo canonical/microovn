@@ -2,15 +2,23 @@
 Service Control
 ===============
 
-Service control refers to the set of commands for enabling and disabling a
-given MicroOVN service. MicroOVN has a set of services referred to here
-:doc:`Services Reference </reference/services>`, which are responsible for
+Service control refers to the ability to specify which OVN services run
+on any given node in the cluster. The list of services can be found here
+:doc:`Services Reference </reference/services>` and they are responsible for
 handling core functionality.
 
-You can disable services manually using snap, but the service control does not
-update the desired state or handle joining clusters and configuring the service
-properly, hence the strong reasoning to interact with services through this
-method.
+The services of the each cluster node can be specified either during the
+initialisation of the node, or after the deployment via MicroOVN's CLI.
+
+The approach of using snap CLI to enable/disable services is not recommended,
+because it does not update the desired state or handle joining clusters and
+configuring the service properly.
+
+Change services on a deployed cluster
+-------------------------------------
+
+MicroOVN offers ``disable`` and ``enabled`` subcommands that can change which
+services are active on the current cluster node.
 
 .. note::
 
@@ -18,8 +26,8 @@ method.
    nodes. These nodes will be referred to as ``first``, ``second`` and ``third``
    respectively.
 
-Disabling a MicroOVN service
-----------------------------
+Disable a MicroOVN service
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Disabling a MicroOVN service will configure it to not start automatically at
 boot and stop the service if it is running.
@@ -82,8 +90,8 @@ run on ``second``:
    OVN Southbound: OK (20.33.0)
 
 
-Enabling a MicroOVN service
----------------------------
+Enable a MicroOVN service
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Enabling a MicroOVN service will configure it to start automatically at boot and
 if the service is not running, start it.
@@ -150,8 +158,30 @@ run on ``second``:
    OVN Southbound: OK (20.33.0)
 
 Uses
-----
+~~~~
 
 Typically the most common use case of this will be to control the nodes the
 central services are running on and to increase the number of central services
 beyond the default of 3.
+
+Specify services during the cluster deployment
+----------------------------------------------
+
+The default selection of services for the node can be adjusted via the interactive
+``microovn init`` command during the deployment (instead of using ``bootstrap`` and
+``join`` methods). The user is asked question:
+
+.. code-block:: none
+
+   Please select comma-separated list services you would like to enable on this node (central/chassis/switch) or let MicroOVN automatically decide (auto) [default=auto]:
+
+Here, they can either define the desired services as a comma-separated string or select
+``auto`` option which falls back to the default behaviour. Leaving this option empty
+has same effect as selecting ``auto``.
+
+.. note::
+
+   The default behaviour for selecting services is to always enable ``switch``
+   and ``chassis`` services. The ``central`` service is enabled only if configuration
+   option :doc:`ovn.central-ips </reference/config/ovn-central-ips>` is not set and
+   there are less than 3 nodes with ``central`` service enabled in the cluster.

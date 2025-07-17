@@ -117,6 +117,7 @@ function microovn_init_create_cluster() {
     local custom_encapsulation_ip=$1; shift
     local user_ca_crt=$1; shift
     local user_ca_key=$1; shift
+    local services=$1; shift
 
     custom_encapsulation_ip_dialog=""
     if [ -n "$custom_encapsulation_ip" ]; then
@@ -177,6 +178,10 @@ expect "Would you like to create a new MicroOVN cluster?" {
     send "yes\n"
 }
 
+expect "Please select comma-separated list services you would like to enable on this node (central/chassis/switch) or let MicroOVN automatically decide (auto)" {
+    send "$services\n"
+}
+
 expect "Please choose a name for this system" {
     send "$container\n"
 }
@@ -198,6 +203,7 @@ function microovn_init_join_cluster() {
     local address=$1; shift
     local token=$1; shift
     local custom_encapsulation_ip=$1; shift
+    local services=$1; shift
 
     custom_encapsulation_ip_dialog=""
     if [ -n "$custom_encapsulation_ip" ]; then
@@ -229,6 +235,10 @@ expect "Please choose the address MicroOVN will be listening on" {
 
 expect "Would you like to create a new MicroOVN cluster?" {
     send "no\n"
+}
+
+expect "Please select comma-separated list services you would like to enable on this node (central/chassis/switch) or let MicroOVN automatically decide (auto)" {
+    send "$services\n"
 }
 
 expect "Please enter your join token:" {
@@ -756,4 +766,18 @@ function microovn_delete_vif() {
 
     lxc_exec "$container" "microovn.ovs-vsctl del-port $if_name"
     lxc_exec "$container" "microovn.ovn-nbctl lsp-del $lsp_name"
+}
+
+# ovn_chassis_registered CONTAINER CHASSIS
+#
+# Using ovn-sbctl on CONTAINER check that CHASSIS is registered
+# in the Southbound database.
+#
+# Returns success if CHASSIS is registered, failure otherwise.
+function ovn_chassis_registered() {
+    local container=$1; shift
+    local chassis=$1; shift
+
+    run lxc_exec "$container" "microovn.ovn-sbctl show"
+    grep -E "^Chassis $chassis\$" <<< "$output"
 }

@@ -27,12 +27,12 @@ setup_file() {
         assert [ -n "$addr" ]
         if [ -z "$LEADER" ]; then
             generate_user_ca "$container" "ec" "$USER_CA_CRT" "$USER_CA_KEY"
-            microovn_init_create_cluster "$container" "$addr" "" "$USER_CA_CRT" "$USER_CA_KEY"
+            microovn_init_create_cluster "$container" "$addr" "" "$USER_CA_CRT" "$USER_CA_KEY" ""
             LEADER="$container"
         else
             local token
             token=$(microovn_cluster_get_join_token "$LEADER" "$container")
-            microovn_init_join_cluster "$container" "$addr" "$token" ""
+            microovn_init_join_cluster "$container" "$addr" "$token" "" ""
         fi
     done
 
