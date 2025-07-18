@@ -104,63 +104,97 @@ func defaultRemoteAddresses(ctx context.Context, s state.State) ([]string, error
 	return addrList, err
 }
 
-// ConnectionString builds a string that defines connection endpoints of OVN
-// cluster services. It can be used to tell services (i.e. ovn-controller) about
-// the location of OVN central services.
-// Example return value: "ssl:10.0.0.1:6641,ssl:10.0.0.2:6641,ssl:10.0.0.3:6641"
-func ConnectionString(ctx context.Context, s state.State, port int) (string, string, error) {
-	// Attempt to get the list of ovn-central nodes from the config.
+// CentralIps returns a list of IP addresses of OVN central services. This function
+// primarily returns addresses configured via the "ovn.central-ips" config option
+// and falls back to IP addresses of MicroOVN nodes with "central" service enabled
+// if the config option is not set.
+func CentralIps(ctx context.Context, s state.State) ([]string, error) {
+	// Attempt to primarily get the list of ovn-central node IPs from the config.
 	addrList, err := remoteAddressesFromConfig(ctx, s)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
 	// If the option was not set, fall back to using MicroOVN nodes with "central" service enabled
 	if addrList == nil {
 		addrList, err = defaultRemoteAddresses(ctx, s)
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
 	}
 
+	return addrList, nil
+}
+
+// initialNbSbHost returns an IP address or a hostname that should be used by
+// a Northbound and Southbound database to connect to the rest of the cluster.
+func initialNbSbHost(s state.State, addrList []string) (string, error) {
+	var initialNode string
+	localAddr := s.Address().Hostname()
+
+	// With only a single central node enabled, there are no other cluster members to connect to.
+	// Setting the "initial node" to the address of the only node with the central enabled will
+	// cause the NB/SB databases to be initialized on that node.
+	if len(addrList) == 1 {
+		initialNode = addrList[0]
+	}
+
+	// With more than one node in the central cluster, we set the value of the "initial node" to
+	// point to any non-local node that runs the central service. This will allow the NB/SB databases
+	// to join the existing cluster via the remote node.
+	for _, addr := range addrList {
+		if initialNode == "" && addr != localAddr {
+			initialNode = addr
+			break
+		}
+	}
+
+	if strings.Contains(initialNode, ":") {
+		initialNode = "[" + initialNode + "]"
+	}
+
+	return initialNode, nil
+}
+
+// ConnectionString builds strings that define connection endpoints of OVN
+// cluster services. Its return value can be used to tell processes (i.e. ovn-controller)
+// about the location of OVN central services.
+// Example: "ssl:10.0.0.1:6641,ssl:10.0.0.2:6641,ssl:10.0.0.3:6641"
+func ConnectionString(ctx context.Context, s state.State, addrList []string, port int) (string, error) {
 	// Transform the list of bare IP addresses into the format understood by the OVN, "<protocol>:<IP>:<PORT>"
 	addresses := make([]string, 0, len(addrList))
-	var initialString string
 	protocol := NetworkProtocol(ctx, s)
-	for i, rawAddress := range addrList {
-		parsedAddr, err := netip.ParseAddr(rawAddress)
-		if err != nil {
-			return "", "", err
-		}
-
-		if i == 0 {
-			initialString = parsedAddr.String()
-			if parsedAddr.Is6() {
-				initialString = "[" + initialString + "]"
-			}
-		}
-
+	for _, nodeAddress := range addrList {
 		addresses = append(
 			addresses,
 			fmt.Sprintf("%s:%s",
 				protocol,
-				net.JoinHostPort(parsedAddr.String(), strconv.Itoa(port)),
+				net.JoinHostPort(nodeAddress, strconv.Itoa(port)),
 			),
 		)
 	}
 
-	return strings.Join(addresses, ","), initialString, nil
+	return strings.Join(addresses, ","), nil
 }
 
 // GenerateEnvironment generates the OVN environment file.
 func GenerateEnvironment(ctx context.Context, s state.State) error {
-	// Get the servers.
-	nbConnect, nbInitial, err := ConnectionString(ctx, s, 6641)
+	centralIps, err := CentralIps(ctx, s)
+	if err != nil {
+		return fmt.Errorf("failed to get OVN central IPs: %w", err)
+	}
+
+	nbConnect, err := ConnectionString(ctx, s, centralIps, 6641)
 	if err != nil {
 		return err
 	}
 
-	sbConnect, sbInitial, err := ConnectionString(ctx, s, 6642)
+	sbConnect, err := ConnectionString(ctx, s, centralIps, 6642)
+	if err != nil {
+		return err
+	}
+
+	initialNbSb, err := initialNbSbHost(s, centralIps)
 	if err != nil {
 		return err
 	}
@@ -177,26 +211,10 @@ func GenerateEnvironment(ctx context.Context, s state.State) error {
 		localAddr = "[" + localAddr + "]"
 	}
 
-	//set northbound to be at the local address if there is no central db found
-	if nbInitial == "" {
-		nbInitial = localAddr
-	}
-	if nbConnect == "" {
-		nbConnect = "ssl:" + localAddr + ":6641"
-	}
-
-	//set southbound to be at the local address if there is no central db found
-	if sbInitial == "" {
-		sbInitial = localAddr
-	}
-	if sbConnect == "" {
-		sbConnect = "ssl:" + localAddr + ":6642"
-	}
-
 	err = ovnEnvTpl.Execute(fd, map[string]any{
 		"localAddr": localAddr,
-		"nbInitial": nbInitial,
-		"sbInitial": sbInitial,
+		"nbInitial": initialNbSb,
+		"sbInitial": initialNbSb,
 		"nbConnect": nbConnect,
 		"sbConnect": sbConnect,
 	})
