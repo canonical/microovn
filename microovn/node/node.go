@@ -17,6 +17,7 @@ import (
 	"github.com/canonical/microovn/microovn/ovn/certificates"
 	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/ovn/environment"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 	"github.com/canonical/microovn/microovn/snap"
 )
@@ -103,6 +104,11 @@ func EnableService(ctx context.Context, s state.State, service types.SrvName) er
 	})
 	if err != nil {
 		return err
+	}
+
+	err = environment.GenerateEnvironment(ctx, s)
+	if err != nil {
+		return fmt.Errorf("failed to regenerate environment file after enabling central service: %w", err)
 	}
 
 	switch service {
