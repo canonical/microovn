@@ -48,20 +48,9 @@ func Start(ctx context.Context, s state.State) error {
 		}
 	}
 	// Reconfigure OVS to use OVN.
-	sbConnect, _, err := environment.ConnectionString(ctx, s, 6642)
+	err = ovnCluster.UpdateOvnControllerRemoteConfig(ctx, s)
 	if err != nil {
-		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
-	}
-
-	_, err = ovnCmd.VSCtl(
-		ctx,
-		s,
-		"set", "open_vswitch", ".",
-		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to update OVS's 'ovn-remote' configuration")
+		return err
 	}
 
 	// If "central" services are active on this node, start two goroutines that will check if OVN database schemas

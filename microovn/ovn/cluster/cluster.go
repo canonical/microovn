@@ -50,3 +50,44 @@ func UpdateOvnListenConfig(ctx context.Context, s state.State) error {
 
 	return nil
 }
+
+// UpdateOvnControllerRemoteConfig updates the value of "external_ids:remote-ovn" in the
+// Open vSwitch database. This value tells the OVN controller the location of OVN Southbound
+// database endpoints to which it should connect.
+func UpdateOvnControllerRemoteConfig(ctx context.Context, s state.State) error {
+	// Reconfigure OVS to use OVN.
+	centralIps, err := environment.CentralIps(ctx, s)
+	if err != nil {
+		return fmt.Errorf("failed to get OVN central IPs: %w", err)
+	}
+	sbConnect, err := environment.ConnectionString(ctx, s, centralIps, 6642)
+	if err != nil {
+		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
+	}
+
+	if len(sbConnect) != 0 {
+		_, err = ovnCmd.VSCtl(
+			ctx,
+			s,
+			"set", "open_vswitch", ".",
+			fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
+		)
+
+		if err != nil {
+			return fmt.Errorf("failed to update OVS's 'ovn-remote' configuration")
+		}
+	} else {
+		// In case when there are no OVN central services, we need to make sure
+		// that we remove potential leftover configuration
+		_, err = ovnCmd.VSCtl(
+			ctx,
+			s,
+			"remove", "open_vswitch", ".", "external_ids", "ovn-remote",
+		)
+		if err != nil {
+			return fmt.Errorf("failed to update OVS's 'ovn-remote' configuration")
+		}
+	}
+
+	return nil
+}

@@ -9,7 +9,7 @@ import (
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/node"
-	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 	"github.com/canonical/microovn/microovn/ovn/environment"
 	"github.com/canonical/microovn/microovn/snap"
 )
@@ -66,20 +66,9 @@ func refresh(ctx context.Context, s state.State) error {
 	// Enable OVN chassis.
 	if hasSwitch {
 		// Reconfigure OVS to use OVN.
-		sbConnect, _, err := environment.ConnectionString(ctx, s, 6642)
+		err = ovnCluster.UpdateOvnControllerRemoteConfig(ctx, s)
 		if err != nil {
-			return fmt.Errorf("failed to get OVN SB connect string: %w", err)
-		}
-
-		_, err = ovnCmd.VSCtl(
-			ctx,
-			s,
-			"set", "open_vswitch", ".",
-			fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
-		)
-
-		if err != nil {
-			return fmt.Errorf("failed to update OVS's 'ovn-remote' configuration")
+			return err
 		}
 	}
 
