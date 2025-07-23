@@ -242,7 +242,7 @@ jobs:
 
   tics:
     name: Tiobe TICS
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, amd64, tiobe, noble]
     env:
       COVERAGE_DIR: ${{ github.workspace }}/.coverage
       SRC_DIR: ${{ github.workspace }}/microovn/
