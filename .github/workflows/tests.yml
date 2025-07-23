@@ -270,7 +270,7 @@ jobs:
           DQLITE_TAG=$(yq -r '.parts.dqlite."source-tag"' ${{ github.workspace }}/snap/snapcraft.yaml)
           
           git clone --branch "$DQLITE_TAG" --single-branch https://github.com/canonical/dqlite /tmp/dqlite
-          sudo apt install pkg-config autoconf automake libtool make libuv1-dev libsqlite3-dev liblz4-dev
+          sudo apt install -yqq pkg-config autoconf automake libtool make libuv1-dev libsqlite3-dev liblz4-dev
           cd /tmp/dqlite/
           autoreconf -i
           ./configure --enable-build-raft
