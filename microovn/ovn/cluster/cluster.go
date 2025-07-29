@@ -55,9 +55,12 @@ func UpdateOvnListenConfig(ctx context.Context, s state.State) error {
 // Open vSwitch database. This value tells the OVN controller the location of OVN Southbound
 // database endpoints to which it should connect.
 func UpdateOvnControllerRemoteConfig(ctx context.Context, s state.State) error {
-
 	// Reconfigure OVS to use OVN.
-	sbConnect, _, err := environment.ConnectionString(ctx, s, 6642)
+	centralIps, err := environment.CentralIps(ctx, s)
+	if err != nil {
+		return fmt.Errorf("failed to get OVN central IPs: %w", err)
+	}
+	sbConnect, err := environment.ConnectionString(ctx, s, centralIps, 6642)
 	if err != nil {
 		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
 	}
