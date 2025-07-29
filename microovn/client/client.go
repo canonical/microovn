@@ -24,7 +24,7 @@ func GetServices(ctx context.Context, c *client.Client) (types.Services, error) 
 
 	err := c.Query(queryCtx, "GET", types.APIVersion, api.NewURL().Path("services"), nil, &services)
 	if err != nil {
-		return nil, fmt.Errorf("Failed listing services: %w", err)
+		return nil, fmt.Errorf("failed listing services: %w", err)
 	}
 
 	return services, nil
@@ -141,7 +141,7 @@ func DisableService(ctx context.Context, c *client.Client, serviceName string) (
 	err := c.Query(queryCtx, "DELETE", types.APIVersion, api.NewURL().Path("service", serviceName), nil, &scr)
 
 	if err != nil {
-		return types.WarningSet{}, types.RegenerateEnvResponse{}, fmt.Errorf("Failed to disable service '%s': '%s'", serviceName, err)
+		return types.WarningSet{}, types.RegenerateEnvResponse{}, fmt.Errorf("failed to disable service '%s': '%s'", serviceName, err)
 	}
 
 	regenerateEnvResponse := types.RegenerateEnvResponse{}
@@ -163,7 +163,7 @@ func EnableService(ctx context.Context, c *client.Client, serviceName string) (t
 	scr := types.ServiceControlResponse{}
 	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("service", serviceName), nil, &scr)
 	if err != nil {
-		return types.WarningSet{}, types.RegenerateEnvResponse{}, fmt.Errorf("Failed to enable service '%s': '%s'", serviceName, err)
+		return types.WarningSet{}, types.RegenerateEnvResponse{}, fmt.Errorf("failed to enable service '%s': '%s'", serviceName, err)
 	}
 
 	regenerateEnvResponse := types.RegenerateEnvResponse{}
@@ -186,7 +186,7 @@ func RegenerateEnvironment(ctx context.Context, c *client.Client) (types.Regener
 	err := c.Query(queryCtx, "POST", types.APIVersion, api.NewURL().Path("env"), nil, &responseData)
 
 	if err != nil {
-		return types.RegenerateEnvResponse{}, fmt.Errorf("Failed to regenerate environment files: '%s'", err)
+		return types.RegenerateEnvResponse{}, fmt.Errorf("failed to regenerate environment files: '%s'", err)
 	}
 	return responseData, nil
 

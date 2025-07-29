@@ -29,16 +29,16 @@ func issueCertificatesPut(s state.State, r *http.Request) response.Response {
 	// Get requested service name
 	requestedService, err := url.PathUnescape(mux.Vars(r)["service"])
 	if err != nil {
-		logger.Errorf("failed to parse service name from URL '%s'", r.URL)
-		return response.ErrorResponse(500, "Internal server error")
+		logger.Errorf("Failed to parse service name from URL '%s'", r.URL)
+		return response.ErrorResponse(500, "internal server error")
 	}
 	logger.Infof("Issuing new certificate for '%s' service.", requestedService)
 
 	// Get all enabled services and make sure that the requested service is among them.
 	eligibleServices, err := enabledOvnServices(r.Context(), s)
 	if err != nil {
-		logger.Errorf("failed to lookup local services eligible for certificate refresh: %s", err)
-		return response.ErrorResponse(500, "Internal server error.")
+		logger.Errorf("Failed to lookup local services eligible for certificate refresh: %s", err)
+		return response.ErrorResponse(500, "internal server error.")
 	}
 
 	isCertificateAllowed := false
@@ -52,7 +52,7 @@ func issueCertificatesPut(s state.State, r *http.Request) response.Response {
 	// Fail with 404 if requested service is not enabled
 	if !isCertificateAllowed {
 		missingMsg := fmt.Sprintf(
-			"Can't issue certificate for service '%s'. Service is not enabled on this member. Enabled services: %s",
+			"can't issue certificate for service '%s', service is not enabled on this member, enabled services: %s",
 			requestedService,
 			strings.Join(eligibleServices, ", "),
 		)
@@ -66,7 +66,7 @@ func issueCertificatesPut(s state.State, r *http.Request) response.Response {
 
 	if err != nil {
 		result.Failed = []string{requestedService}
-		logger.Errorf("failed to reissue certificate for '%s' service: %s", requestedService, err)
+		logger.Errorf("Failed to reissue certificate for '%s' service: %s", requestedService, err)
 		return response.SyncResponse(false, &result)
 	}
 

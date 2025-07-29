@@ -1,25 +1,40 @@
+version: "2"
 run:
-  # The default of 1 minute is a pretty low number when taking into account the
-  # size of the project and its dependencies and the potential load of the
-  # various build environments this project is exposed to.
+  # The defualt timeout is now disabled but a timeout for 5m is good for the CI
   timeout: 5m
-issues:
-  # The default exclude rules disable the requirement for GoDoc comments in the
-  # revive linter, so we can't use them.
-  exclude-use-default: false
-  # Not using the default exclude rules re-introduces the below check,
-  # disabling for now as the fact that it is excluded by default and other
-  # people are re-adding it makes it probable that we don't need it either.
-  exclude-rules:
-    - linters: [errcheck]
-      text: "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
 linters:
-  disable-all: true
+  default: none
   enable:
-    - gofmt
     - errcheck
-    - gosimple
     - govet
     - ineffassign
-    - staticcheck
     - revive
+    - staticcheck
+  settings:
+    revive:
+      rules:
+        - name: var-naming
+          arguments:
+            - [] # AllowList
+            - [] # DenyList
+            - - skip-package-name-checks: true # Extra parameter (upper-case-const|skip-package-name-checks)
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - errcheck
+        # disabling this check for now as the fact that it is excluded by default and other people are excluding it means its not needed.
+        text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|os\.(Un)?Setenv). is not checked
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

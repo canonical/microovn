@@ -31,7 +31,7 @@ func Start(ctx context.Context, s state.State) error {
 	// Re-generate the configuration.
 	err = generateEnvironment(ctx, s)
 	if err != nil {
-		return fmt.Errorf("Failed to generate the daemon configuration: %w", err)
+		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
 
 	centralActive, err := node.HasServiceActive(ctx, s, "central")
@@ -48,7 +48,7 @@ func Start(ctx context.Context, s state.State) error {
 	// Reconfigure OVS to use OVN.
 	sbConnect, _, err := environmentString(ctx, s, 6642)
 	if err != nil {
-		return fmt.Errorf("Failed to get OVN SB connect string: %w", err)
+		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
 	}
 
 	_, err = ovnCmd.VSCtl(
@@ -59,7 +59,7 @@ func Start(ctx context.Context, s state.State) error {
 	)
 
 	if err != nil {
-		return fmt.Errorf("Failed to update OVS's 'ovn-remote' configuration")
+		return fmt.Errorf("failed to update OVS's 'ovn-remote' configuration")
 	}
 
 	// If "central" services are active on this node, start two goroutines that will check if OVN database schemas
@@ -72,14 +72,14 @@ func Start(ctx context.Context, s state.State) error {
 		go func() {
 			err := ovsdb.UpgradeCentralDB(ctx, s, ovnCmd.OvsdbTypeSBLocal)
 			if err != nil {
-				logger.Errorf("failed to perform OVN SB schema upgrade. '%s'", err)
+				logger.Errorf("Failed to perform OVN SB schema upgrade. '%s'", err)
 			}
 		}()
 
 		go func() {
 			err := ovsdb.UpgradeCentralDB(ctx, s, ovnCmd.OvsdbTypeNBLocal)
 			if err != nil {
-				logger.Errorf("failed to perform OVN NB schema upgrade. '%s'", err)
+				logger.Errorf("Failed to perform OVN NB schema upgrade. '%s'", err)
 			}
 		}()
 	}

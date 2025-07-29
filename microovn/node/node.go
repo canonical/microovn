@@ -33,7 +33,7 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName) e
 		return err
 	}
 	if !exists {
-		return errors.New("This service is not enabled")
+		return errors.New("this service is not enabled")
 	}
 
 	// If going to disable central, check if possible, this is done before the
@@ -46,7 +46,7 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName) e
 			return err
 		}
 		if len(centrals) == 1 {
-			return errors.New("You cannot delete the final enabled central service")
+			return errors.New("you cannot delete the final enabled central service")
 		}
 	}
 
@@ -58,14 +58,15 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName) e
 		return err
 	}
 
-	if service == types.SrvCentral {
+	switch service {
+	case types.SrvCentral:
 		err = leaveCentral(ctx, s)
-	} else if service == types.SrvChassis {
+	case types.SrvChassis:
 		err = leaveChassis(ctx, s)
-	} else {
+	default:
 		err = snap.Stop(service, true)
 		if err != nil {
-			err = fmt.Errorf("Snapctl error, likely due to service not existing:\n %w", err)
+			err = fmt.Errorf("snapctl error, likely due to service not existing:\n %w", err)
 		}
 	}
 
@@ -84,11 +85,11 @@ func EnableService(ctx context.Context, s state.State, service types.SrvName) er
 		return err
 	}
 	if exists {
-		return errors.New("This Service is already enabled")
+		return errors.New("this service is already enabled")
 	}
 
 	if !types.CheckValidService(service) {
-		return errors.New("Service does not exist")
+		return errors.New("service does not exist")
 	}
 
 	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -99,14 +100,15 @@ func EnableService(ctx context.Context, s state.State, service types.SrvName) er
 		return err
 	}
 
-	if service == types.SrvCentral {
+	switch service {
+	case types.SrvCentral:
 		err = joinCentral(ctx, s)
-	} else if service == types.SrvChassis {
+	case types.SrvChassis:
 		err = joinChassis(ctx, s)
-	} else {
+	default:
 		err = snap.Start(service, true)
 		if err != nil {
-			err = fmt.Errorf("Snapctl error, likely due to service not existing:\n%w", err)
+			err = fmt.Errorf("snapctl error, likely due to service not existing:\n%w", err)
 		}
 	}
 
@@ -121,7 +123,7 @@ func ListServices(ctx context.Context, s state.State) (types.Services, error) {
 	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		records, err := database.GetServices(ctx, tx)
 		if err != nil {
-			return fmt.Errorf("Failed to fetch service: %w", err)
+			return fmt.Errorf("failed to fetch service: %w", err)
 		}
 
 		for _, service := range records {
@@ -235,17 +237,17 @@ func joinCentral(ctx context.Context, s state.State) error {
 
 	err = snap.Start("ovn-ovsdb-server-nb", true)
 	if err != nil {
-		return fmt.Errorf("Failed to start OVN NB: %w", err)
+		return fmt.Errorf("failed to start OVN NB: %w", err)
 	}
 
 	err = snap.Start("ovn-ovsdb-server-sb", true)
 	if err != nil {
-		return fmt.Errorf("Failed to start OVN SB: %w", err)
+		return fmt.Errorf("failed to start OVN SB: %w", err)
 	}
 
 	err = snap.Start("ovn-northd", true)
 	if err != nil {
-		return fmt.Errorf("Failed to start OVN northd: %w", err)
+		return fmt.Errorf("failed to start OVN northd: %w", err)
 	}
 	return nil
 }
@@ -339,7 +341,7 @@ func joinChassis(ctx context.Context, s state.State) error {
 	}
 	err = snap.Start("chassis", true)
 	if err != nil {
-		return fmt.Errorf("Failed to start OVN chassis: %w", err)
+		return fmt.Errorf("failed to start OVN chassis: %w", err)
 	}
 	return nil
 }
