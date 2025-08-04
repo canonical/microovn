@@ -10,7 +10,9 @@ import (
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/node"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
+	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/ovn/environment"
 )
 
 // Bootstrap will initialize a new OVN deployment.
@@ -20,7 +22,7 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 	defer muHook.Unlock()
 
 	// Create our storage.
-	err := createPaths()
+	err := environment.CreatePaths()
 	if err != nil {
 		return err
 	}
@@ -37,7 +39,7 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 	}
 
 	// Generate the configuration.
-	err = generateEnvironment(ctx, s)
+	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
@@ -65,7 +67,7 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 		return err
 	}
 
-	err = generateEnvironment(ctx, s)
+	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
@@ -77,12 +79,8 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 	}
 
 	// Configure OVS to use OVN.
-	sbConnect, _, err := environmentString(ctx, s, 6642)
-	if err != nil {
-		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
-	}
 
-	err = updateOvnListenConfig(ctx, s)
+	err = ovnCluster.UpdateOvnListenConfig(ctx, s)
 	if err != nil {
 		return err
 	}
@@ -106,13 +104,17 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 		s,
 		"set", "open_vswitch", ".",
 		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
-		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
 		"external_ids:ovn-encap-type=geneve",
 		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIP),
 	)
 
 	if err != nil {
 		return fmt.Errorf("error configuring OVS parameters: %s", err)
+	}
+
+	err = ovnCluster.UpdateOvnControllerRemoteConfig(ctx, s)
+	if err != nil {
+		return err
 	}
 
 	return nil

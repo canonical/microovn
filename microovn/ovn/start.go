@@ -9,7 +9,9 @@ import (
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microovn/microovn/node"
+	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/ovn/environment"
 	"github.com/canonical/microovn/microovn/ovn/ovsdb"
 )
 
@@ -23,13 +25,13 @@ func Start(ctx context.Context, s state.State) error {
 	}
 
 	// Make sure the storage exists.
-	err = createPaths()
+	err = environment.CreatePaths()
 	if err != nil {
 		return err
 	}
 
 	// Re-generate the configuration.
-	err = generateEnvironment(ctx, s)
+	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
@@ -40,26 +42,15 @@ func Start(ctx context.Context, s state.State) error {
 	}
 
 	if centralActive {
-		err = updateOvnListenConfig(ctx, s)
+		err = ovnCluster.UpdateOvnListenConfig(ctx, s)
 		if err != nil {
 			logger.Warnf("Failed to update OVN listening configs. There might be connectivity issues.")
 		}
 	}
 	// Reconfigure OVS to use OVN.
-	sbConnect, _, err := environmentString(ctx, s, 6642)
+	err = ovnCluster.UpdateOvnControllerRemoteConfig(ctx, s)
 	if err != nil {
-		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
-	}
-
-	_, err = ovnCmd.VSCtl(
-		ctx,
-		s,
-		"set", "open_vswitch", ".",
-		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to update OVS's 'ovn-remote' configuration")
+		return err
 	}
 
 	// If "central" services are active on this node, start two goroutines that will check if OVN database schemas

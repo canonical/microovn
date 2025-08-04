@@ -24,6 +24,9 @@ cluster_register_test_functions() {
             -- cluster_test_db_connection_string "$db"
     done
     bats_test_function \
+        --description "Northd connection string" \
+        -- cluster_test_northd_connection_string
+    bats_test_function \
         --description "Expected MicroOVN cluster count" \
         -- cluster_expected_count
     bats_test_function \
@@ -207,6 +210,42 @@ cluster_test_db_connection_string() {
             # By using a fully qualified search string we can safely use
             # partial matching.
             assert_output -p "ssl:${expected_addr}:${expected_port}"
+        done
+    done
+}
+
+# cluster_test_northd_connection_string
+#
+# Test that northd service is connected to all expected NB and SB database
+# cluster members.
+cluster_test_northd_connection_string() {
+    local cluster_addresses=()
+    readarray \
+        -t cluster_addresses \
+        < <(microovn_get_member_cluster_address "central" $TEST_CONTAINERS)
+
+    local container
+    for container in $TEST_CONTAINERS; do
+        local container_services
+        container_services=$(microovn_get_cluster_services "$container")
+        if [[ "$container_services" != *"central"* ]]; then
+            echo "Skip $container, no central services" >&3
+            continue
+        fi
+
+        local northd_pid
+        northd_pid=$(microovn_get_service_pid "$container" "ovn-northd" "ovn")
+        run lxc_exec \
+            "$container" \
+            "ps -ww -o cmd -p $northd_pid"
+
+        for addr in "${cluster_addresses[@]}"; do
+            local expected_addr
+            expected_addr=$(print_address $addr)
+            # By using a fully qualified search string we can safely use
+            # partial matching.
+            assert_output -p "ssl:${expected_addr}:6641"
+            assert_output -p "ssl:${expected_addr}:6642"
         done
     done
 }

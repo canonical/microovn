@@ -7,12 +7,14 @@ import (
 
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
+	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/node"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/ovn/environment"
 )
 
 // Join will join an existing OVN deployment.
@@ -22,7 +24,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	defer muHook.Unlock()
 
 	// Create our storage.
-	err := createPaths()
+	err := environment.CreatePaths()
 	if err != nil {
 		return err
 	}
@@ -46,7 +48,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	}
 
 	// Generate the configuration.
-	err = generateEnvironment(ctx, s)
+	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
@@ -81,7 +83,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 		}
 	}
 
-	err = generateEnvironment(ctx, s)
+	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to generate the daemon configuration: %w", err)
 	}
@@ -93,11 +95,6 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 	}
 
 	// Enable OVN chassis.
-	sbConnect, _, err := environmentString(ctx, s, 6642)
-	if err != nil {
-		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
-	}
-
 	// A custom encapsulation IP address can also be directly passed as an initConfig parameter.
 	// This block is typically executed by a `microovn cluster init` or by an external project
 	// triggering this join hook.
@@ -118,13 +115,17 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 		s,
 		"set", "open_vswitch", ".",
 		fmt.Sprintf("external_ids:system-id=%s", s.Name()),
-		fmt.Sprintf("external_ids:ovn-remote=%s", sbConnect),
 		"external_ids:ovn-encap-type=geneve",
 		fmt.Sprintf("external_ids:ovn-encap-ip=%s", ovnEncapIP),
 	)
 
 	if err != nil {
 		return fmt.Errorf("error configuring OVS parameters: %s", err)
+	}
+
+	err = ovnCluster.UpdateOvnControllerRemoteConfig(ctx, s)
+	if err != nil {
+		return err
 	}
 
 	return nil
