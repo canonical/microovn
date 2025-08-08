@@ -1,6 +1,6 @@
-========================
-Contributing to MicroOVN
-========================
+======================
+Contribute to MicroOVN
+======================
 
 As an open source project, we welcome contributions of any kind. These can
 range from bug reports and code reviews, to significant code or documentation
@@ -51,8 +51,8 @@ tests, then stop and consider the following strategies instead:
 #. Contain the remaining functions with side effects in logical units that
    can be thoroughly tested in the integration test suite.
 
-Running tests
-~~~~~~~~~~~~~
+Run tests
+~~~~~~~~~
 
 ..
   The developer documentation is in the docs/developers directory.
