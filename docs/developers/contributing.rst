@@ -20,10 +20,12 @@ Contributor guidelines
 
 * Each commit should be a logical unit.
 * Each commit should pass tests individually to allow bisecting.
-* Each commit must be signed.
+* Each commit must be signed. (See `GitHub documentation about commit signing`_
+  )
 * The commit message should focus on WHY the change is necessary, we get the
   what and how by looking at the code.
-* Include a Signed-off-by header in the commit message.
+* Include a Signed-off-by header in the commit message. (See
+  `Git sign-off documentation`_)
 * MicroOVN makes use of the GitHub Pull Request workflow.  There is no
   meaningful way to manage interdependencies between GitHub PRs, so we expect
   dependent changes proposed in a single PR reviewed and merged as separate
@@ -59,3 +61,5 @@ Please refer to the document on :doc:`testing <testing>` to learn how to :ref:`r
 
 .. LINKS
 .. _Canonical contributor licence agreement: https://ubuntu.com/legal/contributors
+.. _GitHub documentation about commit signing: https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification
+.. _Git sign-off documentation: https://git-scm.com/docs/git-commit#Documentation/git-commit.txt---signoff
