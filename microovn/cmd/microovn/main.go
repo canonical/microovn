@@ -15,7 +15,7 @@ import (
 
 // DefaultMicroClusterPort is the default port used for the MicroOVN
 // MicroCluster Daemon.
-const DefaultMicroClusterPort = 6443
+const DefaultMicroClusterPort = 6686
 
 // CmdControl has functions that are common to the microctl commands.
 // command line tools.
