@@ -27,6 +27,12 @@ slots:
     source:
       write:
         - "$SNAP_COMMON/run/switch"
+        - "$SNAP_COMMON/run/ovn"
+  ovn-central-data:
+    interface: content
+    source:
+      read:
+        - "$SNAP_COMMON/data/central"
 
 hooks:
   install:
