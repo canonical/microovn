@@ -28,7 +28,8 @@ function install_microovn() {
                                                   network-control \
                                                   openvswitch-support \
                                                   process-control \
-                                                  system-trace; do \
+                                                  system-trace \
+                                                  network-setup-control; do \
                                           sudo snap connect microovn:\$plug;done"; then
                 break
             fi
@@ -697,4 +698,26 @@ function microovn_delete_vif() {
 
     lxc_exec "$container" "microovn.ovs-vsctl del-port $if_name"
     lxc_exec "$container" "microovn.ovn-nbctl lsp-del $lsp_name"
+}
+
+# setup_snap_aliases
+function setup_snap_aliases(){
+    local containers=$*
+    for container in $containers; do
+        for cmd in $(lxc_exec "$container" "ls /snap/bin/" |
+                         grep -E 'microovn\.');
+            do lxc_exec "$container" \
+                "snap alias $(echo $cmd | sed 's/.*microovn\./microovn./') \
+                            $(echo $cmd | sed 's/.*microovn.//')"
+        done
+    done
+}
+
+function install_ppa_netplan(){
+    local containers=$*
+    for container in $containers; do
+        lxc_exec "$container" "add-apt-repository ppa:fnordahl/netplan-ovs-snap"
+        lxc_exec "$container" "apt update"
+        lxc_exec "$container" "apt install -y --allow-downgrades netplan.io=1.1.2-2~ubuntu24.04.1.0 libnetplan1=1.1.2-2~ubuntu24.04.1.0 netplan-generator=1.1.2-2~ubuntu24.04.1.0 python3-netplan=1.1.2-2~ubuntu24.04.1.0"
+    done
 }

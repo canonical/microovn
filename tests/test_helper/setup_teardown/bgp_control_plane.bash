@@ -41,7 +41,10 @@ setup_file() {
     export TEST_CONTAINERS
     launch_containers_args "-c linux.kernel_modules=vrf,openvswitch" $TEST_CONTAINERS
     wait_containers_ready $TEST_CONTAINERS
+
+    install_ppa_netplan $TEST_CONTAINERS
     install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINERS
+    setup_snap_aliases $TEST_CONTAINERS
     bootstrap_cluster $TEST_CONTAINERS
 
 

@@ -44,6 +44,7 @@ apps:
       - network
       - network-bind
       - network-control
+      - network-setup-control
     slots:
       - microovn
 
@@ -185,6 +186,7 @@ parts:
   dqlite:
     source: https://github.com/canonical/dqlite
     source-type: git
+    source-tag: v1.17.1
     source-depth: 1
     plugin: autotools
     autotools-configure-parameters:

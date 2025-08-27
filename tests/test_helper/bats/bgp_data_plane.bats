@@ -42,6 +42,32 @@ function ping_ovn_int_network_over_bgp_router() {
         --config vrf=$vrf \
         --config asn=$host_asn"
 
+    run lxc_exec "$TEST_CONTAINER" "cat /etc/netplan/90-microovn-bgp-veth.yaml"
+
+    expected=$(cat <<'EOF'
+network:
+    version: 2
+    virtual-ethernets:
+        veth1-bgp:
+            peer: veth1-brg
+            macaddress: 02:90:b1:a2:e6:28
+        veth1-brg:
+            peer: veth1-bgp
+    vrfs:
+        ovnvrf10:
+            table: "10"
+            interfaces:
+                - veth1-bgp
+    bridges:
+        br-int:
+            openvswitch:
+                fail-mode: secure
+            interfaces:
+                - veth1-brg
+EOF
+)
+    assert_output "$expected"
+
     echo "# ($TEST_CONTAINER) waiting on established BGP with $BGP_PEER" >&3
     wait_until "microovn_bgp_established $TEST_CONTAINER $vrf_device $BGP_PEER"
 
@@ -90,7 +116,7 @@ function ping_ovn_int_network_over_bgp_router() {
     # traffic seems to be a hit-or-miss.
     local neighbor_lla
     local egress_port="lrp-$TEST_CONTAINER-$OVN_CONTAINER_INT_IFACE"
-    neighbor_lla=$(microovn_bgp_neighbor_address "$TEST_CONTAINER" "$vrf_device" "${OVN_CONTAINER_INT_IFACE}-bgp")
+    neighbor_lla=$(microovn_bgp_neighbor_address "$TEST_CONTAINER" "$vrf_device" "v${OVN_CONTAINER_INT_IFACE}-bgp")
     lxc_exec "$TEST_CONTAINER" "microovn.ovn-nbctl lr-route-add $gw_lr \"0.0.0.0/0\" $neighbor_lla $egress_port"
 
     # Configure external infrastructure (BGP Peer and External Host)

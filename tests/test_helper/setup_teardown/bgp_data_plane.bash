@@ -17,10 +17,14 @@ setup_file() {
 
     TEST_CONTAINER=$(container_names "$BATS_TEST_FILENAME" 1 | tr -d '[:space:]')
     export TEST_CONTAINER
+
     launch_containers_args "-c linux.kernel_modules=vrf,openvswitch -c security.nesting=true" $TEST_CONTAINER
     wait_containers_ready $TEST_CONTAINER
+    install_ppa_netplan $TEST_CONTAINER
     install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINER
+    setup_snap_aliases $TEST_CONTAINER
     bootstrap_cluster $TEST_CONTAINER
+
 
 
     # Setup networks between MicroOVN chassis, BGP peer and external host
