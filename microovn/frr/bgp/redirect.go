@@ -16,6 +16,7 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
 	"github.com/canonical/microovn/microovn/api/types"
+	"github.com/canonical/microovn/microovn/netplan"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )
@@ -137,10 +138,19 @@ func getVrfName(tableID string) string {
 	return fmt.Sprintf("ovnvrf%s", tableID)
 }
 
+func getBgpVethName(externalIface string) string {
+	return fmt.Sprintf("v%s", externalIface)
+}
+
 // getBgpRedirectIfaceName returns name of the system interface to which all BGP
 // traffic from externalIface network is redirected.
 func getBgpRedirectIfaceName(externalIface string) string {
-	return fmt.Sprintf("%s-bgp", externalIface)
+	return fmt.Sprintf("%s-bgp", getBgpVethName(externalIface))
+}
+
+// getBgpRedirectIfacePeerName returns name of the peer to the bgp iface
+func getBgpRedirectIfacePeerName(externalIface string) string {
+	return fmt.Sprintf("%s-brg", getBgpVethName(externalIface))
 }
 
 // parseOvnFind parses STDOUT string of OVN/OVS "find" commands with "--bare"
@@ -288,21 +298,59 @@ func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExt
 	return nil
 }
 
-// redirectBgp creates a port in OVS, moves it to the VRF specified by "tableID" and configures OVN to redirect
-// BGP+BFD traffic from the associated Logical Router Ports to the newly created ports.
-func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpExternalConnection, tableID string) error {
-	intBr, err := getOvnIntegrationBridge(ctx, s)
+func generateVeth(ctx context.Context, s state.State, extConnections []types.BgpExternalConnection, tableID string) error {
+
+	vrfName := getVrfName(tableID)
+
+	brInt, err := getOvnIntegrationBridge(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to lookup integration bridge: %v", err)
 	}
+
+	np := netplan.NewConfig()
+	brIntInterfaces := []string{}
+	vrfInterfaces := []string{}
+
+	for _, extConnection := range extConnections {
+		bgpInterface := getBgpRedirectIfaceName(extConnection.Iface)
+		brgInterface := getBgpRedirectIfacePeerName(extConnection.Iface)
+		mac := generateLrpMac(getLrpName(s, extConnection.Iface))
+
+		// Add to virtual ethernet
+		np.AddVeth(bgpInterface, brgInterface, mac)
+		np.AddVeth(brgInterface, bgpInterface, "")
+		brIntInterfaces = append(brIntInterfaces, brgInterface)
+		vrfInterfaces = append(vrfInterfaces, bgpInterface)
+	}
+
+	np.AddVRF(vrfName, tableID, vrfInterfaces)
+	np.AddBridge(brInt, brIntInterfaces)
+
+	filename := "90-microovn-bgp-veth.yaml"
+	err = netplan.WriteToNetplan(ctx, filename, *np)
+	if err != nil {
+		return err
+	}
+
+	return netplan.Apply(ctx)
+}
+
+// redirectBgp creates a port in OVS, moves it to the VRF specified by "tableID" and configures OVN to redirect
+// BGP+BFD traffic from the associated Logical Router Ports to the newly created ports.
+func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpExternalConnection, tableID string) error {
 	vrfName := getVrfName(tableID)
+
+	err := generateVeth(ctx, s, extConnections, tableID)
+	if err != nil {
+		return err
+	}
 
 	for _, extConnection := range extConnections {
 		lsName := getLsName(s, extConnection.Iface)
 		lrpName := getLrpName(s, extConnection.Iface)
+		brgIface := getBgpRedirectIfacePeerName(extConnection.Iface)
 		bgpIface := getBgpRedirectIfaceName(extConnection.Iface)
-		bgpLsp := fmt.Sprintf("lsp-%s-%s-bgp", s.Name(), extConnection.Iface)
-		mac := generateLrpMac(lrpName)
+		bgpLsp := fmt.Sprintf("lsp-%s-%s", s.Name(), bgpIface)
 
 		// Create Logical Switch Port to which the BGP+BFD traffic will be redirected
 		_, err := ovnCmd.NBCtlCluster(ctx,
@@ -330,21 +378,15 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 		// Create OVS port and associate it with the LSP
 		_, err = ovnCmd.VSCtl(ctx, s,
 			"--",
-			"add-port", intBr, bgpIface,
-			"--",
-			"set", "Port", bgpIface, fmt.Sprintf("external-ids:%s=true", BgpManagedTag),
+			"set", "Port", brgIface, fmt.Sprintf("external-ids:%s=true", BgpManagedTag),
 			fmt.Sprintf("external-ids:%s=%s", BgpVrfTable, vrfName),
+
 			"--",
-			"set", "Interface", bgpIface, "type=internal", fmt.Sprintf("external_ids:iface-id=%s", bgpLsp),
-			fmt.Sprintf("mac=\"%s\"", mac),
+			"set", "Interface", brgIface, "type=system", fmt.Sprintf("external_ids:iface-id=%s", bgpLsp),
+			fmt.Sprintf("external-ids:%s=true", BgpManagedTag),
 		)
 		if err != nil {
-			return fmt.Errorf("failed to create port for BGP redirect '%s': %v", bgpIface, err)
-		}
-
-		err = moveInterfaceToVrf(ctx, bgpIface, vrfName)
-		if err != nil {
-			return err
+			return fmt.Errorf("failed to create port for BGP redirect '%s': %v", brgIface, err)
 		}
 	}
 	return nil
@@ -368,11 +410,12 @@ ipv6 prefix-list no-default seq 10 permit ::/0 le 128
 `)
 	fmt.Fprintf(&confBuilder, "router bgp %s vrf %s\n", asn, vrfName)
 	for _, connection := range extConnections {
+		var ifaceUsed = getBgpRedirectIfaceName(connection.Iface)
 		routerID := generateBGPRouterID(getLrpName(s, connection.Iface))
 		fmt.Fprintf(&confBuilder, "bgp router-id %s\n", routerID)
 		fmt.Fprintf(&confBuilder,
 			"neighbor %s interface remote-as external\n",
-			getBgpRedirectIfaceName(connection.Iface),
+			ifaceUsed,
 		)
 
 		// Redistribute IPv4 routes announced by OVN.
@@ -382,7 +425,7 @@ ipv6 prefix-list no-default seq 10 permit ::/0 le 128
 		fmt.Fprint(&confBuilder, "redistribute kernel\n")
 		fmt.Fprintf(&confBuilder,
 			"neighbor %s prefix-list no-default out\n",
-			getBgpRedirectIfaceName(connection.Iface),
+			ifaceUsed,
 		)
 		fmt.Fprintln(&confBuilder,
 			"exit-address-family",
@@ -394,18 +437,18 @@ ipv6 prefix-list no-default seq 10 permit ::/0 le 128
 		)
 		fmt.Fprintf(&confBuilder,
 			"neighbor %s soft-reconfiguration inbound\n",
-			getBgpRedirectIfaceName(connection.Iface),
+			ifaceUsed,
 		)
 		fmt.Fprintf(&confBuilder,
 			"neighbor %s prefix-list no-default out\n",
-			getBgpRedirectIfaceName(connection.Iface),
+			ifaceUsed,
 		)
 		fmt.Fprintln(&confBuilder,
 			"redistribute kernel",
 		)
 		fmt.Fprintf(&confBuilder,
 			"neighbor %s activate\n",
-			getBgpRedirectIfaceName(connection.Iface),
+			ifaceUsed,
 		)
 		fmt.Fprintln(&confBuilder,
 			"exit-address-family",
@@ -453,6 +496,11 @@ func teardownAll(ctx context.Context, s state.State) error {
 	_, err := ovnCmd.NBCtlCluster(ctx, "lr-del", logicalRouter)
 	if err != nil {
 		allErrors = errors.Join(allErrors, fmt.Errorf("failed to delete Logical Router '%s': %v", logicalRouter, err))
+	}
+
+	err = netplan.Cleanup(ctx, "90-microovn-bgp-veth.yaml")
+	if err != nil {
+		allErrors = errors.Join(allErrors, fmt.Errorf("failed to cleanup netplan: %v", err))
 	}
 
 	// Find and remove Logical Switches used to connect to external networks on the local chassis

@@ -49,6 +49,7 @@ apps:
       - network
       - network-bind
       - network-control
+      - network-setup-control
     slots:
       - microovn
 

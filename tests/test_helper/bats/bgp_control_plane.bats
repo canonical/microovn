@@ -111,8 +111,8 @@ bgp_unnumbered_peering() {
     local i=0
     for container in $TEST_CONTAINERS; do
         local vrf="$((i + 1))0"
-        local bgp_iface_1="$OVN_CONTAINER_NET_1_IFACE-bgp"
-        local bgp_iface_2="$OVN_CONTAINER_NET_2_IFACE-bgp"
+        local bgp_iface_1="v$OVN_CONTAINER_NET_1_IFACE-bgp"
+        local bgp_iface_2="v$OVN_CONTAINER_NET_2_IFACE-bgp"
         local vrf_device="ovnvrf$vrf"
         host_asn="$((host_asn + 1))"
 

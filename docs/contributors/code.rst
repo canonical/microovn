@@ -100,6 +100,7 @@ do it automatically for locally installed snaps.
                 hardware-observe \
                 hugepages-control \
                 network-control \
+                network-setup-control \
                 openvswitch-support \
                 process-control \
                 system-trace; do \
