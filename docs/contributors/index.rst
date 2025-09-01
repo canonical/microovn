@@ -35,31 +35,16 @@ Contributor guidelines
 * A proposal for change is not complete unless it contains updates to
   documentation and tests.
 
-Tests
------
 
-The tests mainly focus on functional validation of MicroOVN and how we build
-and configure OVN itself.
+Next Steps
+----------
 
-We expect Go unit tests for pure functions.
+.. toctree::
+   :maxdepth: 1
 
-For impure functions, i.e. functions with side effects, if you find yourself
-redesigning interfaces or figuring out how to mock something to support unit
-tests, then stop and consider the following strategies instead:
+   code
+   documentation
 
-#. Extract the logic you want to test into pure functions.  When done right the
-   side effect would be increased composability, setting you up for future code
-   reuse.
-#. Contain the remaining functions with side effects in logical units that
-   can be thoroughly tested in the integration test suite.
-
-Run tests
-~~~~~~~~~
-
-..
-  The developer documentation is in the docs/developers directory.
-
-Please refer to the document on :doc:`testing <testing>` to learn how to :ref:`run MicroOVN tests`.
 
 .. LINKS
 .. _Canonical contributor licence agreement: https://ubuntu.com/legal/contributors
