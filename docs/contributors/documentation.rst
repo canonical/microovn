@@ -5,7 +5,7 @@ Contribute to our documentation
 Contributing to documentation is a great way to get started as a contributor to
 open-source projects, no matter your level of experience. Before you start,
 please review our :doc:`general guide on contributing to MicroOVN
-<contributing>`.
+<index>`.
 
 MicroOVN is growing rapidly, and we would love your help. We welcome, encourage
 and appreciate contributions from our user community in the form of
