@@ -10,6 +10,7 @@ does not cover upstream OVN/OVS topics.
 
    config/index
    cryptography
+   release-process
    security
    services
    aliasing
