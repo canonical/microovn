@@ -11,5 +11,4 @@ covers topics useful for code or documentation contributors.
    building
    contributing
    documentation
-   release-process
    testing
