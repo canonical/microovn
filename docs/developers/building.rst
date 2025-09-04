@@ -78,7 +78,8 @@ do it automatically for locally installed snaps.
                 network-control \
                 openvswitch-support \
                 process-control \
-                system-trace; do \
+                system-trace \
+                network-setup-control; do \
        sudo snap connect microovn:$plug;done
 
 To verify that all the required plugs are correctly connected to their slots,
