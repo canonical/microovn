@@ -15,9 +15,8 @@ setup_file() {
     export CENTRAL_CONTAINERS
     export CHASSIS_CONTAINERS
 
-    launch_containers $TEST_CONTAINERS
+    launch_containers_from_template $TEST_CONTAINERS
     wait_containers_ready $TEST_CONTAINERS
-    install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINERS
     export USER_CA_CRT="/var/snap/microovn/common/ca.crt"
     export USER_CA_KEY="/var/snap/microovn/common/ca.key"
     export LEADER

@@ -1,8 +1,7 @@
 function launch_containers_args() {
     local launch_args=$1; shift
+    local image=$1; shift
     local containers=$*; shift
-
-    local image="${MICROOVN_TEST_CONTAINER_IMAGE:-ubuntu:lts}"
 
     for container in $containers; do
         echo "# Launching '$image' container: $container" >&3
@@ -17,13 +16,24 @@ function launch_containers_args() {
 function launch_containers() {
     local containers=$*
 
-    launch_containers_args "" "$containers"
+    launch_containers_args "" "ubuntu:lts" "$containers"
+}
+
+function launch_containers_from_template() {
+    local containers=$*
+
+    if [ -z "$MICROOVN_CONTAINER_TEMPLATE" ]; then
+        echo "# Can't launch container from template. Variable MICROOVN_CONTAINER_TEMPLATE is not set."
+        return 1
+    fi
+
+    launch_containers_args "" "$MICROOVN_CONTAINER_TEMPLATE" "$containers"
 }
 
 function launch_vms() {
     local containers=$*; shift
 
-    local image="${MICROOVN_TEST_CONTAINER_IMAGE:-ubuntu:lts}"
+    local image="ubuntu:lts"
 
     for container in $containers; do
         echo "# Launching '$image' VM: $container" >&3

@@ -104,17 +104,6 @@ To run individual test suites you can execute:
 
    make tests/<name_of_the_test_suite>.bats
 
-By default, functional tests run in LXD containers based on ``ubuntu:lts``
-image. This can be changed by exporting environment variable
-``MICROOVN_TEST_CONTAINER_IMAGE`` and setting it to a valid LXD image name.
-
-For example:
-
-.. code-block:: none
-
-    export MICROOVN_TEST_CONTAINER_IMAGE="ubuntu:jammy"
-    make check-system
-
 Making use of `LXD remotes`_ to spawn containers on a remote cluster or server
 is supported through the use of the ``LXC_REMOTE`` `LXD environment`_ variable.
 
