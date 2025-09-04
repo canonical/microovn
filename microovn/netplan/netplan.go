@@ -129,7 +129,7 @@ func WriteToNetplan(ctx context.Context, filename string, config Config) error {
 	}
 
 	filepath := fmt.Sprintf("/tmp/%s", filename)
-	err = os.WriteFile(filepath, data, 0644)
+	err = os.WriteFile(filepath, data, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to write file: %v", err)
 	}
