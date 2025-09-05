@@ -23,7 +23,7 @@ setup_file() {
     export CHASSIS_CONTAINERS
 
     launch_containers_args \
-        "${TEST_LXD_LAUNCH_ARGS:--c security.nesting=true}" $TEST_CONTAINERS
+        "${TEST_LXD_LAUNCH_ARGS:--c security.nesting=true}" "ubuntu:lts" $TEST_CONTAINERS
     wait_containers_ready $TEST_CONTAINERS
     install_microovn_from_store "$MICROOVN_SNAP_CHANNEL" $TEST_CONTAINERS
     bootstrap_cluster $TEST_CONTAINERS

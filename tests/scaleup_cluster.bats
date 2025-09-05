@@ -31,9 +31,8 @@ teardown() {
         local container
         container=${containers[*]:$((( $i - 1 ))):1}
 
-        launch_containers $container
+        launch_containers_from_template $container
         wait_containers_ready $container
-        install_microovn "$MICROOVN_SNAP_PATH" $container
 
         local addr
         addr=$(container_get_default_ip \

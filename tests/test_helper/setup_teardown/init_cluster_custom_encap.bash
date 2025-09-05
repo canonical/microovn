@@ -8,7 +8,7 @@ setup_file() {
 
     TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 3)
     export TEST_CONTAINERS
-    launch_containers $TEST_CONTAINERS
+    launch_containers_from_template $TEST_CONTAINERS
     wait_containers_ready $TEST_CONTAINERS
 
     # Create a dedicated bridge for the east-west traffic
@@ -21,7 +21,6 @@ setup_file() {
     EAST_WEST_ADDRS=("${east_west_addrs[@]}")
     printf '%s\n' "${EAST_WEST_ADDRS[@]}" > "$BATS_TMPDIR/east_west_addrs.txt"
 
-    install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINERS
     local leader
     for pair in "${EAST_WEST_ADDRS[@]}"; do
         IFS='@' read -r container ip_east_west <<< "$pair"
