@@ -72,7 +72,7 @@ constructive feedback.
    tutorial/index
    explanation/index
    reference/index
-   developers/index
+   contributors/index
 
 .. LINKS
 .. _strictly confined snap: https://snapcraft.io/docs/snap-confinement
