@@ -1,13 +1,16 @@
 Datapath
 ECDSA
 ECDH
+CLA
 CLI
 CVE
 ESM
+Fosstodon
 Geneve
 IPs
 LTS
 LXD
+LSP
 Livepatch
 Makefile
 MicroCluster
@@ -33,7 +36,9 @@ VMs
 Virtualization
 YY
 appctl
+automations
 backport
+backticks
 bugfixes
 codebase
 composability
@@ -56,6 +61,7 @@ lxd
 manpage
 microovn
 mitigations
+monospaced
 northd
 ovn
 ovs
