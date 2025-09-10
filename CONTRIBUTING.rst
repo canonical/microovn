@@ -1,1 +1,1 @@
-docs/developers/contributing.rst
+docs/contributors/index.rst
