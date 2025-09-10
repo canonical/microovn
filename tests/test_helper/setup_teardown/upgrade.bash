@@ -9,6 +9,11 @@ setup_file() {
     ABS_TOP_TEST_DIRNAME="${BATS_TEST_DIRNAME}/"
     export ABS_TOP_TEST_DIRNAME
 
+    # This test suite overrides MICROOVN_TESTS_USE_SNAP env. variable
+    # because it needs to manually install MicroOVN snap as part of
+    # tests.
+    export MICROOVN_TESTS_USE_SNAP="yes"
+
     # Determine MicroOVN channel from which we are upgrading
     test_name=$(basename "$BATS_TEST_FILENAME")
     MICROOVN_SNAP_CHANNEL=$(get_upgrade_test_version "$test_name" "$TEST_NAME_PREFIX")

@@ -58,6 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MICROOVN_SNAP: microovn.snap
+      MICROOVN_IMAGE: microovn-lxd-template.tar.gz
       MICROOVN_UNSQUASH_DST: ${{ github.workspace }}/microovn-squashfs
       # The `base_ref` will only be set for PR and contain the name of the
       # target branch.  The `ref_name` will be correct for the final push
@@ -92,18 +93,26 @@ jobs:
               --channel "${SNAPCRAFT_CHANNEL:-latest/stable}" \
               --classic
 
-      - name: Build snap
+      - name: Build snap and LXD image
         run: |
           # Build snap with coverage support
           sed -i 's/MICROOVN_COVERAGE=.*/MICROOVN_COVERAGE="yes"/g' microovn/build-aux/environment
-          make $MICROOVN_SNAP
+          make $MICROOVN_IMAGE
 
-      - name: Upload artifacts
+      - name: Upload Snap
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: snaps
           path: ${{ env.MICROOVN_SNAP }}
+          retention-days: 5
+
+      - name: Upload LXD image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lxd-image
+          path: ${{ env.MICROOVN_IMAGE }}
           retention-days: 5
 
       - name: Extract unit test coverage
@@ -164,6 +173,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: snaps
+
+      - name: Download built image
+        uses: actions/download-artifact@v4
+        with:
+          name: lxd-image
 
       - name: Clear FORWARD firewall rules
         run: |

@@ -2,7 +2,17 @@ function launch_containers_args() {
     local launch_args=$1; shift
     local containers=$*; shift
 
-    local image="${MICROOVN_TEST_CONTAINER_IMAGE:-ubuntu:lts}"
+    local image
+    if [ "$MICROOVN_TESTS_USE_SNAP" = "yes" ]; then
+        image="${MICROOVN_TEST_CONTAINER_IMAGE:-ubuntu:lts}"
+    else
+        image="$MICROOVN_CONTAINER_TEMPLATE"
+    fi
+
+    if [ -z "$image" ]; then
+        echo "# LXD image for test containers was not specified"
+        return 1
+    fi
 
     for container in $containers; do
         echo "# Launching '$image' container: $container" >&3

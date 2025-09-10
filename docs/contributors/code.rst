@@ -265,16 +265,45 @@ To run individual test suites you can execute:
 
    make tests/<name_of_the_test_suite>.bats
 
-By default, functional tests run in LXD containers based on ``ubuntu:lts``
-image. This can be changed by exporting environment variable
-``MICROOVN_TEST_CONTAINER_IMAGE`` and setting it to a valid LXD image name.
+.. tip::
 
-For example:
+   If your hardware can handle it, you can run test suites in parallel by
+   supplying ``make`` with ``-j`` argument (e.g. ``make check-system -j4``).
+   To avoid interleaving output from these parallel test suites, you can
+   specify the ``-O`` argument as well.
+
+Control test environment
+........................
+
+By default, functional tests will pre-build an LXD image with the MicroOVN
+snap already installed. This image is then used to spin up test containers,
+which significantly improves test times, because it avoids installing snap
+manually on each container. If you want to opt-out of this behaviour, and
+instead force tests to manually install MicroOVN snap, you can set
+``MICROOVN_TESTS_USE_SNAP=yes``. In that case, test containers will be based
+either on ``ubuntu:lts`` image, or whatever is specified in
+``MICROOVN_TEST_CONTAINER_IMAGE``. Below are few examples of how these
+environment variables can be combined.
 
 .. code-block:: none
 
-    export MICROOVN_TEST_CONTAINER_IMAGE="ubuntu:jammy"
-    make check-system
+   # Default behavior, using pre-built image based on 'ubuntu:lts'
+   make check-system
+
+   # Using pre-built image based on non-default base image
+   MICROOVN_TEST_CONTAINER_IMAGE="ubuntu:jammy" make check-system
+
+   # Using default base image, but forcing tests to install microovn
+   # snap on each container manually
+   MICROOVN_TESTS_USE_SNAP=yes make check-system
+
+   # Using custom base image and forcing tests to install microovn snap
+   # on each container manually
+   MICROOVN_TEST_CONTAINER_IMAGE="ubuntu:jammy" MICROOVN_TESTS_USE_SNAP=yes make check-system
+
+
+Run tests on remote LXD server
+..............................
 
 Making use of `LXD remotes`_ to spawn containers on a remote cluster or server
 is supported through the use of the ``LXC_REMOTE`` `LXD environment`_ variable.
@@ -283,13 +312,6 @@ is supported through the use of the ``LXC_REMOTE`` `LXD environment`_ variable.
 
    export LXC_REMOTE=microcloud
    make check-system
-
-.. tip::
-
-   If your hardware can handle it, you can run test suites in parallel by
-   supplying ``make`` with ``-j`` argument (e.g. ``make check-system -j4``).
-   To avoid interleaving output from these parallel test suites, you can
-   specify the ``-O`` argument as well.
 
 Test coverage information
 ^^^^^^^^^^^^^^^^^^^^^^^^^
