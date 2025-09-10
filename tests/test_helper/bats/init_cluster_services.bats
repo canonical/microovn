@@ -14,15 +14,14 @@ setup() {
     # provide false positive results.
     assert [ -n "$TEST_CONTAINERS" ]
 
+    launch_containers $TEST_CONTAINERS
+    wait_containers_ready $TEST_CONTAINERS
     install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINERS
 }
 
 teardown() {
-    local container
-    for container in $TEST_CONTAINERS; do
-        lxc_exec "$container" "snap remove --purge microovn"
-        lxc file delete -q "$container/tmp/microovn.snap" >/dev/null 2>&1 || true
-    done
+    collect_coverage $TEST_CONTAINERS
+    delete_containers $TEST_CONTAINERS
 }
 
 init_cluster_services_register_test_functions() {
