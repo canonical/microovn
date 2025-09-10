@@ -4,6 +4,11 @@ function install_microovn() {
     local snap_file=$1; shift
     local containers=$*
 
+    if [ "$MICROOVN_TESTS_USE_SNAP" != "yes" ]; then
+        echo "# Skipping snap installation. MicroOVN snap is expected to be present on test containers" >&3
+        return 0
+    fi
+
     local snap_base
     snap_base=$(snap_print_base $snap_file)
 
