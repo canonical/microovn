@@ -48,6 +48,8 @@ apps:
     plugs:
       - network
       - network-bind
+      - network-control
+      - network-setup-control
     slots:
       - microovn
 
@@ -74,6 +76,24 @@ apps:
     plugs:
       - network
       - network-bind
+
+  frr-bgp:
+    command: commands/frr-bgp.start
+    daemon: simple
+    install-mode: disable
+    plugs:
+      - network
+      - network-bind
+      - network-control
+
+  frr-zebra:
+    command: commands/frr-zebra.start
+    daemon: simple
+    install-mode: disable
+    plugs:
+      - network
+      - network-bind
+      - network-control
 
   chassis:
     command: commands/chassis.start
@@ -153,6 +173,13 @@ apps:
     plugs:
       - network
 
+  vtysh:
+    command: commands/vtysh
+    plugs:
+      - network
+      - network-bind
+      - network-control
+
   refresh-expiring-certs:
     command: commands/refresh-expiring-certs
     daemon: oneshot
@@ -186,15 +213,174 @@ parts:
       - lib/libdqlite*so*
       - lib/libraft*so*
       - lib/*/libuv*so*
+  rtrlib:
+    build-packages:
+      - cmake
+      - make
+      - gcc
+      - libssh-dev
+    stage-packages:
+      - libssh-4
+      - zlib1g
+    prime:
+      - usr/local/lib/librtr.so*
+      - usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/libssh.so*
+    source: https://github.com/rtrlib/rtrlib.git
+    source-type: git
+    source-tag: v0.8.0
+    plugin: cmake
+    cmake-parameters:
+      - -DCMAKE_BUILD_TYPE=Release
+  libyang:
+    build-packages:
+      - cmake
+      - make
+      - gcc
+      - libpcre2-dev
+    stage-packages:
+      - libpcre2-8-0
+    source: https://github.com/CESNET/libyang.git
+    source-type: git
+    source-tag: v2.1.128
+    plugin: cmake
+    cmake-parameters:
+      - -DCMAKE_INSTALL_PREFIX:PATH=/usr
+      - -DENABLE_LYD_PRIV=ON
+      - -DENABLE_CACHE=ON
+      - -DCMAKE_BUILD_TYPE:String="Release"
+  frr:
+    after: [rtrlib,libyang]
+    build-packages:
+      - gcc
+      - autoconf
+      - automake
+      - libtool
+      - make
+      - gawk
+      - libreadline-dev
+      - libelf-dev
+      - texinfo
+      - libncurses5-dev
+      - texlive-latex-base
+      - texlive-latex-recommended
+      - libcap-dev
+      - imagemagick
+      - ghostscript
+      - groff
+      - libpcre3-dev
+      - chrpath
+      - pkg-config
+      - libjson-c-dev
+      - libc-ares-dev
+      - bison
+      - flex
+      - python3-dev
+      - libprotobuf-c-dev
+      - protobuf-c-compiler
+      - python3-sphinx
+    stage-packages:
+      - coreutils
+      - iproute2
+      - logrotate
+      - libjson-c5
+      - libc-ares2
+      - libatm1
+      - libprotobuf-c1
+      - libdb5.3
+      - libacl1
+      - libattr1
+      - libaudit1
+      - libselinux1
+      - libxtables12
+    plugin: autotools
+    source: https://github.com/FRRouting/frr.git
+    source-type: git
+    source-tag: frr-10.1.1
+    autotools-configure-parameters:
+      - --disable-doc
+      - --disable-ripd
+      - --disable-ripngd
+      - --disable-ospfd
+      - --disable-ospf6d
+      - --disable-ldpd
+      - --disable-nhrpd
+      - --disable-eigrpd
+      - --disable-babeld
+      - --disable-pimd
+      - --disable-pim6d
+      - --disable-vrrpd
+      - --disable-pbrd
+      - --disable-sharpd
+      - --disable-isisd
+      - --disable-ospfclient
+      - --disable-ospfapi
+      - --enable-vtysh
+      - --enable-watchfrr
+      - --enable-multipath=64
+      - --enable-rtadv
+      - --enable-user=root
+      - --enable-group=root
+      - --enable-fpm
+      - --enable-protobuf
+      - --enable-rpki
+      - --enable-configfile-mask=0640
+      - --enable-logfile-mask=0640
+      - --sysconfdir=/etc
+      - --localstatedir=/var
+      - --sbindir=/sbin
+      - --bindir=/bin
+      - --prefix=/usr
+    override-prime: |
+      craftctl default
+      # Pull in default config files for FRR to the expected location
+      mkdir -p $CRAFT_PRIME/etc/frr
+      cp $CRAFT_PART_SRC/tools/etc/frr/frr.conf $CRAFT_PRIME/etc/frr/
+      cp $CRAFT_PART_SRC/tools/etc/frr/vtysh.conf $CRAFT_PRIME/etc/frr/
 
   ovn:
-    plugin: nil
+    plugin: autotools
+    source: https://github.com/ovn-org/ovn.git
+    source-type: git
+    source-tag: branch-25.09
+    override-build: |
+      # build OVS first
+      cd ovs
+      ./boot.sh
+      ./configure \
+        --enable-ssl \
+        --localstatedir=/var \
+        --sysconfdir=/etc \
+        --prefix=/usr
+      make -j$CRAFT_PARALLEL_BUILD_COUNT
+      # build OVN
+      cd ..
+      ./boot.sh
+      ./configure \
+        --prefix=/usr \
+        --localstatedir=/var \
+        --sysconfdir=/etc \
+        --with-dbdir=/var/lib/ovn \
+        --enable-ssl
+      make -j$CRAFT_PARALLEL_BUILD_COUNT
+      make install DESTDIR=$CRAFT_PART_INSTALL
+      mkdir -p $CRAFT_PART_INSTALL/etc/ovn
+    build-packages:
+      - gcc
+      - libssl-dev
+      - libunbound-dev
+      - python3
+      - make
+      - automake
+      - autoconf
+      - libtool-bin
+      - pkgconf
     stage-packages:
-      - ovn-central
-      - ovn-host
+      - libunbound8
     organize:
       usr/bin/: bin/
       usr/share/: share/
+      usr/sbin/: bin/
+      usr/lib/: lib/
     prime:
      - bin/ovn-appctl
      - bin/ovn-controller
@@ -204,11 +390,6 @@ parts:
      - bin/ovn-trace
      - etc/ovn
      - share/ovn
-    override-build: |
-        craftctl default
-
-        mkdir -p "${CRAFT_PART_INSTALL}/etc/ovn/"
-
   ovs:
     plugin: nil
     stage-packages:
@@ -306,9 +487,8 @@ parts:
       # Note (mkalcok): This code reaches into other snapcraft parts via hardcoded paths
       #                 to determine version of packages from which they were built. It
       #                 will require updates if these part names ever change.
-      ovn_pkg_version=$(
-          dpkg-deb -f \
-          $CRAFT_PART_SRC/../../ovn/stage_packages/ovn-host*.deb Version)
+      ovn_pkg_version=$(grep -E '^PACKAGE_VERSION' $CRAFT_PART_SRC/../../ovn/build/Makefile | \
+                        awk '{print $NF;}')
       ovs_pkg_version=$(
           dpkg-deb -f \
           $CRAFT_PART_SRC/../../ovs/stage_packages/openvswitch-switch*.deb Version)
@@ -318,12 +498,7 @@ parts:
               --dirty \
               --abbrev=10)
       
-      # Set Snap's version string
-      # Note (mkalcok): Short version string does not include potential package snapshot hash.
-      #                 This is required because Snap's version string is limited to 32 chars
-      #                 and inclusion of snapshot hash violates this boundary.
-      ovn_pkg_short_version=$(echo $ovn_pkg_version | sed -rne 's/([0-9.]+)[-+~].*$$/\1/p')
-      craftctl set version=${ovn_pkg_short_version}+snap${git_version}
+      craftctl set version=${ovn_pkg_version}+snap${git_version}
       
       version_package=github.com/canonical/microovn/microovn/version
       go_ldflags="-X '${version_package}.MicroOvnVersion=${git_version}${EXTRA_BUILD_ARGS}' \
@@ -398,3 +573,9 @@ parts:
       - bin/jq
       - lib/*/libjq.so*
       - lib/*/libonig.so*
+
+layout:
+  /var/tmp/frr:
+    symlink: $SNAP_COMMON/data/frr/tmp
+  /etc/frr:
+    symlink: $SNAP_COMMON/data/frr/etc

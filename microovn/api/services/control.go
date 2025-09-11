@@ -39,7 +39,13 @@ func enableService(s state.State, r *http.Request) response.Response {
 		return response.InternalError(errors.New("service does not exist"))
 	}
 
-	err = node.EnableService(r.Context(), s, requestedService)
+	var extraConfig types.ExtraServiceConfig
+	err = json.NewDecoder(r.Body).Decode(&extraConfig)
+	if err != nil {
+		logger.Errorf("Failed to decode request body: %s", err)
+		return response.BadRequest(errors.New("failed to decode request"))
+	}
+	err = node.EnableService(r.Context(), s, requestedService, &extraConfig)
 	if err != nil {
 		return response.InternalError(err)
 	}
