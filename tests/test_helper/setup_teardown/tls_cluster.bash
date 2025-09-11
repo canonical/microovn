@@ -11,6 +11,14 @@ setup_file() {
     export TEST_CONTAINERS
     export CENTRAL_CONTAINERS
     export CHASSIS_CONTAINERS
+
+    # This test suite overrides MICROOVN_TESTS_USE_SNAP env. variable
+    # because it uses LXD VMs instead of containers. This means that
+    # this suite can't run from container image with microovn snap
+    # pre-installed and each test VM needs to manually install
+    # microovn snap.
+    export MICROOVN_TESTS_USE_SNAP="yes"
+
     # Note(mkalcok): Tests for automatic renewal of expiring certificates need
     # to manipulate system time. This is not possible in an LXD container,
     # so we run these tests in the VM.

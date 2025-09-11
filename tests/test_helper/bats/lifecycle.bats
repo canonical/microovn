@@ -5,6 +5,10 @@ setup_file() {
     load test_helper/lxd.bash
     load test_helper/microovn.bash
 
+    # This test suite overrides MICROOVN_TESTS_USE_SNAP env. variable
+    # because it needs to manually install MicroOVN snap as part of
+    # tests.
+    export MICROOVN_TESTS_USE_SNAP="yes"
 
     TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 1)
     export TEST_CONTAINERS
