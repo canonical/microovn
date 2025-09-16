@@ -7,9 +7,14 @@ func TestNewConfig_Defaults(t *testing.T) {
 	if cfg.Network.Version != supportedVersion {
 		t.Errorf("expected version %d, got %d", supportedVersion, cfg.Network.Version)
 	}
-	if len(cfg.Network.VirtualEthernets) != 0 || len(cfg.Network.Vrfs) != 0 || len(cfg.Network.Bridges) != 0 {
+	if len(cfg.Network.VirtualEthernets) != 0 ||
+		len(cfg.Network.Vrfs) != 0 ||
+		len(cfg.Network.Bridges) != 0 ||
+		len(cfg.Network.OpenvSwitch.ExternalIDs) != 0 {
+
 		t.Errorf("expected empty maps in new config")
 	}
+	cfg.Network.OpenvSwitch.ExternalIDs["some-string"] = "some-other-string"
 }
 
 func TestAddMethods(t *testing.T) {
