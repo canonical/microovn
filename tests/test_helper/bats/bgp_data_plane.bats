@@ -64,6 +64,9 @@ network:
                 fail-mode: secure
             interfaces:
                 - veth1-brg
+    openvswitch:
+        external-ids:
+            dynamic-routing-port-mapping: veth1-bgp=veth1-bgp
 EOF
 )
     assert_output "$expected"

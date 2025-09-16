@@ -289,7 +289,11 @@ func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExt
 	for _, extConnection := range extConnections {
 		lrpName := getLrpName(s, extConnection.Iface)
 		_, err = ovnCmd.NBCtlCluster(ctx,
-			"lrp-set-options", lrpName, "dynamic-routing-maintain-vrf=true", "dynamic-routing-redistribute=nat,lb",
+			"lrp-set-options", lrpName,
+			"dynamic-routing-maintain-vrf=true",
+			"dynamic-routing-redistribute=nat,lb",
+			fmt.Sprintf("dynamic-routing-port-name=%s",
+				getBgpRedirectIfaceName(extConnection.Iface)),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to enable vrf for LRP '%s': %v", lrpName, err)
@@ -310,6 +314,7 @@ func generateVeth(ctx context.Context, s state.State, extConnections []types.Bgp
 	np := netplan.NewConfig()
 	brIntInterfaces := []string{}
 	vrfInterfaces := []string{}
+	var drPortMapping strings.Builder
 
 	for _, extConnection := range extConnections {
 		bgpInterface := getBgpRedirectIfaceName(extConnection.Iface)
@@ -321,10 +326,24 @@ func generateVeth(ctx context.Context, s state.State, extConnections []types.Bgp
 		np.AddVeth(brgInterface, bgpInterface, "")
 		brIntInterfaces = append(brIntInterfaces, brgInterface)
 		vrfInterfaces = append(vrfInterfaces, bgpInterface)
+
+		// Map sytem interface name used for route learning in
+		// VRF to LRP.
+		//
+		// The key in the map is an opaque key that matches the value
+		// used for "dynamic-routing-port-name" option on LRP set in
+		// createVrf function above.
+		if drPortMapping.Len() > 0 {
+			drPortMapping.WriteString(",")
+		}
+		drPortMapping.WriteString(bgpInterface)
+		drPortMapping.WriteString("=")
+		drPortMapping.WriteString(bgpInterface)
 	}
 
 	np.AddVRF(vrfName, tableID, vrfInterfaces)
 	np.AddBridge(brInt, brIntInterfaces)
+	np.Network.OpenvSwitch.ExternalIDs["dynamic-routing-port-mapping"] = drPortMapping.String()
 
 	filename := "90-microovn-bgp-veth.yaml"
 	err = netplan.WriteToNetplan(ctx, filename, *np)
