@@ -24,6 +24,7 @@ type network struct {
 	VirtualEthernets map[string]virtualEthernet `yaml:"virtual-ethernets,omitempty"`
 	Vrfs             map[string]vrf             `yaml:"vrfs,omitempty"`
 	Bridges          map[string]bridge          `yaml:"bridges,omitempty"`
+	OpenvSwitch      *openvSwitch               `yaml:"openvswitch,omitempty"`
 }
 
 // VirtualEthernet is a struct for defining virtual ethernets
@@ -46,7 +47,8 @@ type bridge struct {
 
 // OpenvSwitch options for a bridge
 type openvSwitch struct {
-	FailMode string `yaml:"fail-mode,omitempty"`
+	FailMode    string            `yaml:"fail-mode,omitempty"`
+	ExternalIDs map[string]string `yaml:"external-ids,omitempty"`
 }
 
 // NewConfig returns a new Netplan config with default version set.
@@ -57,6 +59,7 @@ func NewConfig() *Config {
 			VirtualEthernets: make(map[string]virtualEthernet),
 			Vrfs:             make(map[string]vrf),
 			Bridges:          make(map[string]bridge),
+			OpenvSwitch:      &openvSwitch{ExternalIDs: make(map[string]string)},
 		},
 	}
 }

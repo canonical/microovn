@@ -64,6 +64,9 @@ network:
                 fail-mode: secure
             interfaces:
                 - veth1-brg
+    openvswitch:
+        external-ids:
+            dynamic-routing-port-mapping: veth1-bgp=veth1-bgp
 EOF
 )
     assert_output "$expected"
@@ -108,17 +111,6 @@ EOF
 
     echo "# ($TEST_CONTAINER) Set VM's default route via $guest_lrp_ip"
     lxc_exec "$TEST_CONTAINER" "ip netns exec $guest_vm_ns ip route add default via $guest_lrp_ip"
-
-    # Note (mkalcok): Until OVN routers are capable of learning routes advertised
-    # by their BGP neighbors, we need to use a crutch in a form static default route
-    # via the BGP neighbor's IPv6 LLA
-    #
-    # Note 2 (mkalcok): It also seems that without specifying egress port for the route, the returning
-    # traffic seems to be a hit-or-miss.
-    local neighbor_lla
-    local egress_port="lrp-$TEST_CONTAINER-$OVN_CONTAINER_INT_IFACE"
-    neighbor_lla=$(microovn_bgp_neighbor_address "$TEST_CONTAINER" "$vrf_device" "v${OVN_CONTAINER_INT_IFACE}-bgp")
-    lxc_exec "$TEST_CONTAINER" "microovn.ovn-nbctl lr-route-add $gw_lr \"0.0.0.0/0\" $neighbor_lla $egress_port"
 
     # Configure external infrastructure (BGP Peer and External Host)
     echo "# Configure IPv4 networking on the $BGP_EXT_NET"
