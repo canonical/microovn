@@ -60,9 +60,79 @@ function generate_router_id() {
     echo "10.$(( 0x${hash:0:2} % 256 )).$(( 0x${hash:2:2} % 256 )).$(( 0x${hash:4:2} % 254 + 1 ))"
 }
 
+# microovn_bird_apply_default_config CONTAINER
+#
+# Reset/prepare Bird configuration on the CONTAINER. This function applies basic config
+# without any BGP or kernel (vrf) protocols.
+function microovn_bird_apply_default_config() {
+    local container=$1; shift
+    lxc_file_replace "$BATS_TEST_DIRNAME/resources/bird/default.conf" "$container/var/snap/microovn/common/data/bird/bird.conf" 0
+    lxc_exec "$container" "microovn.birdc configure"
+}
+
+# microovn_bird_add_vrf CONTAINER VRF_TABLE_ID
+#
+# Add kernel protocol to the Bird configuration on the CONTAINER that learns from
+# and exports into the specified VRF.
+function microovn_bird_add_vrf() {
+    local container=$1; shift
+    local vrf_table=$1; shift
+
+    cat << EOF | lxc_exec "$container" "cat >> /var/snap/microovn/common/data/bird/bird.conf"
+protocol kernel {
+    ipv4 {
+        export all;
+    };
+    learn;
+    kernel table $vrf_table;
+}
+EOF
+    lxc_exec "$container" "microovn.birdc configure"
+
+}
+
+# microovn_bird_add_bgp CONTAINER INTERFACE ASN VRF
+#
+# Add bgp protocol instance to the Bird configuration on the CONTAINER. This instance
+# dynamically listens on INTERFACE in VRF and advertises local ASN.
+function microovn_bird_add_bgp() {
+    local container=$1; shift
+    local interface=$1; shift
+    local asn=$1; shift
+    local vrf=$1; shift
+
+    # BGP connection name in bird can't contain hyphen
+    local connection_suffix
+    connection_suffix=$(tr "-" "_" <<< "$interface")
+
+    cat << EOF | lxc_exec "$container" "cat >> /var/snap/microovn/common/data/bird/bird.conf"
+
+protocol bgp microovn_$connection_suffix {
+    router id $(generate_router_id $container-$interface);
+    interface "$interface";
+    vrf "$vrf";
+    local as $asn;
+    neighbor range fe80::/10 external;
+    dynamic name "dyn_microovn_$connection_suffix";
+    ipv4 {
+        next hop self ebgp;
+        extended next hop on;
+        require extended next hop on;
+        import all;
+        export filter no_default_v4;
+    };
+    ipv6 {
+        import all;
+        export filter no_default_v6;
+        };
+}
+EOF
+    lxc_exec "$container" "microovn.birdc configure"
+}
+
 # microovn_start_bgp_unnumbered CONTAINER INTERFACE ASN VRF
 #
-# configure FRR bundled with MicroOVN in the CONTAINER, to
+# configure Bird bundled with MicroOVN in the CONTAINER, to
 # start BGP in the unnumbered mode, listening on the INTERFACE
 # in the VRF with ASN.
 function microovn_start_bgp_unnumbered() {
@@ -94,50 +164,77 @@ function microovn_start_bgp_unnumbered() {
 EOF
 }
 
-# microovn_bgp_neighbors CONTAINER
+# microovn_get_bgp_neighbor_connection_status CONTAINER NEIGHBOR
 #
-# Use FRR bundled with the MicroOVN in the CONTAINER to print status
-# of its BGP neighbors in the VRF.
-function microovn_bgp_neighbors() {
+# This function uses Bird client bundled with MicroOVN on the CONTAINER
+# to get status of a bgp connection with NEIGHBOR. It prints contents
+# of `birdc show protocols all <protocol>` for the protocol where hostname announced
+# by the neighbor matches NEIGHBOR.
+function microovn_get_bgp_neighbor_connection_status() {
     local container=$1; shift
-    local vrf=$1; shift
-    echo "$(lxc_exec "$container" "microovn.vtysh -c \"show bgp vrf $vrf neighbors\"")"
+    local neighbor=$1; shift
+
+    local dyn_connections
+    dyn_connections=$(lxc_exec "$container" 'microovn.birdc show protocols \"dyn_microovn_*\"| tail -n +3')
+
+    for connection in $(awk '{print $1}' <<< "$dyn_connections"); do
+        connection_details=$(lxc_exec "$container" "microovn.birdc show protocols all $connection")
+        if grep "Hostname: $neighbor$" <<< $connection_details; then
+            echo "$connection_details"
+            return 0
+        fi
+    done
+    return 1
 }
 
-# microovn_bgp_established CONTAINER VRF NEIGHBOR
+# bird_is_bgp_connection_active CONNECTION_DETAILS
 #
-# Using FRR bundled with MicroOVN in the CONTAINER, return 0
-# if BGP daemon running in the VRF successfully established peer
+# This function parses bgp connection described by CONNECTION_DETAILS
+# and returns 0 if the state of the connection is "Established" and both
+# ipv4 and ipv6 channels are "UP"
+#
+# CONNECTION_DETAILS is expected to be a string output of
+# `birdc show protocol all <protocol>` command.
+function bird_is_bgp_connection_active() {
+    local connection_details=$1; shift
+
+    local v4_state
+    local v6_state
+
+    v4_state=$(grep -A 1 "Channel ipv4" <<< "$connection_details")
+    v6_state=$(grep -A 1 "Channel ipv6" <<< "$connection_details")
+
+    grep -qE "BGP state:\s*Established" <<< "$connection_details" \
+        && grep -qE "State:\s*UP" <<< "$v4_state" \
+        && grep -qE "State:\s*UP" <<< "$v6_state" \
+
+}
+
+# microovn_bgp_established CONTAINER NEIGHBOR
+#
+# Using Bird bundled with MicroOVN in the CONTAINER, return 0
+# if BGP daemon successfully established peer
 # connection with BGP daemon running on NEIGHBOR host.
 function microovn_bgp_established() {
     local container=$1; shift
-    local vrf=$1; shift
     local neighbor=$1; shift
 
     echo "# ($container) Checking BGP established status with neighbor '$neighbor'"
     local status
-    status=$(microovn_bgp_neighbors $container $vrf)
+    status=$(microovn_get_bgp_neighbor_connection_status "$container" "$neighbor")
     echo "# ($container) Neighbor status: $status"
 
-    grep -A 2 "Hostname: $neighbor$" <<< "$status" | grep "BGP state = Established"
+    bird_is_bgp_connection_active "$status"
 }
 
-#  microovn_bgp_neighbor_address CONTAINER VRF NEIGHBOR
+# microovn_bgp_neighbor_address CONTAINER NEIGHBOR
 #
-# This function logs into CONTAINER and prints the IP address of
-# of a BGP NEIGHBOR. The NEIGHBOR parameter is expected to be an interface
-# name which is used to set up BGP unnumbered session.
-# Since MicroOVN runs BGP daemon in VRF, the VRF name is required as well.
 function microovn_bgp_neighbor_address() {
     local container=$1; shift
-    local vrf=$1; shift
     local neighbor=$1; shift
 
-    local neighbor_status
-    local foreign_host_line
-    neighbor_status=$(lxc_exec "$container" "microovn.vtysh -c \"show bgp vrf $vrf neighbor $neighbor\"")
-    foreign_host_line=$(grep "^Foreign host:" <<< "$neighbor_status")
+    local status
+    status=$(microovn_get_bgp_neighbor_connection_status "$container" "$neighbor")
 
-    # Print clean IPv6 address of the BGP neighbor
-    awk '{print $3}' <<< "$foreign_host_line" | tr -d ','
+    awk '/Neighbor address/{print$3}' <<< "$status" | cut -f1 -d\%
 }

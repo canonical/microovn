@@ -33,7 +33,6 @@ function ping_ovn_int_network_over_bgp_router() {
     # Enable BGP redirection and start BGP daemon in OVN chassis
     local host_asn=4210000000
     local vrf="10"
-    local vrf_device="ovnvrf$vrf"
     local external_connections="$OVN_CONTAINER_INT_IFACE"
 
     echo "# Enabling MicroOVN BGP in $TEST_CONTAINER and configuring BGP (ASN $host_asn)" >&3
@@ -73,7 +72,8 @@ EOF
 
     echo "# ($TEST_CONTAINER) waiting on established BGP with $BGP_PEER" >&3
 
-    wait_until "microovn_bgp_established $TEST_CONTAINER $vrf_device $BGP_PEER"
+    wait_until "microovn_bgp_established $TEST_CONTAINER $BGP_PEER"
+    neighbor_address=$(microovn_bgp_neighbor_address $TEST_CONTAINER $BGP_PEER)
 
     # create VIF that represents VM on the internal OVN network
     local gw_lr="lr-$TEST_CONTAINER-microovn"
@@ -132,6 +132,13 @@ EOF
 
     # Wait for the route to propagate to BGP peer
     wait_until "container_has_ipv4_route $BGP_PEER $nat_ext_ip $BGP_CONTAINER_INT_IFACE"
+
+    # XXX potential bug?
+    echo "# ($BGP_PEER) Ensure OVN performs ND for its default gateway" >&3
+    lxc_exec "$BGP_PEER" "ping -W 1 -c 3 fe80::90:b1ff:fea2:e628%eth1 || true"
+
+    echo "# Wait for Mac_Binding to be populated for the LRs default gateway" >&3
+    wait_until "microovn_mac_binding_exists $TEST_CONTAINER $neighbor_address lrp-microovn-bgp-data-plane-1-eth1"
 
     # Check that external host can reach NAT address
     echo "# ($EXT_HOST) Reach NAT address $nat_ext_ip with ping" >&3
