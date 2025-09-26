@@ -87,9 +87,9 @@ bgp_control_plane_register_test_functions() {
 # scenarios:
 #
 # If AUTOCONFIG_BGP is set to "yes", MicroOVN will automatically configure
-# FRR services running on OVN chassis to start BGP daemons in the "unnumbered" mode.
-# If AUTOCONFIG_BGP is any other value, the FRR's CLI will be used directly to configure
-# the BGP daemons.
+# Bird service running on OVN chassis to start BGP daemons in the "dynamic" mode.
+# If AUTOCONFIG_BGP is any other value, the Bird daemon will be configured by the test
+# manually.
 #
 # IF MULTI_LINK is set to "yes", two interfaces per OVN chassis will be used for connection
 # with two separate BGP neighbors. IF MULTI_LINK is any other value, only one interface/bgp daemon
@@ -127,8 +127,7 @@ bgp_unnumbered_peering() {
             external_connections="$external_connections,$OVN_CONTAINER_NET_2_IFACE"
         fi
 
-        # Configure FRR on the OVN chassis either automatically (by supplying ASN) or manually
-        # (via FRR CLI)
+        # Configure Bird daemon on the OVN chassis either automatically (by supplying ASN) or manually
         if [ "$autoconfig_bgp" == "yes" ]; then
             echo "# Enabling MicroOVN BGP in $container with automatic daemon configuration (ASN $host_asn)" >&3
             lxc_exec "$container" "microovn enable bgp \
@@ -141,11 +140,13 @@ bgp_unnumbered_peering() {
                 --config ext_connection=$external_connections \
                 --config vrf=$vrf"
 
-            echo "# Manually configuring FRR to start BGP daemon on $bgp_iface_1 (ASN $host_asn)" >&3
-            microovn_start_bgp_unnumbered "$container" "$bgp_iface_1" "$host_asn" "$vrf_device"
+            echo "# Manually configuring Bird to start BGP daemon on $bgp_iface_1 (ASN $host_asn)" >&3
+            microovn_bird_apply_default_config "$container"
+            microovn_bird_add_vrf "$container" "$vrf"
+            microovn_bird_add_bgp "$container" "$bgp_iface_1" "$host_asn" "$vrf_device"
             if [ "$multi_link" == "yes" ]; then
-                echo "# Manually configuring FRR to start BGP daemon on $bgp_iface_2 (ASN $host_asn)" >&3
-                microovn_start_bgp_unnumbered "$container" "$bgp_iface_2" "$host_asn" "$vrf_device"
+                echo "# Manually configuring Bird to start BGP daemon on $bgp_iface_2 (ASN $host_asn)" >&3
+                microovn_bird_add_bgp "$container" "$bgp_iface_2" "$host_asn" "$vrf_device"
             fi
         fi
         # TODO: Figure out why is this sleep necessary
@@ -166,11 +167,11 @@ bgp_unnumbered_peering() {
         local vrf_device="ovnvrf$vrf"
 
         echo "# ($container) waiting on established BGP with $neighbor_1" >&3
-        wait_until "microovn_bgp_established $container $vrf_device $neighbor_1"
+        wait_until "microovn_bgp_established $container $neighbor_1"
 
         if [ "$multi_link" == "yes" ]; then
             echo "# ($container) waiting on established BGP with $neighbor_2" >&3
-            wait_until "microovn_bgp_established $container $vrf_device $neighbor_2"
+            wait_until "microovn_bgp_established $container $neighbor_2"
         fi
 
         # Set up NAT in OVN

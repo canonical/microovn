@@ -9,11 +9,11 @@ if test -e "${SNAP_COMMON}/data/ovn.env" ; then
   mv "${SNAP_COMMON}/data/ovn.env" "${SNAP_COMMON}/data/env/ovn.env"
 fi
 
-# Create directories required by FRR
-frr_etc="$SNAP_COMMON/data/frr/etc/"
-mkdir -p $frr_etc
-mkdir -p "$SNAP_COMMON/data/frr/tmp"
-mkdir -p "$SNAP_COMMON/run/frr"
+umask 077
+# Create directories required by Bird
+bird_data_dir="$SNAP_COMMON/data/bird"
+mkdir -p "$bird_data_dir"
+mkdir -p "$SNAP_COMMON/run/bird"
 
-# Seed default config files for FRR
-cp -r --update=none "$SNAP"/etc/frr/* "$frr_etc"
+# Seed default config files for Bird routing daemon
+cp -r --update=none "$SNAP/etc/bird/bird.conf" "$bird_data_dir"

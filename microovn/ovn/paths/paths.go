@@ -152,19 +152,19 @@ func OvsdbSwitchSchema() string {
 // Wrappers returns path to a directory with snap's command wrappers
 func Wrappers() string { return filepath.Join(snapRoot, "commands") }
 
-// FrrConfigDir returns path to a directory that FRR uses to store configuration
-func FrrConfigDir() string {
-	return filepath.Join(dataDir, "frr", "etc")
+// BirdConfigDir returns path to a directory that Bird routing daemon uses to store configuration
+func BirdConfigDir() string {
+	return filepath.Join(dataDir, "bird")
 }
 
-// FrrDefaultConfig returns path to FRR's default config file
-func FrrDefaultConfig() string {
-	return filepath.Join(snapRoot, "etc", "frr", "frr.conf")
+// BirdDefaultConfig returns path to Bird's default config file
+func BirdDefaultConfig() string {
+	return filepath.Join(snapRoot, "etc", "bird", "bird.conf")
 }
 
-// FrrStartupConfig returns path to current FRR's startup config
-func FrrStartupConfig() string {
-	return filepath.Join(FrrConfigDir(), "frr.conf")
+// BirdConfigFile returns path to current Bird's config file
+func BirdConfigFile() string {
+	return filepath.Join(BirdConfigDir(), "bird.conf")
 }
 
 // getServiceCertFiles returns path to certificate and key of give service in format
@@ -188,7 +188,7 @@ func RequiredDirs() []string {
 		LogsDir(),
 		PkiDir(),
 		EnvDir(),
-		FrrConfigDir(),
+		BirdConfigDir(),
 	}
 }
 
@@ -198,7 +198,7 @@ func BackupDirs() []string {
 	return []string{
 		dataDir,
 		LogsDir(),
-		FrrConfigDir(),
+		BirdConfigDir(),
 	}
 }
 
