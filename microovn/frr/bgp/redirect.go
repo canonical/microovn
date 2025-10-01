@@ -498,20 +498,6 @@ ipv6 prefix-list accept-default seq 5 permit ::/0
 	return err
 }
 
-func moveInterfaceToVrf(ctx context.Context, iface string, vrf string) error {
-	// Move the port to the VRF, set its IP and MAC address, and bring it UP
-	_, err := shared.RunCommandContext(ctx, "ip", "link", "set", "dev", iface, "master", vrf)
-	if err != nil {
-		return fmt.Errorf("failed to move interface '%s' to VRF '%s': %v", iface, vrf, err)
-	}
-
-	_, err = shared.RunCommandContext(ctx, "ip", "link", "set", "dev", iface, "up")
-	if err != nil {
-		return fmt.Errorf("failed bring interface '%s' UP: %v", iface, err)
-	}
-	return nil
-}
-
 // teardownAll removes all resources that were created/configured as part of setting up of
 // the BGP redirect. This includes:
 //   - Logical Router
