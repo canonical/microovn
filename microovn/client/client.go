@@ -170,12 +170,12 @@ func getOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd
 
 // DisableService sends request to disable service with name as specified in
 // "serviceName" argument.
-func DisableService(ctx context.Context, c *client.Client, serviceName string, allowLastCentral bool) (types.WarningSet, types.RegenerateEnvResponse, error) {
+func DisableService(ctx context.Context, c *client.Client, serviceName string, allowLastCentral bool, target string) (types.WarningSet, types.RegenerateEnvResponse, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 	requestData := types.DisableServiceRequest{AllowDisableLastCentral: allowLastCentral}
 	scr := types.ServiceControlResponse{}
-	err := c.Query(queryCtx, "DELETE", types.APIVersion, api.NewURL().Path("service", serviceName), requestData, &scr)
+	err := c.Query(queryCtx, "DELETE", types.APIVersion, api.NewURL().Path("service", serviceName).Target(target), requestData, &scr)
 
 	if err != nil {
 		return types.WarningSet{}, types.RegenerateEnvResponse{}, fmt.Errorf("failed to disable service '%s': '%s'", serviceName, err)
@@ -194,11 +194,11 @@ func DisableService(ctx context.Context, c *client.Client, serviceName string, a
 
 // EnableService sends request to disable service with name as as specified in
 // "serviceName" argument.
-func EnableService(ctx context.Context, c *client.Client, serviceName string, extraConfig *types.ExtraServiceConfig) (types.WarningSet, types.RegenerateEnvResponse, error) {
+func EnableService(ctx context.Context, c *client.Client, serviceName string, extraConfig *types.ExtraServiceConfig, target string) (types.WarningSet, types.RegenerateEnvResponse, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 	scr := types.ServiceControlResponse{}
-	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("service", serviceName), extraConfig, &scr)
+	err := c.Query(queryCtx, "PUT", types.APIVersion, api.NewURL().Path("service", serviceName).Target(target), extraConfig, &scr)
 	if err != nil {
 		return types.WarningSet{}, types.RegenerateEnvResponse{}, fmt.Errorf("failed to enable service '%s': '%s'", serviceName, err)
 	}

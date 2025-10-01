@@ -72,6 +72,7 @@ func disableService(s state.State, r *http.Request) response.Response {
 		logger.Errorf("Failed to get service: %s", err)
 		return response.ErrorResponse(500, "internal server error")
 	}
+
 	if !types.CheckValidService(requestedService) {
 		return response.InternalError(errors.New("service does not exist"))
 	}

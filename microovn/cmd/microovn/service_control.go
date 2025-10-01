@@ -15,6 +15,7 @@ import (
 type cmdDisable struct {
 	common                  *CmdControl
 	allowDisableLastCentral bool
+	nodeName                string
 }
 
 func (c *cmdDisable) Command() *cobra.Command {
@@ -30,7 +31,12 @@ func (c *cmdDisable) Command() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&c.allowDisableLastCentral, "allow-disable-last-central", false, "Allow disabling the last node of the central service. WARNING: If the last central service is disabled, OVN Northbound and Southbound databases will be removed!")
-
+	cmd.Flags().StringVar(
+		&c.nodeName,
+		"node",
+		"",
+		"Optional name of the node to target",
+	)
 	return cmd
 }
 
@@ -46,7 +52,7 @@ func (c *cmdDisable) Run(_ *cobra.Command, args []string) error {
 	}
 
 	targetService := args[0]
-	ws, regenEnv, err := client.DisableService(context.Background(), cli, targetService, c.allowDisableLastCentral)
+	ws, regenEnv, err := client.DisableService(context.Background(), cli, targetService, c.allowDisableLastCentral, c.nodeName)
 	if err != nil {
 		return err
 	}
@@ -61,6 +67,7 @@ func (c *cmdDisable) Run(_ *cobra.Command, args []string) error {
 type cmdEnable struct {
 	common      *CmdControl
 	extraConfig []string
+	nodeName    string
 }
 
 func (c *cmdEnable) Command() *cobra.Command {
@@ -80,6 +87,14 @@ func (c *cmdEnable) Command() *cobra.Command {
 		[]string{},
 		"Additional configuration options for enabling service",
 	)
+
+	cmd.Flags().StringVar(
+		&c.nodeName,
+		"node",
+		"",
+		"Optional name of the node to target",
+	)
+
 	return cmd
 }
 
@@ -100,7 +115,7 @@ func (c *cmdEnable) Run(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	ws, regenEnv, err := client.EnableService(context.Background(), cli, targetService, &extraConfig)
+	ws, regenEnv, err := client.EnableService(context.Background(), cli, targetService, &extraConfig, c.nodeName)
 
 	if err != nil {
 		return err
