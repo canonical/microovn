@@ -37,7 +37,8 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 	err = snap.Start(FrrBgpService, true)
 	if err != nil {
 		logging.Errorf("Failed to start %s service: %s", FrrBgpService, err)
-		return errors.New("failed to start BGP service")
+		err = errors.New("failed to start BGP service")
+		return errors.Join(err, DisableService(ctx, s))
 	}
 
 	if extraConfig == nil {
@@ -51,36 +52,40 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 
 	err = createExternalBridges(ctx, s, extConnections)
 	if err != nil {
-		return err
+		return errors.Join(err, DisableService(ctx, s))
 	}
 
 	err = createExternalNetworks(ctx, s, extConnections)
 	if err != nil {
-		return err
+		return errors.Join(err, DisableService(ctx, s))
 	}
 
 	err = createVrf(ctx, s, extConnections, extraConfig.Vrf)
 	if err != nil {
-		return err
+		return errors.Join(err, DisableService(ctx, s))
 	}
 
 	err = redirectBgp(ctx, s, extConnections, extraConfig.Vrf)
 	if err != nil {
-		return err
+		return errors.Join(err, DisableService(ctx, s))
 	}
 
 	if extraConfig.Asn != "" {
 		err = startBgpUnnumbered(ctx, s, extConnections, extraConfig.Vrf, extraConfig.Asn)
+		if err != nil {
+			return errors.Join(err, DisableService(ctx, s))
+		}
 	}
 
-	return err
+	return nil
 }
 
 // DisableService stops and disables BGP services managed by MicroOVN.
 func DisableService(ctx context.Context, s state.State) error {
 	var allErrors error
+	var err error
 
-	err := snap.Stop(FrrZebraService, true)
+	err = snap.Stop(FrrZebraService, true)
 	if err != nil {
 		logging.Warnf("Failed to stop %s service: %s", FrrZebraService, err)
 		allErrors = errors.Join(allErrors, errors.New("failed to stop zebra service"))

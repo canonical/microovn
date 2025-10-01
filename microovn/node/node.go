@@ -125,7 +125,18 @@ func EnableService(ctx context.Context, s state.State, service types.SrvName, ex
 		err = activateService(service, true)
 	}
 
-	return err
+	if err != nil {
+		dberr := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			err := database.DeleteService(ctx, tx, s.Name(), service)
+			return err
+		})
+		if dberr != nil {
+			return errors.Join(err, dberr)
+		}
+		return err
+	}
+
+	return nil
 }
 
 // ListServices - List services in database (desired state).
