@@ -35,3 +35,9 @@ Further inspection can be done by inspecting the files themselves:
 
 These aliases are not related to the MicroOVN snap version and are managed by
 the store. All installations, done through the snap store, should have access to these aliases. This does mean if you install a locally built version of MicroOVN, these aliases are not created for you.
+
+.. note::
+
+   Netplan requires MicroOVN to have these aliases in order to consume OVS
+   through MicroOVN. So if you are using a locally built MicroOVN, you must
+   manually create at least the alias for ``ovs-vsctl``.
