@@ -50,11 +50,8 @@ setup_file() {
         assert [ -n "$addr" ]
         if [ -z "$leader" ]; then
             # sync CA files
-            lxc_file_transfer "$central_leader" "$cert_path" "$container" "$cert_path"
-            lxc_file_transfer "$central_leader" "$key_path" "$container" "$key_path"
-            # Adjust ownership because files are pushed by "ubuntu" user
-            lxc_exec "$container" "chown root:root $cert_path"
-            lxc_exec "$container" "chown root:root $key_path"
+            lxc_file_transfer "$central_leader" "$cert_path" "$container" "$cert_path" 0 0
+            lxc_file_transfer "$central_leader" "$key_path" "$container" "$key_path" 0 0
             microovn_init_create_cluster "$container" "$addr" "" "$cert_path" "$key_path" "switch,chassis"
             leader="$container"
         else
