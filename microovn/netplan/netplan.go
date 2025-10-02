@@ -3,10 +3,13 @@ package netplan
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -97,7 +100,9 @@ func (c *Config) CleanupVirtualEthernets(ctx context.Context) error {
 		}
 		_, err := shared.RunCommandContext(ctx, "ip", "link", "delete", "dev", iface)
 		if err != nil {
-			return fmt.Errorf("failed remove interface '%s': %v", iface, err)
+			if !strings.Contains(err.Error(), "Cannot find device") {
+				return fmt.Errorf("failed remove interface '%s': %v", iface, err)
+			}
 		} else {
 			deletedPeers[ifaceData.Peer] = true
 		}
@@ -143,6 +148,13 @@ func WriteToNetplan(ctx context.Context, filename string, config Config) error {
 // Apply uses dbus to trigger the netplan apply command
 func Apply(ctx context.Context) error {
 	_, err := shared.RunCommandContext(ctx, "dbus-send", "--system", "--type=method_call", "--print-reply", "--dest=io.netplan.Netplan", "/io/netplan/Netplan", "io.netplan.Netplan.Apply")
+	if err != nil {
+		if strings.Contains(err.Error(), "The 'ovs-vsctl' tool is required to setup OpenVSwitch interfaces.") {
+			// Give a nicer error message
+			logger.Errorf("Failed to apply netplan config during bgp setup: %v", err)
+			return errors.New("failed to apply netplan config: installed netplan does not support using ovs-vsctl from microovn")
+		}
+	}
 	return err
 }
 

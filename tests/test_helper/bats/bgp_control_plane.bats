@@ -54,6 +54,10 @@ teardown() {
 
 bgp_control_plane_register_test_functions() {
     bats_test_function \
+        --description "Teardown well on bad netplan version" \
+        -- bgp_bad_netplan
+
+    bats_test_function \
         --description "OVN with multiple BGP peers (Automatic BGP config)" \
         -- bgp_unnumbered_peering yes yes
 
@@ -198,6 +202,50 @@ bgp_no_config() {
     # Enable BGP without configuring it
     lxc_exec "$MICROOVN_BGP_CONTAINER" "microovn enable bgp"
     # teardown method verifies that it can be properly disabled
+}
+
+# bgp_bad_netplan
+#
+# Simple test that installs a version of netplan that doesnt work with microovn
+# and then attempts to enable bgp. This ensures that on a failed enable bgp
+# properly cleans up its half done configuration and doesnt report the service
+# as enabled
+function bgp_bad_netplan(){
+    MICROOVN_BGP_CONTAINER=$(echo $TEST_CONTAINERS | awk '{print $1}')
+    # should be plucky netplan which will not allow non standard ovs config
+    lxc_exec "$MICROOVN_BGP_CONTAINER" "snap unalias ovs-vsctl"
+
+    local host_asn=4210000000
+    local vrf=10
+    local external_connections="$OVN_CONTAINER_NET_1_IFACE"
+
+    run lxc_exec "$MICROOVN_BGP_CONTAINER" "microovn enable bgp \
+        --config ext_connection=$external_connections \
+        --config vrf=$vrf \
+        --config asn=$host_asn"
+    assert_failure
+    assert_output "Error: failed to enable service 'bgp': 'failed to apply netplan config: installed netplan does not support using ovs-vsctl from microovn'"
+
+    run lxc_exec "$MICROOVN_BGP_CONTAINER" "microovn.ovs-vsctl find bridge name!=br-int"
+    assert_success
+    assert_output ""
+
+    # Check that OVS Ports were cleaned up
+    run lxc_exec "$MICROOVN_BGP_CONTAINER" "microovn.ovs-vsctl find interface type!=geneve name!=br-int"
+    assert_success
+    assert_output ""
+
+    # Check that OVN Bridge mappings were cleaned up
+    run lxc_exec "$MICROOVN_BGP_CONTAINER" "microovn.ovs-vsctl get Open_vSwitch . external-ids:ovn-bridge-mappings"
+    assert_failure
+    assert_output 'ovs-vsctl: no key "ovn-bridge-mappings" in Open_vSwitch record "." column external_ids'
+
+    # Check that NB resources were cleaned up
+    run lxc_exec "$MICROOVN_BGP_CONTAINER" "microovn.ovn-nbctl show"
+    assert_success
+    assert_output ""
+
+    lxc_exec "$MICROOVN_BGP_CONTAINER" "snap alias microovn.ovs-vsctl ovs-vsctl"
 }
 
 bgp_control_plane_register_test_functions
