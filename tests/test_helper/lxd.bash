@@ -192,26 +192,53 @@ function lxc_exec() {
 
 }
 
+# lxc_file_push LOCAL_SRC CONTAINER_DST [UID [GID]]
+#
+# This function is a wrapper for the `lxc file push` command and
+# allows copying files from local host to LXC VM/container.
+# LOCAL_SRC argument should be local path to the file to be copied,
+# and CONTAINER_DST should be the destination in format
+# "<container_name>/path/to/dst"
+# Optional UID and GUID arguments allow setting the ownership of the file
+# after transfer. They accept numeric value, usually 0 for root and 1000
+# for 'ubuntu' user on Ubuntu containers.
 function lxc_file_push() {
     local file_path=$1; shift
     local container_path=$1; shift
+    local uid=${1-};
+    local gid=${2-};
 
-    lxc file push -q "$file_path" "$container_path"
+    local set_uid=""
+    if [ -n "$uid" ]; then
+        set_uid="--uid $uid"
+    fi
+
+    local set_gid=""
+    if [ -n "$gid" ]; then
+        set_gid="--gid $gid"
+    fi
+
+    lxc file push -q $set_uid $set_gid "$file_path" "$container_path"
 }
 
-# lxc_file_replace LOCAL_SRC CONTAINER_DST
+# lxc_file_replace LOCAL_SRC CONTAINER_DST [UID [GID]]
 #
 # This function allows pushing files to LXC containers
 # even if the target file already exists in the destination.
 # LOCAL_SRC argument should be local path to the file to be copied,
 # and CONTAINER_DST should be the destination in format
 # "<container_name>/path/to/dst"
+# Optional UID and GUID arguments allow setting the ownership of the file
+# after transfer. They accept numeric value, usually 0 for root and 1000
+# for 'ubuntu' user on Ubuntu containers.
 function lxc_file_replace() {
     local local_src=$1; shift
     local container_dst=$1; shift
+    local uid=${1-};
+    local gid=${2-};
 
     lxc file delete -q "$container_dst" >/dev/null 2>&1 || true
-    lxc file push -q "$local_src" "$container_dst"
+    lxc_file_push "$local_src" "$container_dst" "$uid" "$gid"
 }
 
 # lxc_pull_dir CONTAINER_PATH DST
@@ -226,17 +253,22 @@ function lxc_pull_dir() {
     lxc file pull -q --recursive "$container_path" "$dst"
 }
 
-# lxc_file_transfer SRC_CONTAINER SRC_PATH DST_CONTAINER DST_PATH
+# lxc_file_transfer SRC_CONTAINER SRC_PATH DST_CONTAINER DST_PATH [UID [GID]]
 #
 # Move file from SRC_PATH on SRC_CONTAINER to DST_PATH on DST_CONTAINER. Since
 # the file needs to be temporarily stored on the host running the tests, this function
 # needs to have write permission to create temporary folders via mktemp.
 # After the transfer, the file is owned by the 'ubuntu' user on the DST_CONTAINER
+# Optional UID and GUID arguments allow setting the ownership of the file
+# after transfer. They accept numeric value, usually 0 for root and 1000
+# for 'ubuntu' user on Ubuntu containers.
 function lxc_file_transfer() {
     local src_container=$1; shift
     local src_path=$1; shift
     local dst_container=$1; shift
     local dst_path=$1; shift
+    local uid=${1-};
+    local gid=${2-};
 
     local transfer_dir
     transfer_dir=$(mktemp -d)
@@ -244,8 +276,7 @@ function lxc_file_transfer() {
     lxc file pull "$src_container$src_path" "$transfer_dir"
 
     echo "# Transferring file to $dst_container$dst_path"
-    lxc file push "$transfer_dir/$(basename "$src_path")" "$dst_container$dst_path"
-
+    lxc_file_push "$transfer_dir/$(basename "$src_path")" "$dst_container$dst_path" "$uid" "$gid"
     rm -rf "$transfer_dir"
 }
 
