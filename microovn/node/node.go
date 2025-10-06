@@ -13,8 +13,8 @@ import (
 	"github.com/canonical/microcluster/v2/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
+	"github.com/canonical/microovn/microovn/bgp"
 	"github.com/canonical/microovn/microovn/database"
-	"github.com/canonical/microovn/microovn/frr/bgp"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
 	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"

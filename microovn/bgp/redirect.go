@@ -6,8 +6,6 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-	"os/exec"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -411,107 +409,6 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 	return nil
 }
 
-// startBgpUnnumbered configures BGP process for each external connection. A BGP daemon is started on each interface
-// in extConnections, using provided ASN and configured to use "BGP Unnumbered" (auto-discovery mechanism).
-// Resulting running configuration is then saved to the startup config.
-func startBgpUnnumbered(_ context.Context, s state.State, extConnections []types.BgpExternalConnection, tableID string, asn string) error {
-	vrfName := getVrfName(tableID)
-
-	var confBuilder strings.Builder
-	fmt.Fprintln(&confBuilder, "configure")
-
-	// Ensure we don't announce any default route from VRF to our peer.
-	fmt.Fprint(&confBuilder, `
-ip prefix-list no-default seq 5 deny 0.0.0.0/0
-ip prefix-list no-default seq 10 permit 0.0.0.0/0 le 32
-ipv6 prefix-list no-default seq 5 deny ::/0
-ipv6 prefix-list no-default seq 10 permit ::/0 le 128
-`)
-	// Accept default route from our peer.
-	fmt.Fprintf(&confBuilder, `
-ip prefix-list accept-default seq 5 permit 0.0.0.0/0
-ipv6 prefix-list accept-default seq 5 permit ::/0
-`)
-	fmt.Fprintf(&confBuilder, "router bgp %s vrf %s\n", asn, vrfName)
-	for _, connection := range extConnections {
-		var ifaceUsed = getBgpRedirectIfaceName(connection.Iface)
-		routerID := generateBGPRouterID(getLrpName(s, connection.Iface))
-		fmt.Fprintf(&confBuilder, "bgp router-id %s\n", routerID)
-		fmt.Fprintf(&confBuilder,
-			"neighbor %s interface remote-as external\n",
-			ifaceUsed,
-		)
-
-		// Redistribute IPv4 routes announced by OVN.
-		fmt.Fprint(&confBuilder,
-			"address-family ipv4 unicast\n",
-		)
-		fmt.Fprint(&confBuilder, "redistribute kernel\n")
-		fmt.Fprintf(&confBuilder,
-			"neighbor %s prefix-list accept-default in\n",
-			getBgpRedirectIfaceName(connection.Iface),
-		)
-		fmt.Fprintf(&confBuilder,
-			"neighbor %s prefix-list no-default out\n",
-			ifaceUsed,
-		)
-		fmt.Fprintln(&confBuilder,
-			"exit-address-family",
-		)
-
-		// Enable IPv6 address family.
-		fmt.Fprint(&confBuilder,
-			"address-family ipv6 unicast\n",
-		)
-		fmt.Fprintf(&confBuilder,
-			"neighbor %s soft-reconfiguration inbound\n",
-			ifaceUsed,
-		)
-		fmt.Fprintf(&confBuilder,
-			"neighbor %s prefix-list accept-default in\n",
-			getBgpRedirectIfaceName(connection.Iface),
-		)
-		fmt.Fprintf(&confBuilder,
-			"neighbor %s prefix-list no-default out\n",
-			ifaceUsed,
-		)
-		fmt.Fprintln(&confBuilder,
-			"redistribute kernel",
-		)
-		fmt.Fprintf(&confBuilder,
-			"neighbor %s activate\n",
-			ifaceUsed,
-		)
-		fmt.Fprintln(&confBuilder,
-			"exit-address-family",
-		)
-	}
-	fmt.Fprintln(&confBuilder, "do copy running-config startup-config")
-
-	cmd := exec.Command(filepath.Join(paths.Wrappers(), "vtysh"))
-	cmd.Stdin = strings.NewReader(confBuilder.String())
-	err := cmd.Start()
-	if err != nil {
-		return err
-	}
-	err = cmd.Wait()
-	return err
-}
-
-func moveInterfaceToVrf(ctx context.Context, iface string, vrf string) error {
-	// Move the port to the VRF, set its IP and MAC address, and bring it UP
-	_, err := shared.RunCommandContext(ctx, "ip", "link", "set", "dev", iface, "master", vrf)
-	if err != nil {
-		return fmt.Errorf("failed to move interface '%s' to VRF '%s': %v", iface, vrf, err)
-	}
-
-	_, err = shared.RunCommandContext(ctx, "ip", "link", "set", "dev", iface, "up")
-	if err != nil {
-		return fmt.Errorf("failed bring interface '%s' UP: %v", iface, err)
-	}
-	return nil
-}
-
 // teardownAll removes all resources that were created/configured as part of setting up of
 // the BGP redirect. This includes:
 //   - Logical Router
@@ -630,17 +527,17 @@ func teardownAll(ctx context.Context, s state.State) error {
 		allErrors = errors.Join(allErrors, fmt.Errorf("failed to remove %s: %v", BgpBridgeMapping, err))
 	}
 
-	// Backup and reset FRR's config
-	backupConfig := fmt.Sprintf("%s_%d", paths.FrrStartupConfig(), time.Now().Unix())
-	_, err = shared.RunCommandContext(ctx, "cp", paths.FrrStartupConfig(), backupConfig)
+	// Backup and reset Bird's config
+	backupConfig := fmt.Sprintf("%s_%d", paths.BirdConfigFile(), time.Now().Unix())
+	_, err = shared.RunCommandContext(ctx, "cp", paths.BirdConfigFile(), backupConfig)
 	if err != nil {
 		allErrors = errors.Join(allErrors, fmt.Errorf(
-			"failed to backup FRR startup config. Will not proceed with its removal: %v", err),
+			"failed to backup Bird config. Will not proceed with its removal: %v", err),
 		)
 	} else {
-		_, err = shared.RunCommandContext(ctx, "cp", paths.FrrDefaultConfig(), paths.FrrConfigDir())
+		_, err = shared.RunCommandContext(ctx, "cp", paths.BirdDefaultConfig(), paths.BirdConfigDir())
 		if err != nil {
-			allErrors = errors.Join(allErrors, fmt.Errorf("failed to reset FRR startup config: %v", err))
+			allErrors = errors.Join(allErrors, fmt.Errorf("failed to reset Bird config: %v", err))
 		}
 	}
 

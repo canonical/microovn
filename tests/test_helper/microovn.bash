@@ -709,6 +709,23 @@ function microovn_lsp_up() {
     test "$result" -eq 1
 }
 
+# microovn_mac_binding_exists CONTAINER IP LOGICAL_PORT
+#
+# Use CONTAINER to check existence of Mac_Binding from OVN Southbound DB.
+#
+# Returns success if exactly one record is found.
+function microovn_mac_binding_exists() {
+    local container=$1; shift
+    local ip=$1; shift
+    local logical_port=$1; shift
+
+    local result
+    result=$(lxc_exec "$container" \
+        "microovn.ovn-sbctl --bare --columns _uuid \
+         find Mac_Binding ip='\"${ip}\"' logical_port=${logical_port} | wc -l")
+    test "$result" -eq 1
+}
+
 # microovn_add_vif CONTAINER NS_NAME IF_NAME [LS_NAME [LSP_IP]]
 #
 # Create LSP in LS for CONTAINER, create OVS internal interface with IF_NAME,

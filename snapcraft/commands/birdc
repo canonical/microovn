@@ -1,0 +1,5 @@
+#!/bin/sh
+# Load the environment
+. "${SNAP}/bird.env"
+
+exec "${SNAP}/usr/sbin/birdc" -s "$BIRD_SOCKET" "${@}"
