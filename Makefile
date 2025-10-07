@@ -48,6 +48,7 @@ $(MICROOVN_SNAP): $(MICROOVN_SOURCES) $(SNAP_SOURCES) $(COMMAND_WRAPPERS)
 
 clean:
 	rm -f $(MICROOVN_SNAP_PATH);						\
+	rm -f $(MICROOVN_CONTAINER_TEMPLATE).tar.gz;				\
 	snapcraft clean
 
 # Create LXD image with MicroOVN snap pre-installed.
