@@ -23,7 +23,7 @@ func TestAddMethods(t *testing.T) {
 	if _, ok := cfg.Network.VirtualEthernets["veth413"]; ok {
 		t.Errorf("unexpected veth1 in config")
 	}
-	cfg.AddVeth("veth413", "veth612", "a1:b2:c3:d4:e5:f6")
+	cfg.AddVeth("veth413", "veth612", "a1:b2:c3:d4:e5:f6", false)
 	if _, ok := cfg.Network.VirtualEthernets["veth413"]; !ok {
 		t.Errorf("expected veth413 in config")
 	}
@@ -34,7 +34,11 @@ func TestAddMethods(t *testing.T) {
 		t.Errorf("peer does not match expected")
 	}
 
-	cfg.AddVeth("veth612", "veth413", "")
+	if cfg.Network.VirtualEthernets["veth413"].AcceptRa {
+		t.Errorf("acceptRa is true when false expected")
+	}
+
+	cfg.AddVeth("veth612", "veth413", "", true)
 	if _, ok := cfg.Network.VirtualEthernets["veth612"]; !ok {
 		t.Errorf("expected veth612 in config")
 	}
@@ -45,6 +49,10 @@ func TestAddMethods(t *testing.T) {
 
 	if cfg.Network.VirtualEthernets["veth612"].MacAddress != "" {
 		t.Errorf("veth612 mac address is non empty")
+	}
+
+	if !cfg.Network.VirtualEthernets["veth612"].AcceptRa {
+		t.Errorf("acceptRa is false when true expected")
 	}
 
 	if _, ok := cfg.Network.Vrfs["vrf1"]; ok {
