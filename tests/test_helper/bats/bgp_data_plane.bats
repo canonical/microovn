@@ -50,8 +50,10 @@ network:
         veth1-bgp:
             peer: veth1-brg
             macaddress: 02:90:b1:a2:e6:28
+            accept-ra: false
         veth1-brg:
             peer: veth1-bgp
+            accept-ra: false
     vrfs:
         ovnvrf10:
             table: "10"
@@ -73,6 +75,10 @@ EOF
     echo "# ($TEST_CONTAINER) waiting on established BGP with $BGP_PEER" >&3
 
     wait_until "microovn_bgp_established $TEST_CONTAINER $BGP_PEER"
+
+    run lxc_exec "$TEST_CONTAINER" "ip -6 route show vrf ovnvrf10 proto ra"
+    assert_output ""
+
     neighbor_address=$(microovn_bgp_neighbor_address $TEST_CONTAINER $BGP_PEER)
 
     # create VIF that represents VM on the internal OVN network

@@ -320,8 +320,8 @@ func generateVeth(ctx context.Context, s state.State, extConnections []types.Bgp
 		mac := generateLrpMac(getLrpName(s, extConnection.Iface))
 
 		// Add to virtual ethernet
-		np.AddVeth(bgpInterface, brgInterface, mac)
-		np.AddVeth(brgInterface, bgpInterface, "")
+		np.AddVeth(bgpInterface, brgInterface, mac, false)
+		np.AddVeth(brgInterface, bgpInterface, "", false)
 		brIntInterfaces = append(brIntInterfaces, brgInterface)
 		vrfInterfaces = append(vrfInterfaces, bgpInterface)
 
