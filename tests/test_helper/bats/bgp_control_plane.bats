@@ -5,6 +5,7 @@ setup() {
     load ${ABS_TOP_TEST_DIRNAME}test_helper/common.bash
     load ${ABS_TOP_TEST_DIRNAME}test_helper/lxd.bash
     load ${ABS_TOP_TEST_DIRNAME}test_helper/bgp_utils.bash
+    load ${ABS_TOP_TEST_DIRNAME}test_helper/microovn.bash
 
     load ${ABS_TOP_TEST_DIRNAME}../.bats/bats-support/load.bash
     load ${ABS_TOP_TEST_DIRNAME}../.bats/bats-assert/load.bash
@@ -168,10 +169,19 @@ bgp_unnumbered_peering() {
 
         echo "# ($container) waiting on established BGP with $neighbor_1" >&3
         wait_until "microovn_bgp_established $container $neighbor_1"
+        neighbor_address_1=$(microovn_bgp_neighbor_address $container $neighbor_1)
 
         if [ "$multi_link" == "yes" ]; then
             echo "# ($container) waiting on established BGP with $neighbor_2" >&3
             wait_until "microovn_bgp_established $container $neighbor_2"
+            neighbor_address_2=$(microovn_bgp_neighbor_address $container $neighbor_2)
+        fi
+
+        echo "# ($container) waiting on default route learned via $neighbor_address_1" >&3
+        wait_until "microovn_learned_route_exists $container 0.0.0.0/0 $neighbor_address_1"
+        if [ "$multi_link" == "yes" ]; then
+            echo "# ($container) waiting on ECMP default route learned via both $neighbor_address_1 and $neighbor_address_2" >&3
+            wait_until "microovn_learned_route_exists $container 0.0.0.0/0 $neighbor_address_1 $neighbor_address_2"
         fi
 
         # Set up NAT in OVN

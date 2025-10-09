@@ -7,7 +7,8 @@ function install_frr_bgp() {
     local container
     for container in $containers; do
         install_apt_package "$container" frr
-        # Enable BGP service in FRR
+        # Enable BFD and BGP services in FRR
+        lxc_exec "$container" "sed -i 's/bfdd=no/bfdd=yes/g' /etc/frr/daemons"
         lxc_exec "$container" "sed -i 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons"
         # Relax burst restart limit as tests tend to restart the service often
         lxc_exec "$container" "sed -i 's/StartLimitBurst=.*/StartLimitBurst=100/g' /usr/lib/systemd/system/frr.service"
@@ -33,6 +34,7 @@ function frr_start_bgp_unnumbered() {
         !
         router bgp $asn
         neighbor $interface interface remote-as external
+        neighbor $interface bfd
         !
         address-family ipv4 unicast
           neighbor $interface default-originate
@@ -85,6 +87,10 @@ protocol kernel {
     };
     learn;
     kernel table $vrf_table;
+    merge paths yes;
+}
+protocol bfd {
+    strict bind yes;
 }
 EOF
     lxc_exec "$container" "microovn.birdc configure"
@@ -125,6 +131,7 @@ protocol bgp microovn_$connection_suffix {
         import all;
         export filter no_default_v6;
         };
+    bfd yes;
 }
 EOF
     lxc_exec "$container" "microovn.birdc configure"
