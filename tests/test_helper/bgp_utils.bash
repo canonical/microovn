@@ -130,40 +130,6 @@ EOF
     lxc_exec "$container" "microovn.birdc configure"
 }
 
-# microovn_start_bgp_unnumbered CONTAINER INTERFACE ASN VRF
-#
-# configure Bird bundled with MicroOVN in the CONTAINER, to
-# start BGP in the unnumbered mode, listening on the INTERFACE
-# in the VRF with ASN.
-function microovn_start_bgp_unnumbered() {
-    local container=$1; shift
-    local interface=$1; shift
-    local asn=$1; shift
-    local vrf=$1; shift
-
-    cat << EOF | lxc_exec "$container" "microovn.vtysh"
-        configure
-        !
-        ip prefix-list no-default seq 5 deny 0.0.0.0/0
-        ip prefix-list no-default seq 10 permit 0.0.0.0/0 le 32
-        !
-        router bgp $asn vrf $vrf
-        bgp router-id $(generate_router_id $container-$interface)
-        neighbor $interface interface remote-as external
-        !
-        address-family ipv4 unicast
-          redistribute kernel
-          neighbor $interface prefix-list no-default out
-        exit-address-family
-        !
-        address-family ipv6 unicast
-          neighbor $interface soft-reconfiguration inbound
-          neighbor $interface activate
-        exit-address-family
-        !
-EOF
-}
-
 # microovn_get_bgp_neighbor_connection_status CONTAINER NEIGHBOR
 #
 # This function uses Bird client bundled with MicroOVN on the CONTAINER
