@@ -7,7 +7,8 @@ function install_frr_bgp() {
     local container
     for container in $containers; do
         install_apt_package "$container" frr
-        # Enable BGP service in FRR
+        # Enable BFD and BGP services in FRR
+        lxc_exec "$container" "sed -i 's/bfdd=no/bfdd=yes/g' /etc/frr/daemons"
         lxc_exec "$container" "sed -i 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons"
         # Relax burst restart limit as tests tend to restart the service often
         lxc_exec "$container" "sed -i 's/StartLimitBurst=.*/StartLimitBurst=100/g' /usr/lib/systemd/system/frr.service"
@@ -33,6 +34,7 @@ function frr_start_bgp_unnumbered() {
         !
         router bgp $asn
         neighbor $interface interface remote-as external
+        neighbor $interface bfd
         !
         address-family ipv4 unicast
           neighbor $interface default-originate
@@ -85,6 +87,10 @@ protocol kernel {
     };
     learn;
     kernel table $vrf_table;
+    merge paths yes;
+}
+protocol bfd {
+    strict bind yes;
 }
 EOF
     lxc_exec "$container" "microovn.birdc configure"
@@ -125,43 +131,10 @@ protocol bgp microovn_$connection_suffix {
         import all;
         export filter no_default_v6;
         };
+    bfd yes;
 }
 EOF
     lxc_exec "$container" "microovn.birdc configure"
-}
-
-# microovn_start_bgp_unnumbered CONTAINER INTERFACE ASN VRF
-#
-# configure Bird bundled with MicroOVN in the CONTAINER, to
-# start BGP in the unnumbered mode, listening on the INTERFACE
-# in the VRF with ASN.
-function microovn_start_bgp_unnumbered() {
-    local container=$1; shift
-    local interface=$1; shift
-    local asn=$1; shift
-    local vrf=$1; shift
-
-    cat << EOF | lxc_exec "$container" "microovn.vtysh"
-        configure
-        !
-        ip prefix-list no-default seq 5 deny 0.0.0.0/0
-        ip prefix-list no-default seq 10 permit 0.0.0.0/0 le 32
-        !
-        router bgp $asn vrf $vrf
-        bgp router-id $(generate_router_id $container-$interface)
-        neighbor $interface interface remote-as external
-        !
-        address-family ipv4 unicast
-          redistribute kernel
-          neighbor $interface prefix-list no-default out
-        exit-address-family
-        !
-        address-family ipv6 unicast
-          neighbor $interface soft-reconfiguration inbound
-          neighbor $interface activate
-        exit-address-family
-        !
-EOF
 }
 
 # microovn_get_bgp_neighbor_connection_status CONTAINER NEIGHBOR

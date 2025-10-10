@@ -726,6 +726,36 @@ function microovn_mac_binding_exists() {
     test "$result" -eq 1
 }
 
+# microovn_learned_route_exists CONTAINER IP NEXTHOP [ NEXTHOP ... ]
+#
+# Use CONTAINER to find one Learned_Route record per pair of IP and NEXTHOP.
+function microovn_learned_route_exists() {
+    local container=$1; shift
+    local ip=$1; shift
+    local nexthop="$*"
+
+    local n_results
+    n_results=0
+    local subcmds
+    subcmds=""
+
+    # The *ctl commands can execute multiple commands as an atomic operation by
+    # dividing them with --.
+    #
+    # Note that it is not possible to pass additional arguments to commands
+    # such as find in this mode, but that is what we have awk for!
+    for nh in $nexthop; do
+        ((n_results++))
+        subcmds="${subcmds} -- find Learned_Route ip='\"${ip}\"' \
+                                    nexthop='\"${nh}\"'"
+    done
+
+    local result
+    result=$(lxc_exec "$container" \
+        "microovn.ovn-sbctl $subcmds | awk '/^_uuid/{print$3}' | wc -l")
+    test "$result" -eq $n_results
+}
+
 # microovn_add_vif CONTAINER NS_NAME IF_NAME [LS_NAME [LSP_IP]]
 #
 # Create LSP in LS for CONTAINER, create OVS internal interface with IF_NAME,

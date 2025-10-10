@@ -47,10 +47,22 @@ protocol kernel {
 	};
 	learn;
 	kernel table {{ .VrfTableID }};
+	merge paths yes;
 }
 
 protocol static {
 	ipv4;
+}
+
+protocol bfd {
+	# The BIRD BFD code is currently not fully VRF aware, as long as we
+	# only have interfaces in VRFs, using strict bind allows it to work.
+	#
+	# In the event we some time in the future want to speak on both VRF
+	# and non-VRF interfaces, we can instantiate multiple BFD instances.
+	#
+	# Ref: https://bird.network.cz/?get_doc&v=30&f=bird-6.html#ss6.3
+	strict bind yes;
 }
 
 filter no_default_v4 {
@@ -80,6 +92,11 @@ protocol bgp microovn_{{ .Iface }} {
 	ipv6 {
 		import all;
 		export filter no_default_v6;
+	};
+	bfd {
+		# We only want to use BFD for liveness and failure detection if
+		# our peer has it configured.
+		passive yes;
 	};
 }
 {{ end }}
