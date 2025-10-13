@@ -348,3 +348,30 @@ function container_has_ipv4_route() {
 
     grep "dev $interface" <<< "$route"
 }
+
+# container_has_ipv6_route CONTAINER IP_ADDR INTERFACE
+#
+# This function succeeds if CONTAINER has route for IP_ADDR routed
+# through the specified INTERFACE
+function container_has_ipv6_route() {
+    local container=$1; shift
+    local ip_addr=$1; shift
+    local interface=$1; shift
+    local route=""
+
+    echo "# ($container) Looking for route to '$ip_addr' (using dev '$interface')" >&3
+    route=$(lxc_exec "$container" "ip -6 route get $ip_addr")
+    echo "# ($container) $route"
+
+    grep "dev $interface" <<< "$route"
+}
+
+# container_can_ping CONTAINER IP_ADDR
+#
+# This function succeeds if container is able to successfully ping the given
+# address
+function container_can_ping() {
+    local container=$1; shift
+    local addr=$1; shift
+    lxc_exec "$container" "ping -W 1 -c 1 $addr"
+}

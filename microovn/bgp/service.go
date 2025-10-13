@@ -41,8 +41,18 @@ protocol direct {
 	ipv4;
 	ipv6;
 }
-protocol kernel {
+
+protocol kernel kernel4 {
 	ipv4 {
+		export all;
+	};
+	learn;
+	kernel table {{ .VrfTableID }};
+	merge paths yes;
+}
+
+protocol kernel kernel6 {
+	ipv6 {
 		export all;
 	};
 	learn;

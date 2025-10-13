@@ -127,10 +127,11 @@ EOF
 
     lxc_exec "$BGP_PEER" "ip link set $BGP_CONTAINER_EXT_IFACE up && ip addr add $bgp_peer_ext_cidr dev $BGP_CONTAINER_EXT_IFACE"
     lxc_exec "$BGP_PEER" "echo 1 > /proc/sys/net/ipv4/ip_forward"
+    lxc_exec "$BGP_PEER" "echo 1 > /proc/sys/net/ipv6/conf/all/forwarding"
 
     lxc_exec "$EXT_HOST" "ip link set $EXT_CONTAINER_EXT_IFACE up && ip addr add $ext_host_ext_cidr dev $EXT_CONTAINER_EXT_IFACE"
     lxc_exec "$EXT_HOST" "ip route del default && ip route add default via $bgp_peer_ext_ip"
-    lxc_exec "$EXT_HOST" "ping -W 1 -c 1 $bgp_peer_ext_ip"
+    wait_until "container_can_ping $EXT_HOST $bgp_peer_ext_ip"
 
     local nat_ext_ip="172.16.10.2"
     echo "# ($TEST_CONTAINER) Create OVN NAT $nat_ext_ip <-> $guest_vm_ip" >&3
@@ -150,5 +151,54 @@ EOF
     echo "# ($EXT_HOST) Reach NAT address $nat_ext_ip with ping" >&3
     lxc_exec "$EXT_HOST" "ping -W 1 -c 1 $nat_ext_ip"
 
+    lxc_exec "$TEST_CONTAINER" "microovn.ovn-nbctl lr-nat-del $gw_lr"
+
+    # IPv6 load balancer part of data plane test
+    echo "# Configure IPv6 networking on the $BGP_EXT_NET"
+    local guest_lrp_ip_v6="fd00::1"
+    local guest_lrp_cidr_v6="$guest_lrp_ip_v6/64"
+    local guest_vm_ip_v6="fd00::10"
+    local guest_vm_cidr_v6="$guest_vm_ip_v6/64"
+
+    lxc_exec "$TEST_CONTAINER" "ovn-nbctl set Logical_Router_Port $lrp_to_guest_ls networks='\"$guest_lrp_cidr_v6\"'"
+
+    microovn_delete_vif "$TEST_CONTAINER" "$guest_vm_ns" "$guest_vm_iface"
+    netns_delete "$TEST_CONTAINER" "$guest_vm_ns"
+
+    lxc_exec "$TEST_CONTAINER" "ip netns add $guest_vm_ns"
+    microovn_add_vif "$TEST_CONTAINER" "$guest_vm_ns" "$guest_vm_iface" "$guest_ls" "$guest_vm_cidr_v6"
+    lxc_exec "$TEST_CONTAINER" "ip netns exec $guest_vm_ns ip route add default via $guest_lrp_ip_v6"
+
+    local bgp_peer_ext_ip_v6="2001:db8:412::1"
+    local bgp_peer_ext_cidr_v6="$bgp_peer_ext_ip_v6/64"
+    local ext_host_ext_ip_v6="2001:db8:412::10"
+    local ext_host_ext_cidr_v6="$ext_host_ext_ip_v6/64"
+
+    lxc_exec "$BGP_PEER" "ip link set $BGP_CONTAINER_EXT_IFACE up && \
+        ip addr del $bgp_peer_ext_cidr dev $BGP_CONTAINER_EXT_IFACE && \
+        ip addr add $bgp_peer_ext_cidr_v6 dev $BGP_CONTAINER_EXT_IFACE"
+    lxc_exec "$EXT_HOST" "ip link set $EXT_CONTAINER_EXT_IFACE up && \
+        ip addr del $ext_host_ext_cidr dev $EXT_CONTAINER_EXT_IFACE && \
+        ip addr add $ext_host_ext_cidr_v6 dev $EXT_CONTAINER_EXT_IFACE"
+
+    lxc_exec "$EXT_HOST" "ip -6 route del default && ip route replace default via $bgp_peer_ext_ip_v6"
+
+    wait_until "container_can_ping $EXT_HOST $bgp_peer_ext_ip_v6"
+
+    # Create an OVN Load Balancer instead of NAT
+    local lb_name="lb-test"
+    local lb_vip="2001:db8:612::3"
+
+    echo "# ($TEST_CONTAINER) Create OVN Load Balancer for VIP $lb_vip -> $guest_vm_ip_v6" >&3
+    lxc_exec "$TEST_CONTAINER" \
+        "microovn.ovn-nbctl \
+            lb-add $lb_name $lb_vip $guest_vm_ip_v6 \
+            -- \
+            lr-lb-add $gw_lr $lb_name"
+
+    wait_until "container_has_ipv6_route $BGP_PEER $lb_vip $BGP_CONTAINER_INT_IFACE"
+
+    echo "# ($EXT_HOST) Reach load balancer address $lb_vip with ping" >&3
+    wait_until "container_can_ping $EXT_HOST $lb_vip"
 }
 bgp_data_plane_register_test_functions

@@ -21,6 +21,9 @@ setup() {
 # resources.
 teardown() {
     for MICROOVN_BGP_CONTAINER in $USED_BGP_CHASSIS; do
+        local lb_name="loadbal-$MICROOVN_BGP_CONTAINER"
+        lxc_exec "$MICROOVN_BGP_CONTAINER" "microovn.ovn-nbctl lb-del $lb_name"
+
         echo "# ($MICROOVN_BGP_CONTAINER) Disabling MicroOVN BGP" >&3
         lxc_exec "$MICROOVN_BGP_CONTAINER" "microovn disable bgp"
 
@@ -177,11 +180,31 @@ bgp_unnumbered_peering() {
             neighbor_address_2=$(microovn_bgp_neighbor_address $container $neighbor_2)
         fi
 
-        echo "# ($container) waiting on default route learned via $neighbor_address_1" >&3
+        echo "# ($container) waiting on default routes learned via $neighbor_address_1" >&3
         wait_until "microovn_learned_route_exists $container 0.0.0.0/0 $neighbor_address_1"
+        wait_until "microovn_learned_route_exists $container ::/0 $neighbor_address_1"
         if [ "$multi_link" == "yes" ]; then
-            echo "# ($container) waiting on ECMP default route learned via both $neighbor_address_1 and $neighbor_address_2" >&3
+            echo "# ($container) waiting on ECMP default routes learned via both $neighbor_address_1 and $neighbor_address_2" >&3
             wait_until "microovn_learned_route_exists $container 0.0.0.0/0 $neighbor_address_1 $neighbor_address_2"
+            wait_until "microovn_learned_route_exists $container ::/0 $neighbor_address_1 $neighbor_address_2"
+        fi
+
+        local lb_ip="2001:db8:413::$i:10"
+        local lb_dst_ip="2001:db8:612::$i:10"
+        local lb_name="loadbal-$container"
+
+        echo "# ($container) setting up load balancer $lb_ip -> $lb_dst_ip" >&3
+        lxc_exec "$container" \
+            "microovn.ovn-nbctl \
+                lb-add $lb_name $lb_ip $lb_dst_ip \
+                -- \
+                lr-lb-add lr-$container-microovn $lb_name"
+
+        # Wait for the route to load balancer to show up in BGP peer's routing table
+        wait_until "container_has_ipv6_route $neighbor_1 $lb_ip $BGP_CONTAINER_IFACE"
+
+        if [ "$multi_link" == "yes" ]; then
+            wait_until "container_has_ipv6_route $neighbor_2 $lb_ip $BGP_CONTAINER_IFACE"
         fi
 
         # Set up NAT in OVN
