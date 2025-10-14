@@ -31,6 +31,7 @@ function frr_start_bgp_unnumbered() {
         configure
         !
         ip prefix-list accept-all seq 5 permit any
+        ipv6 prefix-list accept-all seq 5 permit any
         !
         router bgp $asn
         neighbor $interface interface remote-as external
@@ -46,6 +47,7 @@ function frr_start_bgp_unnumbered() {
           neighbor $interface default-originate
           neighbor $interface soft-reconfiguration inbound
           neighbor $interface activate
+          neighbor $interface prefix-list accept-all in
         exit-address-family
         !
 EOF
@@ -81,8 +83,17 @@ function microovn_bird_add_vrf() {
     local vrf_table=$1; shift
 
     cat << EOF | lxc_exec "$container" "cat >> /var/snap/microovn/common/data/bird/bird.conf"
-protocol kernel {
+protocol kernel kernel4 {
     ipv4 {
+        export all;
+    };
+    learn;
+    kernel table $vrf_table;
+    merge paths yes;
+}
+
+protocol kernel kernel6 {
+    ipv6 {
         export all;
     };
     learn;
@@ -130,7 +141,7 @@ protocol bgp microovn_$connection_suffix {
     ipv6 {
         import all;
         export filter no_default_v6;
-        };
+    };
     bfd yes;
 }
 EOF
