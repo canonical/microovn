@@ -10,7 +10,9 @@ import (
 	"strconv"
 
 	"github.com/canonical/lxd/shared"
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microovn/microovn/ovn/environment"
 
 	"github.com/canonical/microovn/microovn/ovn/paths"
 )
@@ -109,6 +111,47 @@ func WaitForDBState(ctx context.Context, _ state.State, db *OvsdbSpec, dbState s
 	return nil
 }
 
+// WaitForClusterDBState checks state of the database in the "central" cluster. It iterates over the hosts in the
+// OVN central cluster, tries to connect to the clustered database at the specified 'port' and waits until the
+// database 'db' is in the expected state ('dbState').
+// The function returns nil on success, soon as it finds the expected state on at least one cluster member.
+//
+// Argument `db` is usually either `OVN_Northbound` or `OVN_Southbound`
+// Argument 'port' is usually '6641' for the Northbound database and `6642` for the Southbound database
+func WaitForClusterDBState(ctx context.Context, s state.State, db string, dbState string, port int) error {
+	var err error
+	nbIPs, err := environment.CentralIps(ctx, s)
+	if err != nil {
+		return fmt.Errorf("failed to get central IPs: %v", err)
+	}
+
+	// The manual iteration over individual cluster members is a workaround for a bug in the ovsdb-client
+	// https://bugs.launchpad.net/ubuntu/+source/openvswitch/+bug/2127931
+	dbConnected := false
+	for _, ip := range nbIPs {
+		socketURL := fmt.Sprintf("ssl:%s:%d", ip, port)
+		_, err = shared.RunCommandContext(
+			ctx,
+			filepath.Join(paths.Wrappers(), "ovsdb-client"),
+			"-t", "10",
+			"wait",
+			socketURL,
+			db,
+			dbState,
+		)
+		if err != nil {
+			logger.Warnf("Failed to connect to %s database at %s: %v", db, socketURL, err)
+		} else {
+			dbConnected = true
+			break
+		}
+	}
+	if !dbConnected {
+		return fmt.Errorf("failed to connect to %s database cluster", db)
+	}
+	return nil
+}
+
 // ovnDBCtl is a helper function to execute "ovn-nbctl" and "ovn-sbctl" commands
 // which are re-tried up to 3 times. If command arguments do not specify timeout (-t or
 // --timeout), a default of 30s will be added automatically. It takes "dbType"
@@ -174,12 +217,17 @@ func NBCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 // is a list of arguments that are passed directly to the shell command.
 //
 // Warning: This function will fail if local MicroOVN node is not bootstrapped.
-func NBCtlCluster(ctx context.Context, args ...string) (string, error) {
+func NBCtlCluster(ctx context.Context, s state.State, args ...string) (string, error) {
 	if !slices.Contains(args, "--timeout") && !slices.Contains(args, "-t") {
 		args = append([]string{"--timeout", "30"}, args...)
 	}
 
 	var err error
+	err = WaitForClusterDBState(ctx, s, "OVN_Northbound", OvsdbConnected, 6641)
+	if err != nil {
+		return "", errors.New("failed to connect to OVN Northbound database cluster")
+	}
+
 	// try command 3 times if it is failing
 	for attempts := 0; attempts < 3; attempts++ {
 		var output string

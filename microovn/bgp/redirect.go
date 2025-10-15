@@ -212,6 +212,7 @@ func createExternalNetworks(ctx context.Context, s state.State, extConnections [
 	// Create Logical Router
 	lrName := getLrName(s)
 	_, err := ovnCmd.NBCtlCluster(ctx,
+		s,
 		"--",
 		"lr-add", lrName,
 		"--",
@@ -234,6 +235,7 @@ func createExternalNetworks(ctx context.Context, s state.State, extConnections [
 		lrpMac := generateLrpMac(lrpName)
 
 		_, err = ovnCmd.NBCtlCluster(ctx,
+			s,
 			"--",
 			// Create Logical Router Port
 			"lrp-add", lrName, lrpName, lrpMac,
@@ -276,6 +278,7 @@ func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExt
 	lrName := getLrName(s)
 
 	_, err := ovnCmd.NBCtlCluster(ctx,
+		s,
 		"set", "Logical_Router", lrName,
 		"options:dynamic-routing=true",
 		fmt.Sprintf("options:requested-tnl-key=%s", tableID),
@@ -287,6 +290,7 @@ func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExt
 	for _, extConnection := range extConnections {
 		lrpName := getLrpName(s, extConnection.Iface)
 		_, err = ovnCmd.NBCtlCluster(ctx,
+			s,
 			"lrp-set-options", lrpName,
 			"dynamic-routing-maintain-vrf=true",
 			"dynamic-routing-redistribute=nat,lb",
@@ -371,6 +375,7 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 
 		// Create Logical Switch Port to which the BGP+BFD traffic will be redirected
 		_, err := ovnCmd.NBCtlCluster(ctx,
+			s,
 			"--",
 			"lsp-add", lsName, bgpLsp,
 			"--",
@@ -422,7 +427,7 @@ func teardownAll(ctx context.Context, s state.State) error {
 	var allErrors error
 	// Find and remove Logical Router used for BGP redirect
 	logicalRouter := getLrName(s)
-	_, err := ovnCmd.NBCtlCluster(ctx, "lr-del", logicalRouter)
+	_, err := ovnCmd.NBCtlCluster(ctx, s, "lr-del", logicalRouter)
 	if err != nil {
 		allErrors = errors.Join(allErrors, fmt.Errorf("failed to delete Logical Router '%s': %v", logicalRouter, err))
 	}
@@ -433,7 +438,7 @@ func teardownAll(ctx context.Context, s state.State) error {
 	}
 
 	// Find and remove Logical Switches used to connect to external networks on the local chassis
-	logicalSwitches, err := ovnCmd.NBCtlCluster(ctx, "--bare", "--columns", "name",
+	logicalSwitches, err := ovnCmd.NBCtlCluster(ctx, s, "--bare", "--columns", "name",
 		"find", "logical_switch", fmt.Sprintf("external-ids:%s=true", BgpManagedTag),
 	)
 	if err != nil {
@@ -445,7 +450,7 @@ func teardownAll(ctx context.Context, s state.State) error {
 			if !strings.HasPrefix(logicalSwitch, chassisSwitchNamePrefix) {
 				continue
 			}
-			_, err = ovnCmd.NBCtlCluster(ctx, "ls-del", logicalSwitch)
+			_, err = ovnCmd.NBCtlCluster(ctx, s, "ls-del", logicalSwitch)
 			if err != nil {
 				allErrors = errors.Join(allErrors, fmt.Errorf("failed to delete Logical Switch '%s': %v", logicalSwitch, err))
 			}
