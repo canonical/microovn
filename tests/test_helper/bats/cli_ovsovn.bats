@@ -83,9 +83,6 @@ cli_ovsovn_register_test_functions() {
         --description "Test waitready command"\
         -- test_waitready
     bats_test_function \
-        --description "Test paths command"\
-        -- test_paths
-    bats_test_function \
         --description "Test enable disable microovn"\
         -- test_disable_microovn
 }
@@ -244,7 +241,6 @@ test_invalid_args_return_1() {
         "microovn certificates reissue"
         "microovn enable"
         "microovn disable"
-        "microovn path"
     )
 
     for container in $TEST_CONTAINERS; do
@@ -269,21 +265,6 @@ test_waitready(){
         assert_success
         run lxc_exec $container "microovn waitready -t 10"
         assert_success
-    done;
-}
-
-test_paths(){
-    for container in $TEST_CONTAINERS; do
-        run lxc_exec $container "microovn path Root"
-        assert_output '/var/snap/microovn/common'
-        run lxc_exec $container "microovn path SwitchDataDir"
-        assert_output '/var/snap/microovn/common/data/switch/openvswitch'
-        run lxc_exec $container "microovn path EnvDir"
-        assert_output '/var/snap/microovn/common/data/env'
-        run lxc_exec $container "microovn path CentralDBNBPath"
-        assert_output '/var/snap/microovn/common/data/central/db/ovnnb_db.db'
-        run lxc_exec $container "microovn path thisisnotapath"
-        assert_failure
     done;
 }
 

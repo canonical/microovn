@@ -4,6 +4,11 @@ function install_microovn() {
     local snap_file=$1; shift
     local containers=$*
 
+    if [ "$MICROOVN_TESTS_USE_SNAP" != "yes" ]; then
+        echo "# Skipping snap installation. MicroOVN snap is expected to be present on test containers" >&3
+        return 0
+    fi
+
     local snap_base
     snap_base=$(snap_print_base $snap_file)
 
@@ -700,6 +705,23 @@ function microovn_lsp_up() {
     result=$(lxc_exec "$container" \
         "microovn.ovn-nbctl --format=table --no-headings \
          find Logical_Switch_Port name=${lsp} up=true | wc -l")
+    test "$result" -eq 1
+}
+
+# microovn_mac_binding_exists CONTAINER IP LOGICAL_PORT
+#
+# Use CONTAINER to check existence of Mac_Binding from OVN Southbound DB.
+#
+# Returns success if exactly one record is found.
+function microovn_mac_binding_exists() {
+    local container=$1; shift
+    local ip=$1; shift
+    local logical_port=$1; shift
+
+    local result
+    result=$(lxc_exec "$container" \
+        "microovn.ovn-sbctl --bare --columns _uuid \
+         find Mac_Binding ip='\"${ip}\"' logical_port=${logical_port} | wc -l")
     test "$result" -eq 1
 }
 
