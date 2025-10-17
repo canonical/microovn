@@ -10,3 +10,4 @@ topics related to ``OVN`` or ``OVS``.
    :maxdepth: 1
 
    tracks-and-upgrades
+   bgp-redirect
