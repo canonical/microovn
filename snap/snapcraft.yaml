@@ -11,6 +11,11 @@ description: |-
 
 confinement: strict
 
+package-repositories:
+  - type: apt
+    cloud: epoxy
+    priority: always
+
 slots:
   ovn-certificates:
     interface: content

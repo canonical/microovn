@@ -1,4 +1,6 @@
 *.snap
+# LXD image for testing
+microovn-lxd-template.tar.gz
 
 # collected coverage data
 .coverage/

@@ -272,7 +272,7 @@ step in the right direction.
 .. _documentation task list: https://github.com/canonical/open-documentation-academy/issues
 .. _documentation discussion forum: https://canonical.com/documentation/open-documentation-academy
 .. _documentation Matrix room: https://matrix.to/#/#documentation:ubuntu.com
-.. _Getting started: https://documentationacademy.org/docs/howto/get-started/
+.. _Getting started: https://discourse.ubuntu.com/t/getting-started/42769
 .. _GitHub repository: https://github.com/canonical/microovn
 .. wokeignore:rule=master
 .. _reStructuredText Primer: https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html
