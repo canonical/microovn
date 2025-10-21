@@ -1,4 +1,7 @@
+ASN
+BFD
 BGP
+BIRD's
 Datapath
 ECDSA
 ECDH
@@ -7,8 +10,10 @@ CLI
 CVE
 ESM
 Fosstodon
+FRR
 Geneve
 IPs
+IPv
 LTS
 LXD
 LSP
@@ -34,6 +39,8 @@ Snapcraft
 SSL
 TLS
 UI
+VRF
+VRFs
 VMs
 Virtualization
 YY
@@ -41,6 +48,7 @@ appctl
 automations
 backport
 backticks
+bgp
 bugfixes
 codebase
 composability
@@ -48,6 +56,7 @@ config
 datapaths
 devel
 downscaling
+eth
 failover
 favicon
 filesystem
@@ -64,7 +73,9 @@ manpage
 microovn
 mitigations
 monospaced
+movn
 northd
+neighbor
 ovn
 ovs
 ovsdb
@@ -82,6 +93,7 @@ systemd
 ubuntu
 unencrypted
 uptime
+veth
 vSwitch
 yaml
 stdin
