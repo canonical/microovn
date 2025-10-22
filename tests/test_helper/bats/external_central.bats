@@ -20,6 +20,10 @@ external_central_register_test_functions() {
     bats_test_function \
         --description "Configure MicroOVN cluster to connect to the external OVN central" \
         -- configure_microovn_with_external_ovn_central
+
+    bats_test_function \
+        --description "Check that central IPs configuration option input is correctly validated" \
+        -- check_central_ips_configuration
 }
 
 configure_microovn_with_external_ovn_central() {
@@ -55,6 +59,45 @@ configure_microovn_with_external_ovn_central() {
     # Ensure that clients in both clusters talk to the same OVN-central
     lxc_exec "${central_containers[0]}" "microovn.ovn-nbctl lr-add R1"
     lxc_exec "${datapath_containers[0]}" "microovn.ovn-nbctl show | grep R1"
+}
+
+check_central_ips_configuration() {
+    # Get IP addresses of containers running the OVN central cluster
+    local addresses
+    local container
+    for container in $INTERNAL_CLUSTER; do
+        local addr
+        addr=$(container_get_default_ip "$container" \
+               "$(test_is_ipv6_test && echo inet6 || echo inet)")
+        if [ -z "$addresses" ]; then
+            addresses="$addr"
+        else
+            addresses="$addresses,$addr"
+        fi
+    done
+
+    local containers
+    read -r -a containers <<< "$INTERNAL_CLUSTER"
+
+    # Negative tests with unparseable or missing IP addresses
+    echo "# Configuring ovn.central-ips with empty value"
+    run lxc_exec "${containers[0]}" "microovn config set ovn.central-ips "
+    assert_failure
+
+    echo "# Configuring ovn.central-ips with trailing comma"
+    run lxc_exec "${containers[0]}" "microovn config set ovn.central-ips $addresses,"
+    assert_failure
+
+    echo "# Configuring ovn.central-ips with unparseable IPv4 address"
+    run lxc_exec "${containers[0]}" "microovn config set ovn.central-ips 127.0.0"
+    assert_failure
+
+    echo "# Configuring ovn.central-ips with unparseable IPv6 address"
+    run lxc_exec "${containers[0]}" "microovn config set ovn.central-ips $addresses,[2001:db8::68]"
+    assert_failure
+
+    # Positive tests with valid IP addresses
+    lxc_exec "${containers[0]}" "microovn config set ovn.central-ips $addresses"
 }
 
 external_central_register_test_functions

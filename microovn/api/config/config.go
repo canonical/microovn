@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 
@@ -27,15 +28,19 @@ var ConfigEndoint = rest.Endpoint{
 // configHandler is a signature of a function that can be invoked on configuration option change.
 type configHandler = func(ctx context.Context, s state.State, key string, value string) error
 
+// configValidator is a signature of a function that will validate configuration option values.
+type configValidator = func(value string) error
+
 // spec is a structure that defines a valid configuration option
 type spec struct {
-	Key     string        // Name of the config option
-	Handler configHandler // Optional function that will be executed on value change (may be nil)
+	Key       string          // Name of the config option
+	Handler   configHandler   // Optional function that will be executed on value change (may be nil)
+	Validator configValidator // Function that will validate user config
 }
 
 // AllowedConfigKeys is a list of all valid configuration options
 var AllowedConfigKeys = []spec{
-	{Key: "ovn.central-ips", Handler: ovnCentralIpsUpdated},
+	{Key: "ovn.central-ips", Handler: ovnCentralIpsUpdated, Validator: validateOvnCentralIps},
 }
 
 // setConfig function handles configuration value changes submitted via POST request to config endpoint
@@ -121,19 +126,26 @@ func deleteConfig(s state.State, r *http.Request) response.Response {
 
 // parseConfigRequest validates requests to the config endpoint. If the request is made for
 // a valid config option, it returns the handler function associated with it.
-// This function returns an error if it fails to parse the body of the request or if a request
-// is made for an unknown configuration option.
+// This function returns an error if it fails to parse the body of the request, if a request
+// is made for an unknown configuration option or if the configuration option input is not valid.
 func parseConfigRequest(r *http.Request, parsedData any) (configHandler, error) {
 	err := json.NewDecoder(r.Body).Decode(&parsedData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode config request: %v", err)
 	}
-	var keyValue string
+	var keyValue, cfgOptValue string
+	var toBeValidated bool
+
 	switch v := parsedData.(type) {
 
 	case *types.SetConfigRequest:
 		keyValue = v.Key
+		cfgOptValue = v.Value
+		// Trigger validator if setting config
+		toBeValidated = true
 	case *types.GetConfigRequest:
+		// Note: This case also implicitly catches a deletion request, since
+		// DeleteConfigRequest is a type alias for GetConfigRequest
 		keyValue = v.Key
 	default:
 		return nil, fmt.Errorf("unknown config request type")
@@ -143,6 +155,14 @@ func parseConfigRequest(r *http.Request, parsedData any) (configHandler, error) 
 	var handler configHandler
 	for _, keySpec := range AllowedConfigKeys {
 		if keySpec.Key == keyValue {
+			if toBeValidated {
+				if keySpec.Validator == nil {
+					logger.Debugf("config key '%s' has no validator function", keyValue)
+				} else if err := keySpec.Validator(cfgOptValue); err != nil {
+					return nil, fmt.Errorf("configuration for key '%s' not valid: %v", keyValue, err)
+				}
+			}
+
 			allowedKey = true
 			handler = keySpec.Handler
 			break
@@ -184,4 +204,23 @@ func ovnCentralIpsUpdated(ctx context.Context, s state.State, key string, _ stri
 		return fmt.Errorf("%s", errMsg)
 	}
 	return err
+}
+
+// validateOvnCentralIps validates that the value is a comma-separated list of
+// IPv4 or IPv6 addresses (not enclosed in brackets "[]")
+func validateOvnCentralIps(value string) error {
+	// Gather all IPs, separated by commas
+	ips := strings.Split(value, ",")
+	if value == "" || len(ips) == 0 {
+		return fmt.Errorf("no IPs provided")
+	}
+
+	// Check that each element is a valid IPv4 or IPv6 address
+	for _, ip := range ips {
+		if parsedIP := net.ParseIP(ip); parsedIP == nil {
+			return fmt.Errorf("cannot parse IP address '%s'", ip)
+		}
+	}
+
+	return nil
 }
