@@ -60,6 +60,8 @@ This command does not perform any certificate validation, it only ensures that
 if a service is available on the node, the file that should contain a
 certificate is in place.
 
+.. _issue_certificates:
+
 Re-issue certificates
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -90,6 +92,8 @@ Valid service names can be discovered with the ``--help`` option:
 .. code-block:: none
 
    microovn certificates reissue --help
+
+.. _manage_ca:
 
 Manage Certificate Authority
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -126,8 +130,6 @@ member.
    member. Any failure will result in subsequent communication errors for that
    service within the cluster. Any failed certificates can be tried to re-issue
    again with :command:`certificates reissue <service>` on the affected node.
-
-.. _certificates_lifecycle:
 
 User-provided CA certificate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -180,24 +182,6 @@ certificate. It has to be one of the following types:
 * ECDSA
 * ED25519
 * ECDH
-
-Certificate lifecycle
----------------------
-
-Certificates that are automatically provisioned by MicroOVN have the following
-lifespans:
-
-* CA certificate: 10 years
-* OVN service certificate: 2 years
-
-MicroOVN runs daily checks for certificate lifespan validity. When a
-certificate is within 10 days of expiration, it will be automatically renewed.
-
-.. note::
-   CA certificate is automatically renewed only if it's automatically generated
-   by the MicroOVN. User-supplied CA certificate is not automatically renewed
-   and needs to be manually updated by the user via
-   :command:`certificates set-ca`
 
 Upgrade from plaintext to TLS
 -----------------------------

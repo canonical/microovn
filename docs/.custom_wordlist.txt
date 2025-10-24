@@ -32,6 +32,7 @@ PKI
 Permalink
 PRs
 README
+RPKI
 RSA
 RST
 RTD
@@ -53,6 +54,8 @@ bugfixes
 codebase
 composability
 config
+crypto
+cryptographic
 datapaths
 devel
 downscaling
@@ -74,6 +77,7 @@ microovn
 mitigations
 monospaced
 movn
+natively
 northd
 neighbor
 ovn

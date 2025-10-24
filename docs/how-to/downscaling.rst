@@ -72,5 +72,18 @@ include:
 * OVS database file
 * issued certificates and keys
 
+Securely decommission the cluster member
+----------------------------------------
+
+If you wish to wipe any remaining data from the machine, after you removed
+the node from the cluster, you can run:
+
+.. code-block:: none
+
+   snap remove --purge microovn
+
+This will remove MicroOVN's runtime components, any data it stored on disk,
+and prevents creation of the snapshot of the data.
+
 .. LINKS
 .. _Raft consensus algorithm: https://raft.github.io
