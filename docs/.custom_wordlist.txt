@@ -32,6 +32,7 @@ PKI
 Permalink
 PRs
 README
+RPKI
 RSA
 RST
 RTD
@@ -76,6 +77,7 @@ microovn
 mitigations
 monospaced
 movn
+natively
 northd
 neighbor
 ovn
