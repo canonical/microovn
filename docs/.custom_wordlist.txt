@@ -53,6 +53,8 @@ bugfixes
 codebase
 composability
 config
+crypto
+cryptographic
 datapaths
 devel
 downscaling
