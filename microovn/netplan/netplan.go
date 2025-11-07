@@ -180,6 +180,12 @@ func LoadConfig(filename string) (*Config, error) {
 func Cleanup(ctx context.Context, filename string) error {
 	filepath := fmt.Sprintf("/etc/netplan/%s", filename)
 	tmpfilepath := fmt.Sprintf("/tmp/%s", filename)
+
+	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+		// Netplan config does not exist, nothing to cleanup
+		return nil
+	}
+
 	_, err := shared.RunCommandContext(ctx, "mv", filepath, tmpfilepath)
 	if err != nil {
 		return fmt.Errorf("failed to move netplan config: %v", err)
