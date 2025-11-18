@@ -6,6 +6,7 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -167,6 +168,15 @@ func parseOvnFind(stdout string) []string {
 	return foundValues
 }
 
+// checkKernelModule checks the presence of the specified module in the running kernel.
+func checkKernelModule(moduleName string) error {
+	// Check for running kernel module
+	if _, err := os.Stat(fmt.Sprintf("/sys/module/%s", moduleName)); os.IsNotExist(err) {
+		return fmt.Errorf("%s kernel module missing or not loaded", moduleName)
+	}
+	return nil
+}
+
 // createExternalBridges sets up OVS bridge for each external connection defined in "extConnections" argument.
 // Physical interface defined in the external connection will be plugged to this bridge and the bridge will
 // be named "<iface>-br". Additionally, a physical network name will be constructed with getPhysnetName() and
@@ -276,6 +286,11 @@ func createExternalNetworks(ctx context.Context, s state.State, extConnections [
 // ID specified by "tableID" argument. All LRPs redistribute their addresses to this VRF.
 func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExternalConnection, tableID string) error {
 	lrName := getLrName(s)
+
+	// Check if the VRF kernel module is loaded
+	if err := checkKernelModule("vrf"); err != nil {
+		return fmt.Errorf("failed to create vrf for LR '%s': %v", lrName, err)
+	}
 
 	_, err := ovnCmd.NBCtlCluster(ctx,
 		s,

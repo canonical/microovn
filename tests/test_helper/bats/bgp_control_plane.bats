@@ -14,6 +14,7 @@ setup() {
     # provide false positive results.
     assert [ -n "$TEST_CONTAINERS" ]
     assert [ -n "$BGP_PEERS" ]
+    assert [ -n "$TEST_VM_NO_VRF" ]
 }
 
 # teardown function disables BGP service on any container exported in
@@ -80,6 +81,10 @@ bgp_control_plane_register_test_functions() {
     bats_test_function \
         --description "Enable BGP without configuration" \
         -- bgp_no_config
+
+    bats_test_function \
+        --description "Check enable BGP fails with missing VRF kernel module" \
+        -- bgp_no_vrf
 }
 
 # bgp_unnumbered_peering AUTOCONFIG_BGP MULTI_LINK
@@ -280,6 +285,23 @@ function bgp_bad_netplan(){
     assert_output ""
 
     lxc_exec "$MICROOVN_BGP_CONTAINER" "snap alias microovn.ovs-vsctl ovs-vsctl"
+}
+
+# bgp_no_vrf
+#
+# Simple test that checks that the bgp enable command fails with a relevant
+# error message when the VRF kernel module is not loaded
+function bgp_no_vrf(){
+    local host_asn=4210000000
+    local vrf=10
+    local external_connections="$OVN_CONTAINER_NET_1_IFACE"
+
+    run lxc_exec "$TEST_VM_NO_VRF" "microovn enable bgp \
+        --config ext_connection=$external_connections \
+        --config vrf=$vrf \
+        --config asn=$host_asn"
+    assert_failure
+    assert_output "Error: failed to enable service 'bgp': 'failed to create vrf for LR 'lr-$TEST_VM_NO_VRF-microovn': vrf kernel module missing or not loaded'"
 }
 
 bgp_control_plane_register_test_functions

@@ -27,6 +27,8 @@
 #
 # Afterwards, it's up to the tests themselves to enable and
 # configure individual BGP services on MicroOVN and Peer nodes.
+# Another (isolated) VM is then launched without VRF kernel module
+# support to allow testing silent failures when said module is not available.
 #
 # Note: For the sake of brevity, the names in the image do not match
 # with the real container names. Please see BGP_PEERS and TEST_CONTAINERS
@@ -47,6 +49,18 @@ setup_file() {
     setup_snap_aliases $TEST_CONTAINERS
     bootstrap_cluster $TEST_CONTAINERS
 
+    # Launch VM without VRF kernel module
+    TEST_VM_NO_VRF=$(container_name "no-vrf")
+    export TEST_VM_NO_VRF
+    launch_vms $TEST_VM_NO_VRF
+    wait_vms_ready $TEST_VM_NO_VRF
+    # Since LXD VMs are used instead of containers (to ensure the absence of the VRF
+    # kernel module), this suite cannot run from container image with microovn snap
+    # pre-installed and needs to manually install it.
+    # This is flagged by the overwriting the MICROOVN_TESTS_USE_SNAP env variable
+    MICROOVN_TESTS_USE_SNAP="yes" install_microovn "$MICROOVN_SNAP_PATH" $TEST_VM_NO_VRF
+    setup_snap_aliases $TEST_VM_NO_VRF
+    bootstrap_cluster $TEST_VM_NO_VRF
 
     # Setup networks for BGP neighbors (format: "ovn-bgp-net-<chassis>-<link>)
     BGP_NETS="\
@@ -114,7 +128,9 @@ setup_file() {
 
 teardown_file() {
     collect_coverage $TEST_CONTAINERS
+    collect_coverage $TEST_VM_NO_VRF
     delete_containers $TEST_CONTAINERS
+    delete_containers $TEST_VM_NO_VRF
     delete_containers $BGP_PEERS
     local net
     for net in $BGP_NETS; do
