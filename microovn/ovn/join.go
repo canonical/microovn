@@ -68,6 +68,15 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 		return err
 	}
 
+	// The default behavior on join is to always enable chassis and switch, but enable
+	// central only if:
+	//   * external OVN central wasn't configured
+	//   * or if there are less than 3 MicroOVN nodes with 'central' service enabled
+	externalOvnCentral, err := environment.IsExternalCentralConfigured(ctx, s)
+	if err != nil {
+		return err
+	}
+
 	// Start all the required services, and central if needed
 	err = node.EnableService(ctx, s, types.SrvSwitch)
 	if err != nil {
@@ -75,7 +84,7 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 		return err
 	}
 
-	if srvCentral < 3 {
+	if !externalOvnCentral && srvCentral < 3 {
 		err = node.EnableService(ctx, s, types.SrvCentral)
 		if err != nil {
 			logger.Infof("Failed to enable central")
