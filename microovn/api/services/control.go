@@ -1,7 +1,9 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -67,7 +69,14 @@ func disableService(s state.State, r *http.Request) response.Response {
 	if !types.CheckValidService(requestedService) {
 		return response.InternalError(errors.New("service does not exist"))
 	}
-	err = node.DisableService(r.Context(), s, requestedService)
+
+	var requestData types.DisableServiceRequest
+	err = json.NewDecoder(r.Body).Decode(&requestData)
+	if err != nil {
+		return response.ErrorResponse(500, fmt.Sprintf("failed to decode request: %v", err))
+	}
+
+	err = node.DisableService(r.Context(), s, requestedService, requestData.AllowDisableLastCentral)
 	if err != nil {
 		return response.InternalError(err)
 	}

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 help() {
         echo "Helper for refreshing OVN certificates that are about to expire."
         echo
@@ -19,6 +21,11 @@ refresh_service_cert() {
     echo "Checking $SERVICE certificate expiration"
     CERT_PATH=$(echo "$CERT_LIST" | jq -r --arg s "$SERVICE" '.[$s].cert')
 
+    if [ "$CERT_PATH" == "null" ]; then
+        echo "Service $SERVICE is not present on the node. Skipping"
+        return
+    fi
+
     if ! _is_expiring "$CERT_PATH"; then
         echo "Certificate $CERT_PATH is about to expire, refreshing..."
         "$MICROOVN" certificates reissue "$SERVICE"
@@ -26,8 +33,15 @@ refresh_service_cert() {
 }
 
 refresh_ca() {
+    echo "Checking if CA certificate is automatically renewable"
+    local auto_renew
+    auto_renew=$(echo "$CERT_LIST" | jq -r '.ca.auto_renew')
+    if [ "$auto_renew" = "false" ]; then
+        echo "CA is not eligible for renewal. Skipping"
+        return
+    fi
     echo "Checking CA certificate expiration"
-    CERT_PATH=$(echo "$CERT_LIST" | jq -r '.ca')
+    CERT_PATH=$(echo "$CERT_LIST" | jq -r '.ca.cert')
     if ! _is_expiring "$CERT_PATH"; then
         echo "CA Certificate $CERT_PATH is about to expire, regenerating CA..."
         "$MICROOVN" certificates regenerate-ca

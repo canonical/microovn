@@ -119,3 +119,67 @@ function get_cert_fingerprint() {
 
     echo "$fingerprint"
 }
+
+# get_cert_cn CONTAINER CERT_PATH
+#
+# Print CommonName of a certificate inside a CONTAINER
+function get_cert_cn() {
+    local container=$1; shift
+    local cert_path=$1; shift
+    local commonName=""
+
+    commonName=$(lxc_exec "$container" "openssl x509 -in $cert_path -noout \
+                                                     -subject \
+                                                     -nameopt multiline | \
+                                        grep commonName | \
+                                        awk -F' = ' '{print \$2}'")
+    assert [ -n "$commonName" ]
+
+    echo "$commonName"
+}
+
+# generate_user_ca CONTAINER KEY_TYPE CRT_DST KEY_DST
+#
+# This function generates CA certificate and private key
+# of the given KEY_TYPE and places them to CRT_DST and KEY_DST on
+# the CONTAINER. Certificates and keys are cached on the CONTAINER,
+# repeated calls tothis function with the same CONTAINER and
+# KEY_TYPE argument, won't cause re-generation of the cert/key.
+#
+# Currently supported KEY_TYPE values: rsa, ed, ec
+function generate_user_ca() {
+    local container=$1; shift
+    local key_type=$1; shift
+    local crt_dst=$1; shift
+    local key_dst=$1; shift
+
+    local cache_root="/tmp/pki_cache"
+    local ca_cache="$cache_root/$key_type"
+    local openssl_conf="$cache_root/openssl.conf"
+    local crt_cache_path="$ca_cache/ca.crt"
+    local key_cache_path="$ca_cache/ca.key"
+
+    run lxc_exec "$container" "[ ! -f $crt_cache_path ] || [ ! -f $key_cache_path ]"
+    # shellcheck disable=SC2154 # Variable "$status" is exported from previous execution of 'run'
+    if [ "$status" -eq 0 ]; then
+        lxc_exec "$container" "mkdir -p $ca_cache"
+        lxc_file_replace "$BATS_TEST_DIRNAME/resources/pki/openssl.conf" "$container$openssl_conf"
+
+        if [ "$key_type" == "rsa" ]; then
+            lxc_exec "$container" "openssl genpkey -algorithm rsa -out $key_cache_path"
+        elif [ "$key_type" == "ec" ]; then
+            lxc_exec "$container" "openssl ecparam -genkey -name secp384r1 -noout -outform PEM -out $key_cache_path"
+        elif [ "$key_type" == "ed" ]; then
+            lxc_exec "$container" "openssl genpkey -algorithm Ed25519 -out $key_cache_path"
+        else
+            echo "# Failed to generate CA certificate. Unknown key type: $key_type" >&3
+        fi
+
+        lxc_exec "$container" "openssl req -new -nodes -x509 -config $openssl_conf \
+                                           -extensions extensions \
+                                           -key $key_cache_path \
+                                           -out $crt_cache_path"
+    fi
+    lxc_exec "$container" "cp $key_cache_path $key_dst"
+    lxc_exec "$container" "cp $crt_cache_path $crt_dst"
+}

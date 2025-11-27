@@ -74,7 +74,43 @@ func RegenerateCA(ctx context.Context, c *client.Client) (types.RegenerateCaResp
 	}
 
 	return *response, nil
+}
 
+// SetCA sends a request to set a user-provided CA certificate and private key.
+// It triggers re-issue of all OVN service certificates on all MicroOVN cluster members.
+func SetCA(ctx context.Context, c *client.Client, certPEM, keyPEM string) (types.RegenerateCaResponse, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	response := types.NewRegenerateCaResponse()
+
+	request := types.CustomCaRequest{
+		Certificate: certPEM,
+		PrivateKey:  keyPEM,
+	}
+
+	err := c.Query(queryCtx, "POST", types.APIVersion, api.NewURL().Path("ca"), request, &response)
+	if err != nil {
+		return *response, fmt.Errorf("failed to set CA certificate and key: %w", err)
+	}
+
+	return *response, nil
+}
+
+// GetCaInfo queries microovn daemon about additional information about the CA
+// certificate.
+func GetCaInfo(ctx context.Context, c *client.Client) (types.CaInfo, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	response := types.CaInfo{}
+
+	err := c.Query(queryCtx, "GET", types.APIVersion, api.NewURL().Path("ca"), nil, &response)
+	if err != nil {
+		return response, fmt.Errorf("failed to get CA info: %w", err)
+	}
+
+	return response, err
 }
 
 // GetExpectedOvsdbSchemaVersion queries given MicroOVN node and returns an expected schema version for the specified
@@ -134,11 +170,12 @@ func getOvsdbSchemaVersion(ctx context.Context, c *client.Client, dbSpec *ovnCmd
 
 // DisableService sends request to disable service with name as specified in
 // "serviceName" argument.
-func DisableService(ctx context.Context, c *client.Client, serviceName string) (types.WarningSet, types.RegenerateEnvResponse, error) {
+func DisableService(ctx context.Context, c *client.Client, serviceName string, allowLastCentral bool) (types.WarningSet, types.RegenerateEnvResponse, error) {
 	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
+	requestData := types.DisableServiceRequest{AllowDisableLastCentral: allowLastCentral}
 	scr := types.ServiceControlResponse{}
-	err := c.Query(queryCtx, "DELETE", types.APIVersion, api.NewURL().Path("service", serviceName), nil, &scr)
+	err := c.Query(queryCtx, "DELETE", types.APIVersion, api.NewURL().Path("service", serviceName), requestData, &scr)
 
 	if err != nil {
 		return types.WarningSet{}, types.RegenerateEnvResponse{}, fmt.Errorf("failed to disable service '%s': '%s'", serviceName, err)
@@ -190,4 +227,40 @@ func RegenerateEnvironment(ctx context.Context, c *client.Client) (types.Regener
 	}
 	return responseData, nil
 
+}
+
+// SetConfig sends a request to the MicroOVN server that sets or updates a value of a configuration option.
+func SetConfig(ctx context.Context, c *client.Client, key string, value string) (types.SetConfigResponse, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+
+	requestData := types.SetConfigRequest{Key: key, Value: value}
+	responseData := types.SetConfigResponse{}
+	err := c.Query(queryCtx, "POST", types.APIVersion, api.NewURL().Path("config"), requestData, &responseData)
+
+	return responseData, err
+}
+
+// GetConfig sends a request to the MicroOVN server that retrieves the current value of a configuration option.
+func GetConfig(ctx context.Context, c *client.Client, key string) (types.GetConfigResponse, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+
+	requestData := types.GetConfigRequest{Key: key}
+	responseData := types.GetConfigResponse{}
+	err := c.Query(queryCtx, "GET", types.APIVersion, api.NewURL().Path("config"), requestData, &responseData)
+
+	return responseData, err
+}
+
+// DeleteConfig sends a request to the MicroOVN server that completely removes a configuration option and its value.
+func DeleteConfig(ctx context.Context, c *client.Client, key string) (types.DeleteConfigResponse, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
+	defer cancel()
+
+	requestData := types.DeleteConfigRequest{Key: key}
+	responseData := types.DeleteConfigResponse{}
+	err := c.Query(queryCtx, "DELETE", types.APIVersion, api.NewURL().Path("config"), requestData, &responseData)
+
+	return responseData, err
 }

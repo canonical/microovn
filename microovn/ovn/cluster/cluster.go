@@ -61,6 +61,7 @@ func UpdateOvnControllerRemoteConfig(ctx context.Context, s state.State) error {
 		return fmt.Errorf("failed to get OVN central IPs: %w", err)
 	}
 	sbConnect, err := environment.ConnectionString(ctx, s, centralIps, 6642)
+
 	if err != nil {
 		return fmt.Errorf("failed to get OVN SB connect string: %w", err)
 	}

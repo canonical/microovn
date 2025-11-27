@@ -3,6 +3,7 @@ package ovn
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v2/state"
@@ -27,10 +28,46 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 		return err
 	}
 
+	// Parse custom bootstrap options from initConfig
+	ovnEncapIP := s.Address().Hostname()
+	var certPem []byte
+	var keyPem []byte
+	for k, v := range initConfig {
+		// Configure OVS to either use a custom encapsulation IP for the geneve tunel
+		// or the hostname of the node.
+		if k == "ovn-encap-ip" {
+			ovnEncapIP = v
+			continue
+		}
+
+		// Retrieve the CA certificate and private key path if the user supplied them during init
+		if k == "ovn-ca-cert" {
+			certPem, err = os.ReadFile(v)
+			if err != nil {
+				return fmt.Errorf("failed to read CA certificate: %w", err)
+			}
+			continue
+		}
+		if k == "ovn-ca-key" {
+			keyPem, err = os.ReadFile(v)
+			if err != nil {
+				return fmt.Errorf("failed to read CA private key: %w", err)
+			}
+			continue
+		}
+	}
+
 	// Generate CA certificate and key
-	err = certificates.GenerateNewCACertificate(ctx, s)
-	if err != nil {
-		return err
+	if len(certPem) != 0 && len(keyPem) != 0 {
+		err = certificates.SetNewCACertificate(ctx, s, string(certPem), string(keyPem))
+		if err != nil {
+			return err
+		}
+	} else {
+		err = certificates.GenerateNewCACertificate(ctx, s)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = certificates.DumpCA(ctx, s)
@@ -79,24 +116,9 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 	}
 
 	// Configure OVS to use OVN.
-
 	err = ovnCluster.UpdateOvnListenConfig(ctx, s)
 	if err != nil {
 		return err
-	}
-
-	// Configure OVS to either use a custom encapsulation IP for the geneve tunel
-	// or the hostname of the node.
-	var ovnEncapIP string
-	for k, v := range initConfig {
-		if k == "ovn-encap-ip" {
-			ovnEncapIP = v
-			break
-		}
-	}
-
-	if ovnEncapIP == "" {
-		ovnEncapIP = s.Address().Hostname()
 	}
 
 	_, err = ovnCmd.VSCtl(

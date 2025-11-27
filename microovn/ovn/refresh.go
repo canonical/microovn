@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/node"
 	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
+	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/environment"
 	"github.com/canonical/microovn/microovn/snap"
 )
@@ -49,6 +50,11 @@ func refresh(ctx context.Context, s state.State) error {
 		return err
 	}
 
+	hasChassis, err := node.HasServiceActive(ctx, s, types.SrvChassis)
+	if err != nil {
+		return err
+	}
+
 	// Generate the configuration.
 	err = environment.GenerateEnvironment(ctx, s)
 	if err != nil {
@@ -65,10 +71,24 @@ func refresh(ctx context.Context, s state.State) error {
 
 	// Enable OVN chassis.
 	if hasSwitch {
-		// Reconfigure OVS to use OVN.
 		err = ovnCluster.UpdateOvnControllerRemoteConfig(ctx, s)
 		if err != nil {
 			return err
+		}
+	}
+
+	// In the event when we are re-bootstrapping central cluster, we need to
+	// clear the previous cluster's state from the controller. This is a less
+	// invasive alternative to controller restart.
+	if hasChassis {
+		_, err = ovnCmd.AppCtl(
+			ctx,
+			s,
+			"ovn-controller",
+			"sb-cluster-state-reset",
+		)
+		if err != nil {
+			return fmt.Errorf("failed to reset OVN chassis cluster state")
 		}
 	}
 

@@ -20,6 +20,7 @@ check-lint: check-tabs
 		-type f \
 		-not -name \*.yaml \
 		-not -name \*.swp \
+		-not -name \*.conf\
 		| xargs shellcheck --severity=warning && echo Success!
 
 $(ALL_TESTS): $(MICROOVN_SNAP)

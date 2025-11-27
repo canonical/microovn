@@ -18,6 +18,7 @@ import (
 	"github.com/canonical/microcluster/v2/cluster"
 	"github.com/canonical/microcluster/v2/state"
 
+	"github.com/canonical/microovn/microovn/config"
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
 	"github.com/canonical/microovn/microovn/ovn/paths"
@@ -41,9 +42,35 @@ func NetworkProtocol(ctx context.Context, s state.State) string {
 	return "ssl"
 }
 
-// CentralIps generates a list of IP addresses that should be used for connecting to ovn-central services
+// IsExternalCentralConfigured returns True if the config option "ovn.central-ips" was explicitly configured
+func IsExternalCentralConfigured(ctx context.Context, s state.State) (bool, error) {
+	ovnRemoteConfig, err := config.GetConfig(ctx, s, "ovn.central-ips")
+	if err != nil {
+		return false, err
+	}
+	return ovnRemoteConfig != nil, nil
+}
+
+// remoteAddressesFromConfig attempts to retrieve a list of IP addresses that should be used for
+// connecting to ovn-central services from the config option "ovn.central-ips". The return value is nil
+// if the config option is not set in the database.
+func remoteAddressesFromConfig(ctx context.Context, s state.State) ([]string, error) {
+	ovnRemoteConfig, err := config.GetConfig(ctx, s, "ovn.central-ips")
+	if err != nil {
+		return nil, err
+	}
+
+	if ovnRemoteConfig == nil {
+		return nil, nil
+	}
+
+	return strings.Split(ovnRemoteConfig.Value, ","), nil
+
+}
+
+// defaultRemoteAddresses generates a list of IP addresses that should be used for connecting to ovn-central services
 // by returning addresses of MicroOVN cluster members with service "central" enabled.
-func CentralIps(ctx context.Context, s state.State) ([]string, error) {
+func defaultRemoteAddresses(ctx context.Context, s state.State) ([]string, error) {
 	var addrList []string
 	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		serviceName := "central"
@@ -75,6 +102,28 @@ func CentralIps(ctx context.Context, s state.State) ([]string, error) {
 		return nil
 	})
 	return addrList, err
+}
+
+// CentralIps returns a list of IP addresses of OVN central services. This function
+// primarily returns addresses configured via the "ovn.central-ips" config option
+// and falls back to IP addresses of MicroOVN nodes with "central" service enabled
+// if the config option is not set.
+func CentralIps(ctx context.Context, s state.State) ([]string, error) {
+	// Attempt to primarily get the list of ovn-central node IPs from the config.
+	addrList, err := remoteAddressesFromConfig(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the option was not set, fall back to using MicroOVN nodes with "central" service enabled
+	if addrList == nil {
+		addrList, err = defaultRemoteAddresses(ctx, s)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return addrList, nil
 }
 
 // initialNbSbHost returns an IP address or a hostname that should be used by

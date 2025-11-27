@@ -13,7 +13,8 @@ import (
 )
 
 type cmdDisable struct {
-	common *CmdControl
+	common                  *CmdControl
+	allowDisableLastCentral bool
 }
 
 func (c *cmdDisable) Command() *cobra.Command {
@@ -27,6 +28,8 @@ func (c *cmdDisable) Command() *cobra.Command {
 		Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		RunE:      c.Run,
 	}
+
+	cmd.Flags().BoolVar(&c.allowDisableLastCentral, "allow-disable-last-central", false, "Allow disabling the last node of the central service. WARNING: If the last central service is disabled, OVN Northbound and Southbound databases will be removed!")
 
 	return cmd
 }
@@ -47,7 +50,7 @@ func (c *cmdDisable) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	targetService := args[0]
-	ws, regenEnv, err := client.DisableService(context.Background(), cli, targetService)
+	ws, regenEnv, err := client.DisableService(context.Background(), cli, targetService, c.allowDisableLastCentral)
 	if err != nil {
 		return err
 	}
