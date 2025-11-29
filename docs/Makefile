@@ -30,6 +30,7 @@ $(VENVDIR): $(SPHINXDIR)/requirements.txt
         --upgrade -r $(SPHINXDIR)/requirements.txt \
 	--build-constraint $(SPHINXDIR)/build-constraints.txt \
 	--constraint $(SPHINXDIR)/constraints.txt \
+	--constraint $(SPHINXDIR)/freeze-constraints.txt \
         --log $(VENVDIR)/pip_install.log
 	@test ! -f $(VENVDIR)/pip_list.txt || \
         mv $(VENVDIR)/pip_list.txt $(VENVDIR)/pip_list.txt.bak
