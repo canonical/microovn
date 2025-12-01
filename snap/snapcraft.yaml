@@ -435,8 +435,8 @@ parts:
       - libxslt1-dev
       - make
       - python3-venv
-      - rustc
-      - cargo
+      - rustc-1.85
+      - cargo-1.85
     override-build: |
       set -ex
       make .sphinx/venv || ( cat .sphinx/venv/pip_install.log && exit 1 )
