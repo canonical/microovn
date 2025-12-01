@@ -439,7 +439,8 @@ parts:
       - cargo-1.85
     override-build: |
       set -ex
-      make .sphinx/venv || ( cat .sphinx/venv/pip_install.log && exit 1 )
+      make .sphinx/venv PIPOPTS="-c freeze-constraints.txt" \
+          || ( cat .sphinx/venv/pip_install.log && exit 1 )
       make text
       rm -rf ${CRAFT_PART_INSTALL}/docs/microovn
       mkdir -p ${CRAFT_PART_INSTALL}/docs
