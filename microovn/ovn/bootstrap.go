@@ -13,6 +13,7 @@ import (
 	"github.com/canonical/microovn/microovn/ovn/certificates"
 	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
+	"github.com/canonical/microovn/microovn/ovn/dpu"
 	"github.com/canonical/microovn/microovn/ovn/environment"
 )
 
@@ -158,6 +159,11 @@ func Bootstrap(ctx context.Context, s state.State, initConfig map[string]string)
 		if err != nil {
 			return err
 		}
+	}
+
+	err = dpu.DPUSetup(ctx, s)
+	if err != nil {
+		return err
 	}
 
 	return nil

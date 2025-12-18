@@ -1,0 +1,74 @@
+name: MicroOVN Integration Test
+
+on:
+  schedule:
+    - cron: '30 23 * * 6'   # minute hour day month day-of-week (0/7 = Sunday)
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build MicroOVN
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Clear FORWARD firewall rules
+        run: |
+          # Docker can inject rules causing firewall conflicts
+          sudo iptables -P FORWARD ACCEPT  || true
+          sudo ip6tables -P FORWARD ACCEPT || true
+          sudo iptables -F FORWARD  || true
+          sudo ip6tables -F FORWARD || true
+
+      - name: Install dependencies
+        run: |
+          sudo snap refresh
+          sudo snap install lxd
+          sudo snap set lxd daemon.group=adm
+          sudo lxd init --auto
+          test $POSSIBLE_TARGET_BRANCH = main && \
+              export SNAPCRAFT_CHANNEL=latest/edge
+          sudo snap install snapcraft \
+              --channel "${SNAPCRAFT_CHANNEL:-latest/stable}" \
+              --classic
+
+      - name: build
+        run: make
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+            name: microovn-snap
+            path: ./microovn.snap
+
+  testflinger:
+    name: MicroOVN testflinger test
+    runs-on: [self-hosted, self-hosted-linux-amd64-jammy-private-endpoint-medium]
+    needs: build
+    strategy:
+      matrix:
+        queue: [laveran, kudgel]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare testflinger job
+        run: |
+          cp testflinger/microovn-dpu-job.yaml job.yaml
+          sed -i "s/^job_queue:.*/job_queue: ${{ matrix.queue }}/" job.yaml
+
+      - name: Download built artifact
+        uses: actions/download-artifact@v4
+        with:
+            name: microovn-snap
+            path: .
+
+      - name: Run tests
+        id: submit-testflinger
+        uses: canonical/testflinger/.github/actions/submit@main
+        with:
+          poll: true
+          job-path: job.yaml

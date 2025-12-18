@@ -1,0 +1,16 @@
+job_queue: laveran
+provision_data:
+  distro: noble
+
+test_data:
+  attachments:
+    - local: "../microovn.snap"
+  test_cmds: |
+    scp attachments/test/microovn.snap ubuntu@$DEVICE_IP:/home/ubuntu/
+    ssh -t ubuntu@$DEVICE_IP 'sudo snap wait system seed.loaded'
+    ssh -t ubuntu@$DEVICE_IP 'sudo snap install --devmode /home/ubuntu/microovn.snap'
+    ssh -t ubuntu@$DEVICE_IP 'snap list microovn'
+    ssh -t ubuntu@$DEVICE_IP 'sudo microovn waitready'
+    ssh -t ubuntu@$DEVICE_IP 'sudo microovn cluster bootstrap'
+    ssh -t ubuntu@$DEVICE_IP 'sudo microovn status'
+    ssh -t ubuntu@$DEVICE_IP '! sudo microovn.ovs-vsctl get open_vswitch . external-ids:ovn-cms-options'
