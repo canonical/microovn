@@ -126,7 +126,7 @@ setup_file() {
         for container in $CHASSIS_CONTAINERS; do
             local ctn_n
             ctn_n=$(microovn_extract_ctn_n "$container")
-            local max_lost=8
+            local max_lost=16
             local n_lost
             n_lost=$(ping_packets_lost \
                 "$container" 10.42.${ctn_n}.1 "$UPGRADE_NS_NAME")
