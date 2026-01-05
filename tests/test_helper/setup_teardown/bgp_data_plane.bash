@@ -20,7 +20,6 @@ setup_file() {
 
     launch_containers_args "-c linux.kernel_modules=vrf,openvswitch -c security.nesting=true" $TEST_CONTAINER
     wait_containers_ready $TEST_CONTAINER
-    install_ppa_netplan $TEST_CONTAINER
     install_microovn "$MICROOVN_SNAP_PATH" $TEST_CONTAINER
     setup_snap_aliases $TEST_CONTAINER
     bootstrap_cluster $TEST_CONTAINER
