@@ -45,6 +45,7 @@ function install_microovn() {
 
             sleep 1
         done
+        lxc_exec "$container" "snap restart microovn.daemon"
     done
 }
 
