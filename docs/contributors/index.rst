@@ -24,7 +24,7 @@ Contributor guidelines
   )
 * The commit message should focus on WHY the change is necessary, we get the
   what and how by looking at the code.
-* Include a Signed-off-by header in the commit message. (See
+* Include a Signed-off-by `tag`_ in the commit message. (See
   `Git sign-off documentation`_)
 * MicroOVN uses `Launchpad`_ for tracking bugs. If you encounter any issue,
   or have a feature suggestion. Feel free to `open a bug report`_.
@@ -52,3 +52,4 @@ Next Steps
 .. _Git sign-off documentation: https://git-scm.com/docs/git-commit#Documentation/git-commit.txt---signoff
 .. _Launchpad: https://bugs.launchpad.net/microovn
 .. _open a bug report: https://bugs.launchpad.net/microovn/+filebug
+.. _tag: https://docs.ovn.org/en/latest/internals/contributing/submitting-patches.html#tags
