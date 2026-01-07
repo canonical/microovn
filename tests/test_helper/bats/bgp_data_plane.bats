@@ -181,7 +181,7 @@ EOF
         ip addr del $ext_host_ext_cidr dev $EXT_CONTAINER_EXT_IFACE && \
         ip addr add $ext_host_ext_cidr_v6 dev $EXT_CONTAINER_EXT_IFACE"
 
-    lxc_exec "$EXT_HOST" "ip -6 route del default && ip route replace default via $bgp_peer_ext_ip_v6"
+    lxc_exec "$EXT_HOST" "ip route add 2001:db8:612::/64 via $bgp_peer_ext_ip_v6"
 
     wait_until "container_can_ping $EXT_HOST $bgp_peer_ext_ip_v6"
 
