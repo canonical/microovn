@@ -11,6 +11,8 @@ export OVS_PKGDATADIR="${SNAP}/share/openvswitch"
 export OVS_BINDIR="${SNAP}/bin"
 export OVS_SBINDIR="${SNAP}/bin"
 
+mkdir -p ${OVS_RUNDIR} ${OVS_LOGDIR} ${OVS_DBDIR}
+
 # Start vswitchd
 "${SNAP}/share/openvswitch/scripts/ovs-ctl" \
     start \
