@@ -26,6 +26,9 @@ Contributor guidelines
   what and how by looking at the code.
 * Include a Signed-off-by `tag`_ in the commit message. (See
   `Git sign-off documentation`_)
+* When a patch has been created with the assistance of an AI tool, include
+  a Assisted-by `tag`_ to disclose that fact.  The author of the patch remains
+  fully responsible for the content.
 * MicroOVN uses `Launchpad`_ for tracking bugs. If you encounter any issue,
   or have a feature suggestion. Feel free to `open a bug report`_.
 * MicroOVN makes use of the GitHub Pull Request workflow.  There is no
