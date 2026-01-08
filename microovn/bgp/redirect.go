@@ -6,6 +6,7 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"slices"
 	"strings"
@@ -177,6 +178,68 @@ func checkKernelModule(moduleName string) error {
 	return nil
 }
 
+// getUsedVrfTableIDs queries system routing tables and VRF tables to find all currently used table IDs.
+// Returns a map of used table IDs and an error if unable to query the system.
+func getUsedVrfTableIDs(ctx context.Context) (map[int]bool, error) {
+	// Reserve special table IDs (local, main, default)
+	usedTableIDs := map[int]bool{253: true, 254: true, 255: true}
+
+	// Check system VRF tables to avoid conflicts with existing VRFs
+	vrfOutput, err := shared.RunCommandContext(
+		ctx,
+		"sh",
+		"-c",
+		"ip -j vrf show | jq '.[] | objects | .table'")
+	if err != nil {
+		return nil, fmt.Errorf("failed to query existing VRF table IDs: %v", err)
+	}
+
+	// Check non-empty routing tables in the system to avoid conflicts
+	routeOutput, err := shared.RunCommandContext(
+		ctx,
+		"sh",
+		"-c",
+		"ip -j -d -N route show table all | jq -r '.[] | objects | .table' | sort | uniq")
+	if err != nil {
+		return nil, fmt.Errorf("failed to query existing routing tables: %v", err)
+	}
+
+	// Parse the output to find table IDs
+	vrfLines := strings.Split(vrfOutput, "\n")
+	routeLines := strings.Split(routeOutput, "\n")
+	routeLines = append(routeLines, vrfLines...)
+	for _, line := range routeLines {
+		var id int
+		if _, err := fmt.Sscanf(line, "%d", &id); err == nil {
+			usedTableIDs[id] = true
+		}
+	}
+
+	return usedTableIDs, nil
+}
+
+// findAvailableVrfTableID returns the first available VRF Table ID.
+// It finds the currently used Table IDs from system routing tables, and returns the lowest available ID,
+// with a minimum value of 10 if no ID is in use.
+// Returns error if unable to query the database or system or the possible table IDs are all in use.
+func findAvailableVrfTableID(ctx context.Context, s state.State) (string, error) {
+	const minID = 10
+
+	usedTableIDs, err := getUsedVrfTableIDs(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Find first available table ID
+	for i := minID; i <= math.MaxUint32; i++ {
+		if !usedTableIDs[i] {
+			return fmt.Sprintf("%d", i), nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to find an available VRF table ID")
+}
+
 // createExternalBridges sets up OVS bridge for each external connection defined in "extConnections" argument.
 // Physical interface defined in the external connection will be plugged to this bridge and the bridge will
 // be named "<iface>-br". Additionally, a physical network name will be constructed with getPhysnetName() and
@@ -296,7 +359,7 @@ func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExt
 		s,
 		"set", "Logical_Router", lrName,
 		"options:dynamic-routing=true",
-		fmt.Sprintf("options:requested-tnl-key=%s", tableID),
+		fmt.Sprintf("options:dynamic-routing-vrf-id=%s", tableID),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create vrf for LR '%s': %v", lrName, err)

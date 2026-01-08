@@ -139,6 +139,16 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 		logging.Errorf("Failed to parse external connections: %v", err)
 	}
 
+	// Auto-select VRF table ID if not provided by the user
+	vrfTableID := extraConfig.Vrf
+	if vrfTableID == "" {
+		vrfTableID, err = findAvailableVrfTableID(ctx, s)
+		if err != nil {
+			return errors.Join(fmt.Errorf("failed to auto-select VRF table ID: %v", err), DisableService(ctx, s))
+		}
+		logging.Debugf("Auto-selected VRF table ID: %s", vrfTableID)
+	}
+
 	err = createExternalBridges(ctx, s, extConnections)
 	if err != nil {
 		return errors.Join(err, DisableService(ctx, s))
@@ -149,18 +159,18 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 		return errors.Join(err, DisableService(ctx, s))
 	}
 
-	err = createVrf(ctx, s, extConnections, extraConfig.Vrf)
+	err = createVrf(ctx, s, extConnections, vrfTableID)
 	if err != nil {
 		return errors.Join(err, DisableService(ctx, s))
 	}
 
-	err = redirectBgp(ctx, s, extConnections, extraConfig.Vrf)
+	err = redirectBgp(ctx, s, extConnections, vrfTableID)
 	if err != nil {
 		return errors.Join(err, DisableService(ctx, s))
 	}
 
 	if extraConfig.Asn != "" {
-		err = configureBirdBgp(ctx, s, extConnections, extraConfig.Vrf, extraConfig.Asn)
+		err = configureBirdBgp(ctx, s, extConnections, vrfTableID, extraConfig.Asn)
 		if err != nil {
 			return errors.Join(err, DisableService(ctx, s))
 		}

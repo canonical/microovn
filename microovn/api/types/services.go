@@ -161,16 +161,15 @@ func (bgpConf *ExtraBgpConfig) FromMap(rawConfig map[string]string) error {
 // Validate ensures that all required fields of ExtraBgpConfig are present and that they have
 // correct types and values.
 func (bgpConf *ExtraBgpConfig) Validate() error {
-	if bgpConf.Vrf == "" {
-		return fmt.Errorf("option 'vrf' is rquired")
+	// VRF is optional, it will be automatically selected if not provided
+	if bgpConf.Vrf != "" {
+		_, err := strconv.Atoi(bgpConf.Vrf)
+		if err != nil {
+			return fmt.Errorf("option 'vrf' is not a number: %s", bgpConf.Vrf)
+		}
 	}
 
-	_, err := strconv.Atoi(bgpConf.Vrf)
-	if err != nil {
-		return fmt.Errorf("option 'vrf' is not a number: %s", bgpConf.Vrf)
-	}
-
-	_, err = strconv.Atoi(bgpConf.Asn)
+	_, err := strconv.Atoi(bgpConf.Asn)
 	if err != nil && bgpConf.Asn != "" {
 		return fmt.Errorf("option 'asn' is not a number: %s", bgpConf.Asn)
 	}

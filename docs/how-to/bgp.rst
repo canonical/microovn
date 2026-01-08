@@ -12,13 +12,11 @@ Enable BGP integration
 In this example, we have a host connected to two external networks via
 interfaces ``eth1`` and ``eth2``.
 
-All we need to proceed with the configuration is an unused `VRF`_ table number
-and AS number. The AS number is an optional argument. If it's omitted, MicroOVN
-won't configure a BGP daemon. See the section below on
-:ref:`Manual BGP daemon configuration <manual_bgp>`.
-
-For this example, we'll pick VRF ``10`` and AS number from the private range,
-``4210000000``.
+The only required configuration is specifying the external connection interfaces.
+Optionally, you can also specify an unused `VRF`_ table number and AS number. If the VRF
+table number is not provided, MicroOVN will automatically select an available one.
+The AS number is also optional, if it's omitted, MicroOVN won't configure a BGP
+daemon. See the section below on :ref:`Manual BGP daemon configuration <manual_bgp>`.
 
 .. important::
 
@@ -26,7 +24,14 @@ For this example, we'll pick VRF ``10`` and AS number from the private range,
    of OVN BGP integration. These interfaces are meant for the OVN's traffic,
    they will be assigned to a OVS bridge and you will lose your connection to the host.
 
-To enable BGP integration run:
+To enable BGP integration with automatic VRF selection and AS number, from the private
+range, ``4210000000``, run:
+
+.. code-block:: none
+
+   microovn enable bgp --config ext_connection=eth1,eth2 --config asn=4210000000
+
+Alternatively, you can manually specify the VRF table ID:
 
 .. code-block:: none
 

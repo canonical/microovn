@@ -81,7 +81,7 @@ MicroOVN will then configure required OVN options.
 
 On the ``Logical Router`` that provides the external connectivity:
 
-* ``requested-tnl-key`` set to the value of the VRF table.
+* ``dynamic-routing-vrf-id`` set to the value of the VRF table.
 * ``dynamic-routing`` set to ``true``
 
 On each ``Logical Router Port`` plugged to the external network:
