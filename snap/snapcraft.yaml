@@ -50,6 +50,7 @@ apps:
       - network-bind
       - network-control
       - network-setup-control
+      - hardware-observe
     slots:
       - microovn
 
@@ -457,12 +458,15 @@ parts:
     source: snapcraft/
     stage-packages:
       - jq
+      - iproute2
     organize:
       usr/bin/: bin/
+      usr/sbin/: sbin/
       usr/lib/: lib/
     prime:
       - commands/*
       - ./*.env
       - bin/jq
+      - sbin/devlink
       - lib/*/libjq.so*
       - lib/*/libonig.so*
