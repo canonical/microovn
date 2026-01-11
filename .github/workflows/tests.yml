@@ -53,80 +53,12 @@ jobs:
           assert_git_status
 
   build:
-    name: build
-    needs:
-      - lint
-    runs-on: ubuntu-latest
-    env:
-      MICROOVN_SNAP: microovn.snap
-      MICROOVN_IMAGE: microovn-lxd-template.tar.gz
-      MICROOVN_UNSQUASH_DST: ${{ github.workspace }}/microovn-squashfs
-      # The `base_ref` will only be set for PR and contain the name of the
-      # target branch.  The `ref_name` will be correct for the final push
-      # check after a PR is merged.
-      #
-      # This setup may lead to failures on push to arbitrarily named branches
-      # on a fork, but that is a price worth paying.
-      #
-      # Contributors can raise a draft PR to get accurate results.
-      POSSIBLE_TARGET_BRANCH: "${{ github.base_ref || github.ref_name }}"
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Clear FORWARD firewall rules
-        run: |
-          # Docker can inject rules causing firewall conflicts
-          sudo iptables -P FORWARD ACCEPT  || true
-          sudo ip6tables -P FORWARD ACCEPT || true
-          sudo iptables -F FORWARD  || true
-          sudo ip6tables -F FORWARD || true
-
-      - name: Install dependencies
-        run: |
-          sudo snap refresh
-          sudo snap install lxd
-          sudo snap set lxd daemon.group=adm
-          sudo lxd init --auto
-          test $POSSIBLE_TARGET_BRANCH = main && \
-              export SNAPCRAFT_CHANNEL=latest/edge
-          sudo snap install snapcraft \
-              --channel "${SNAPCRAFT_CHANNEL:-latest/stable}" \
-              --classic
-
-      - name: Build snap and LXD image
-        run: |
-          # Build snap with coverage support
-          sed -i 's/MICROOVN_COVERAGE=.*/MICROOVN_COVERAGE="yes"/g' microovn/build-aux/environment
-          make $MICROOVN_IMAGE
-
-      - name: Upload Snap
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: snaps
-          path: ${{ env.MICROOVN_SNAP }}
-          retention-days: 5
-
-      - name: Upload LXD image
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lxd-image
-          path: ${{ env.MICROOVN_IMAGE }}
-          retention-days: 5
-
-      - name: Extract unit test coverage
-        run: |
-          unsquashfs -dest ${{ env.MICROOVN_UNSQUASH_DST}} ${{ env.MICROOVN_SNAP }} .coverage
-
-      - name: Upload unit test coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: unit_test_coverage
-          path: ${{ env.MICROOVN_UNSQUASH_DST }}/.coverage
-          include-hidden-files: true
-          retention-days: 1
+    needs: lint
+    uses: ./.github/workflows/build-microovn.yaml
+    with:
+      build-image: true
+      coverage: true
+      possible-target-branch: "${{ github.base_ref || github.ref_name }}"
 
   metadata:
     name: Generate matrix
