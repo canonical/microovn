@@ -26,6 +26,7 @@ function install_microovn() {
                                                   hardware-observe \
                                                   hugepages-control \
                                                   network-control \
+                                                  hardware-observe \
                                                   openvswitch-support \
                                                   process-control \
                                                   system-trace; do \
