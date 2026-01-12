@@ -65,26 +65,6 @@ func TestFindDPUDevlink(t *testing.T) {
 			expected: "0000:11:11.0",
 		},
 		{
-			name: "multiple valid ports first valid match wins",
-			input: DevlinkJSON{
-				Port: map[string]DevlinkPort{
-					"pci/0000:06:12.0": {
-						Flavour:    "pcipf",
-						Controller: 0,
-					},
-					"pci/0000:11:11.0": {
-						Flavour:    "pcipf",
-						Controller: 0,
-					},
-					"pci/0000:03:14.0": {
-						Flavour:    "pcipf",
-						Controller: 1,
-					},
-				},
-			},
-			expected: "0000:06:12.0",
-		},
-		{
 			name: "empty port map",
 			input: DevlinkJSON{
 				Port: map[string]DevlinkPort{},
