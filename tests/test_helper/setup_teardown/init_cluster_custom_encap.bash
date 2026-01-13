@@ -42,6 +42,7 @@ setup_file() {
 }
 
 teardown_file() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
     collect_coverage $TEST_CONTAINERS
     delete_containers $TEST_CONTAINERS
     delete_lxd_network "br-east-west"

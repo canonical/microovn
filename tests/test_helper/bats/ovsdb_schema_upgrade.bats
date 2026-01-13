@@ -19,6 +19,10 @@ setup() {
     assert [ -n "$TEST_CONTAINERS" ]
 }
 
+teardown() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
+}
+
 @test "Test OVSDB cluster schema upgrade" {
     echo "# Checking if SB or NB database schema changed from MicroOVN rev. $MICROOVN_SNAP_REV" >&3
     local original_nb=""

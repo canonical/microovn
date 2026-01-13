@@ -14,6 +14,10 @@ setup() {
     assert [ -n "$TEST_CONTAINERS" ]
 }
 
+teardown() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
+}
+
 cluster_register_test_functions() {
     for db in nb sb; do
         bats_test_function \
