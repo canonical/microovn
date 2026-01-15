@@ -21,6 +21,8 @@ setup() {
 # USED_BGP_CHASSIS variable and ensures that the are no leftover
 # resources.
 teardown() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
+
     for MICROOVN_BGP_CONTAINER in $USED_BGP_CHASSIS; do
         local lb_name="loadbal-$MICROOVN_BGP_CONTAINER"
         lxc_exec "$MICROOVN_BGP_CONTAINER" "microovn.ovn-nbctl lb-del $lb_name"

@@ -15,6 +15,8 @@ setup() {
 }
 
 teardown() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
+
     if [ "$BATS_TEST_DESCRIPTION" = "ovn-trace" ]; then
         for container in $TEST_CONTAINERS; do
             lxc_exec "$container" "microovn.ovn-nbctl lsp-del ovn-trace-p0"

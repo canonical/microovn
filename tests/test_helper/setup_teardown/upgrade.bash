@@ -141,6 +141,7 @@ setup_file() {
 }
 
 teardown_file() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
     collect_coverage $TEST_CONTAINERS
 
     if [ -n "$UPGRADE_NS_NAME" ] && [ -n "$UPGRADE_VIF_NAME" ]; then

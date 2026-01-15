@@ -16,6 +16,10 @@ setup() {
     assert [ -n "$EXTERNAL_CLUSTER" ]
 }
 
+teardown() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
+}
+
 external_central_register_test_functions() {
     bats_test_function \
         --description "Configure MicroOVN cluster to connect to the external OVN central" \
