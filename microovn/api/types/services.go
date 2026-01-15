@@ -132,6 +132,9 @@ type ExtraBgpConfig struct {
 	// AsnRange is an optional range of RFC 6996 private ASNs [min, max] parsed from user input
 	// from which a unique ASN will be auto-selected (based on cluster member ID)
 	AsnRange [2]uint64 `json:"asn_range,omitempty" yaml:"asn_range,omitempty"`
+	// ManualBgpdConfig if set, skips automatic BIRD daemon configuration, allowing manual BGP daemon configuration.
+	// This was the former default behavior when no ASN was provided
+	ManualBgpdConfig bool `json:"manual_bgpd_config,omitempty" yaml:"manual_bgpd_config,omitempty"`
 }
 
 // BgpExternalConnection represents a parsed structure from ExtraBgpConfig.ExternalConnection string.

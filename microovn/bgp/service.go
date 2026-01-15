@@ -169,6 +169,12 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 		return errors.Join(err, DisableService(ctx, s))
 	}
 
+	// Check if BIRD configuration should be skipped for manual configuration
+	if extraConfig.ManualBgpdConfig {
+		logging.Debugf("Skipping automatic BIRD daemon configuration as per user request")
+		return nil
+	}
+
 	// Autoselect ASN if not provided by the user
 	asn := extraConfig.Asn
 	if asn == "" {

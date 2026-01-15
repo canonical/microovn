@@ -147,7 +147,8 @@ bgp_unnumbered_peering() {
             echo "# Enabling MicroOVN BGP in $container with manual daemon configuration" >&3
             lxc_exec "$container" "microovn enable bgp \
                 --config ext_connection=$external_connections \
-                --config vrf=$vrf"
+                --config vrf=$vrf \
+                --manual-bgpd-config"
 
             echo "# Manually configuring Bird to start BGP daemon on $bgp_iface_1 (ASN $host_asn)" >&3
             microovn_bird_apply_default_config "$container"

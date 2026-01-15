@@ -157,8 +157,14 @@ Manual BGP daemon configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In case that the automatic BIRD configuration provided by MicroOVN does not
-suite your needs, you can just omit the ``--config asn=<ASN>`` option when
-enabling BGP. Without that option, MicroOVN won't configure the built-in
+suit your needs, you can just use the ``--manual-bgpd-config`` flag when
+enabling BGP, for example:
+
+.. code-block:: none
+
+   microovn enable bgp --config ext_connection=eth1,eth2 --manual-bgpd-config
+
+With this flag, MicroOVN won't configure the built-in
 BIRD daemon, Allowing you to perform manual configuration or use entirely
 different BGP daemon.
 
