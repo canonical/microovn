@@ -169,11 +169,27 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 		return errors.Join(err, DisableService(ctx, s))
 	}
 
-	if extraConfig.Asn != "" {
-		err = configureBirdBgp(ctx, s, extConnections, vrfTableID, extraConfig.Asn)
-		if err != nil {
-			return errors.Join(err, DisableService(ctx, s))
+	// Autoselect ASN if not provided by the user
+	asn := extraConfig.Asn
+	if asn == "" {
+		// Determine the ASN range to use
+		asnRange := extraConfig.AsnRange
+		if asnRange[0] == 0 && asnRange[1] == 0 {
+			// The values 4200000000-4209999999 is reserved for lower tier network
+			// infrastructure to enable structured ASN allocation schemes
+			asnRange = [2]uint64{4210000000, 4294967294}
 		}
+
+		asn, err = generateAsnFromClusterMemberID(ctx, s, asnRange)
+		if err != nil {
+			return errors.Join(fmt.Errorf("failed to auto-select ASN: %v", err), DisableService(ctx, s))
+		}
+		logging.Debugf("Auto-selected ASN: %s", asn)
+	}
+
+	err = configureBirdBgp(ctx, s, extConnections, vrfTableID, asn)
+	if err != nil {
+		return errors.Join(err, DisableService(ctx, s))
 	}
 
 	return nil

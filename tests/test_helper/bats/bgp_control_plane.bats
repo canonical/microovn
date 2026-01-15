@@ -142,8 +142,7 @@ bgp_unnumbered_peering() {
         if [ "$autoconfig_bgp" == "yes" ]; then
             echo "# Enabling MicroOVN BGP in $container with automatic daemon configuration (ASN $host_asn)" >&3
             lxc_exec "$container" "microovn enable bgp \
-                --config ext_connection=$external_connections \
-                --config asn=$host_asn"
+                --config ext_connection=$external_connections"
         else
             echo "# Enabling MicroOVN BGP in $container with manual daemon configuration" >&3
             lxc_exec "$container" "microovn enable bgp \

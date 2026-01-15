@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/md5"
+	"database/sql"
 	"errors"
 	"fmt"
 	"math"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/microcluster/v2/cluster"
 	"github.com/canonical/microcluster/v2/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/netplan"
@@ -105,6 +107,42 @@ func generateBGPRouterID(s string) string {
 		routerID += fmt.Sprintf("%d.", hash[i])
 	}
 	return strings.TrimRight(routerID, ".")
+}
+
+// generateAsnFromClusterMemberID generates a unique ASN within the specified range based on the cluster member ID.
+// It uses the cluster member ID from the dqlite database, which is incremental and guaranteed to be unique within the cluster.
+// As a side effect, this will leave gaps of unused IDs in case members are removed from the cluster,
+// but it will prevent the risk of ASN collisions, unless the total number of cluster members joins exceeds the size of the
+// input ASN range. For this reason, a warning is logged if the member ID exceeds the size of the ASN range.
+// Returns the generated ASN as a string, or an error if unable to retrieve the cluster member ID.
+func generateAsnFromClusterMemberID(ctx context.Context, s state.State, asnRange [2]uint64) (string, error) {
+	minAsn := asnRange[0]
+	maxAsn := asnRange[1]
+	rangeSize := maxAsn - minAsn + 1
+
+	// Get the local cluster member ID from the database
+	var memberID int64
+	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var err error
+		memberID, err = cluster.GetCoreClusterMemberID(ctx, tx, s.Name())
+		return err
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to get cluster member ID: %w", err)
+	}
+
+	// Warn if member ID exceeds range size as it may cause collisions
+	if uint64(memberID) > rangeSize {
+		logger.Warnf("%s cluster member ID %d exceeds ASN range size %d. This may cause ASN collisions with other members. "+
+			"Consider using a larger ASN range.",
+			s.Name(),
+			memberID,
+			rangeSize)
+	}
+
+	asn := minAsn + (uint64(memberID) % rangeSize) - 1
+
+	return fmt.Sprintf("%d", asn), nil
 }
 
 // vsctlGetIfExists runs 'ovs-vsctl' get to retrieve record [column [key]] from the
