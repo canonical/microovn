@@ -15,8 +15,7 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/cluster"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/netplan"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
@@ -123,9 +122,16 @@ func generateAsnFromClusterMemberID(ctx context.Context, s state.State, asnRange
 	// Get the local cluster member ID from the database
 	var memberID int64
 	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		var err error
-		memberID, err = cluster.GetCoreClusterMemberID(ctx, tx, s.Name())
-		return err
+		query := `SELECT id FROM core_cluster_members WHERE name = ? LIMIT 1`
+
+		row := tx.QueryRowContext(ctx, query, s.Name())
+		if err := row.Scan(&memberID); err != nil {
+			if err == sql.ErrNoRows {
+				return fmt.Errorf("no cluster member found with name %q", s.Name())
+			}
+			return fmt.Errorf("query failed: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to get cluster member ID: %w", err)

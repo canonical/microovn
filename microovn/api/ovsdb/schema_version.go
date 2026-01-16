@@ -2,22 +2,23 @@ package ovsdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/client"
-	"github.com/canonical/microcluster/v2/rest"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/microcluster/rest"
+	"github.com/canonical/microcluster/v3/microcluster/rest/response"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
+	"github.com/canonical/microcluster/v3/state"
+	"github.com/gorilla/mux"
+
 	"github.com/canonical/microovn/microovn/api/types"
 	microovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/canonical/microovn/microovn/node"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
-	"github.com/gorilla/mux"
-
 	"github.com/canonical/microovn/microovn/ovn/ovsdb"
 )
 
@@ -60,7 +61,7 @@ func getExpectedSchemaVersion(s state.State, r *http.Request) response.Response 
 	expectedVersion, err := ovsdb.ExpectedOvsdbSchemaVersion(r.Context(), s, dbSpec)
 	if err != nil {
 		logger.Errorf("Failed to get expected OVSDB schema version for '%s' database: %s", dbSpec.FriendlyName, err)
-		return response.ErrorResponse(500, "internal server error")
+		return response.InternalError(errors.New("internal server error"))
 	}
 
 	return response.SyncResponse(true, expectedVersion)
@@ -79,7 +80,7 @@ func getAllExpectedSchemaVersions(s state.State, r *http.Request) response.Respo
 	localExpectedVersion, err := ovsdb.ExpectedOvsdbSchemaVersion(r.Context(), s, dbSpec)
 	if err != nil {
 		logger.Errorf("Failed to get expected OVSDB schema version for '%s' database: %s", dbSpec.FriendlyName, err)
-		return response.ErrorResponse(500, "internal server error")
+		return response.InternalError(errors.New("internal server error"))
 	}
 
 	responseData := types.OvsdbSchemaReport{
@@ -91,14 +92,14 @@ func getAllExpectedSchemaVersions(s state.State, r *http.Request) response.Respo
 	}
 
 	// Get clients for each member in the cluster
-	clusterClient, err := s.Cluster(false)
+	clusterClient, err := s.Connect().Cluster(false)
 	if err != nil {
 		logger.Errorf("Failed to get a client for every cluster member: %s", err)
-		return response.ErrorResponse(500, "internal server error")
+		return response.InternalError(errors.New("internal server error"))
 	}
 
 	// Fetch expected schema versions from each cluster member.
-	_ = clusterClient.Query(r.Context(), true, func(ctx context.Context, c *client.Client) error {
+	_ = clusterClient.Query(r.Context(), true, func(ctx context.Context, c microTypes.Client) error {
 		clientURL := c.URL()
 		logger.Debugf("Fetching expected OVN %s schema version from '%s'", dbSpec.FriendlyName, clientURL.String())
 		nodeStatus := types.OvsdbSchemaVersionResult{Host: clientURL.Hostname()}
@@ -124,7 +125,7 @@ func getActiveSchemaVersion(s state.State, r *http.Request) response.Response {
 	hasCentral, err := node.HasServiceActive(r.Context(), s, types.SrvCentral)
 	if err != nil {
 		logger.Errorf("Failed to check if central is active on this node: %s", err)
-		return response.ErrorResponse(500, "internal server error")
+		return response.InternalError(errors.New("internal server error"))
 	}
 
 	dbSpec, errResponse := parseDbSpec(r)
@@ -142,7 +143,7 @@ func getActiveSchemaVersion(s state.State, r *http.Request) response.Response {
 	activeSchema, err := ovnCmd.OvsdbClient(r.Context(), s, dbSpec, 10, 30, "get-schema-version", dbSpec.SocketURL)
 	if err != nil {
 		logger.Errorf("Failed to get active schema version for '%s' database: %s", dbSpec.FriendlyName, err)
-		return response.ErrorResponse(500, "internal server error")
+		return response.InternalError(errors.New("internal server error"))
 	}
 
 	return response.SyncResponse(true, strings.TrimSpace(activeSchema))
@@ -157,13 +158,13 @@ func forwardActiveSchemaVersion(s state.State, r *http.Request, dbSpec *ovnCmd.O
 	centralNodes, err := node.FindService(r.Context(), s, "central")
 	if err != nil {
 		logger.Errorf("Failed to find central node: %s", err)
-		return response.ErrorResponse(500, "internal server error")
+		return response.InternalError(errors.New("internal server error"))
 	}
 
-	clusterClients, err := s.Cluster(false)
+	clusterClients, err := s.Connect().Cluster(false)
 	if err != nil {
 		logger.Errorf("Failed to get cluster clients: %v", err)
-		return response.ErrorResponse(500, "internal server error")
+		return response.InternalError(errors.New("internal server error"))
 	}
 
 	for _, _client := range clusterClients {
@@ -177,7 +178,7 @@ func forwardActiveSchemaVersion(s state.State, r *http.Request, dbSpec *ovnCmd.O
 					dbSpec.FriendlyName,
 					_node.Name,
 				)
-				result, err := microovnClient.GetActiveOvsdbSchemaVersion(r.Context(), &_client, dbSpec)
+				result, err := microovnClient.GetActiveOvsdbSchemaVersion(r.Context(), _client, dbSpec)
 				if err != types.OvsdbSchemaFetchErrorNone {
 					logger.Errorf(
 						"Failed to forward request for active %s schema version to node %s",
@@ -192,7 +193,7 @@ func forwardActiveSchemaVersion(s state.State, r *http.Request, dbSpec *ovnCmd.O
 	}
 
 	logger.Error("None of the central nodes responded to the forwarded query")
-	return response.ErrorResponse(500, "internal server error")
+	return response.InternalError(errors.New("internal server error"))
 }
 
 // parseDbSpec is a helper function that returns OvsdbSpec based on the database name
@@ -203,7 +204,7 @@ func parseDbSpec(r *http.Request) (*ovnCmd.OvsdbSpec, response.Response) {
 	requestedDB, err := url.PathUnescape(mux.Vars(r)["db"])
 	if err != nil {
 		logger.Errorf("Failed to parse requested DB name from url '%s'", r.URL)
-		return nil, response.ErrorResponse(500, "internal server error")
+		return nil, response.InternalError(errors.New("internal server error"))
 	}
 	requestedDB = strings.ToLower(requestedDB)
 
@@ -216,7 +217,7 @@ func parseDbSpec(r *http.Request) (*ovnCmd.OvsdbSpec, response.Response) {
 	dbSpec, err := ovnCmd.NewOvsdbSpec(dbType)
 	if err != nil {
 		logger.Errorf("%s", err)
-		return nil, response.ErrorResponse(500, "internal server error")
+		return nil, response.InternalError(errors.New("internal server error"))
 	}
 	return dbSpec, nil
 }

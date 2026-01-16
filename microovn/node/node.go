@@ -9,8 +9,7 @@ import (
 	"os"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/cluster"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/bgp"
@@ -22,6 +21,13 @@ import (
 	"github.com/canonical/microovn/microovn/ovn/paths"
 	"github.com/canonical/microovn/microovn/snap"
 )
+
+// CoreClusterMember represents a cluster member (minimal struct for our use).
+type CoreClusterMember struct {
+	ID      int
+	Name    string
+	Address string
+}
 
 // DisableService - stop snap service(s) (runtime state) and remove it from the
 // database (desired state).
@@ -76,7 +82,7 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName, a
 	case types.SrvBgp:
 		err = bgp.DisableService(ctx, s)
 	default:
-		deactivateService(service, true)
+		deactivateService(ctx, service, true)
 	}
 
 	return err
@@ -122,7 +128,7 @@ func EnableService(ctx context.Context, s state.State, service types.SrvName, ex
 	case types.SrvBgp:
 		err = bgp.EnableService(ctx, s, extraConfig.BgpConfig)
 	default:
-		err = activateService(service, true)
+		err = activateService(ctx, service, true)
 	}
 
 	if err != nil {
@@ -193,12 +199,27 @@ func HasServiceActive(ctx context.Context, s state.State, serviceName types.SrvN
 }
 
 // FindService returns list of cluster members that have the specified service enabled.
-func FindService(ctx context.Context, s state.State, service types.SrvName) ([]cluster.CoreClusterMember, error) {
-	var membersWithService []cluster.CoreClusterMember
+func FindService(ctx context.Context, s state.State, service types.SrvName) ([]CoreClusterMember, error) {
+	var membersWithService []CoreClusterMember
 
 	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		clusterMembers, err := cluster.GetCoreClusterMembers(ctx, tx)
+		// Query cluster members directly from database
+		rows, err := tx.QueryContext(ctx, "SELECT id, name, address FROM core_cluster_members")
 		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		var clusterMembers []CoreClusterMember
+		for rows.Next() {
+			var member CoreClusterMember
+			if err := rows.Scan(&member.ID, &member.Name, &member.Address); err != nil {
+				return err
+			}
+			clusterMembers = append(clusterMembers, member)
+		}
+
+		if err := rows.Err(); err != nil {
 			return err
 		}
 
@@ -264,7 +285,7 @@ func joinCentral(ctx context.Context, s state.State) error {
 		return fmt.Errorf("failed to generate TLS certificate for ovn-northd service")
 	}
 
-	err = activateService(types.SrvCentral, true)
+	err = activateService(ctx, types.SrvCentral, true)
 	if err != nil {
 		return err
 	}
@@ -320,7 +341,7 @@ func leaveCentral(ctx context.Context, s state.State, lastMember bool) {
 		logger.Warnf("Failed to move Southbound database to backup: %s", err)
 	}
 
-	deactivateService(types.SrvCentral, true)
+	deactivateService(ctx, types.SrvCentral, true)
 }
 
 func leaveChassis(ctx context.Context, s state.State) {
@@ -333,7 +354,7 @@ func leaveChassis(ctx context.Context, s state.State) {
 		logger.Warnf("Failed to gracefully stop OVN Controller: %s", err)
 	}
 
-	deactivateService(types.SrvChassis, true)
+	deactivateService(ctx, types.SrvChassis, true)
 }
 
 func joinChassis(ctx context.Context, s state.State) error {
@@ -342,7 +363,7 @@ func joinChassis(ctx context.Context, s state.State) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate TLS certificate for ovn-controller service")
 	}
-	return activateService(types.SrvChassis, true)
+	return activateService(ctx, types.SrvChassis, true)
 }
 
 // DisableAllServices is a function to disable alot of services
@@ -356,30 +377,30 @@ func DisableAllServices(ctx context.Context, s state.State) error {
 	return nil
 }
 
-func activateService(service types.SrvName, enable bool) error {
+func activateService(ctx context.Context, service types.SrvName, enable bool) error {
 	switch service {
 	case types.SrvCentral:
-		err := snap.Start("ovn-ovsdb-server-nb", enable)
+		err := snap.Start(ctx, "ovn-ovsdb-server-nb", enable)
 		if err != nil {
 			return fmt.Errorf("failed to start OVN NB: %w", err)
 		}
 
-		err = snap.Start("ovn-ovsdb-server-sb", enable)
+		err = snap.Start(ctx, "ovn-ovsdb-server-sb", enable)
 		if err != nil {
 			return fmt.Errorf("failed to start OVN SB: %w", err)
 		}
 
-		err = snap.Start("ovn-northd", enable)
+		err = snap.Start(ctx, "ovn-northd", enable)
 		if err != nil {
 			return fmt.Errorf("failed to start OVN northd: %w", err)
 		}
 	case types.SrvChassis:
-		err := snap.Start("chassis", enable)
+		err := snap.Start(ctx, "chassis", enable)
 		if err != nil {
 			return fmt.Errorf("failed to start OVN chassis: %w", err)
 		}
 	default:
-		err := snap.Start(service, enable)
+		err := snap.Start(ctx, service, enable)
 		if err != nil {
 			return fmt.Errorf("snapctl error, likely due to service not existing:\n%w", err)
 		}
@@ -387,30 +408,30 @@ func activateService(service types.SrvName, enable bool) error {
 	return nil
 }
 
-func deactivateService(service types.SrvName, disable bool) {
+func deactivateService(ctx context.Context, service types.SrvName, disable bool) {
 	switch service {
 	case types.SrvCentral:
-		err := snap.Stop("ovn-northd", disable)
+		err := snap.Stop(ctx, "ovn-northd", disable)
 		if err != nil {
 			logger.Warnf("Failed to stop OVN northd: %s", err)
 		}
 
-		err = snap.Stop("ovn-ovsdb-server-nb", disable)
+		err = snap.Stop(ctx, "ovn-ovsdb-server-nb", disable)
 		if err != nil {
 			logger.Warnf("Failed to stop OVN NB: %s", err)
 		}
 
-		err = snap.Stop("ovn-ovsdb-server-sb", disable)
+		err = snap.Stop(ctx, "ovn-ovsdb-server-sb", disable)
 		if err != nil {
 			logger.Warnf("Failed to stop OVN SB: %s", err)
 		}
 	case types.SrvChassis:
-		err := snap.Stop("chassis", disable)
+		err := snap.Stop(ctx, "chassis", disable)
 		if err != nil {
 			logger.Warnf("Failed to stop OVN chassis: %s", err)
 		}
 	default:
-		err := snap.Stop(service, disable)
+		err := snap.Stop(ctx, service, disable)
 		if err != nil {
 			logger.Warnf("Snapctl error, likely due to service not existing:\n%s", err)
 		}
@@ -428,7 +449,7 @@ func ActivateEnabledServices(ctx context.Context, s state.State, enable bool) er
 			return err
 		}
 		for _, srv := range services {
-			err = activateService(srv.Service, enable)
+			err = activateService(ctx, srv.Service, enable)
 			if err != nil {
 				return err
 			}

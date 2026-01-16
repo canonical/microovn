@@ -1,15 +1,16 @@
 package certificates
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/rest"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/microcluster/rest"
+	"github.com/canonical/microcluster/v3/microcluster/rest/response"
+	"github.com/canonical/microcluster/v3/state"
 	"github.com/gorilla/mux"
 
 	"github.com/canonical/microovn/microovn/api/types"
@@ -30,7 +31,7 @@ func issueCertificatesPut(s state.State, r *http.Request) response.Response {
 	requestedService, err := url.PathUnescape(mux.Vars(r)["service"])
 	if err != nil {
 		logger.Errorf("Failed to parse service name from URL '%s'", r.URL)
-		return response.ErrorResponse(500, "internal server error")
+		return response.InternalError(errors.New("internal server error"))
 	}
 	logger.Infof("Issuing new certificate for '%s' service.", requestedService)
 
@@ -38,7 +39,7 @@ func issueCertificatesPut(s state.State, r *http.Request) response.Response {
 	eligibleServices, err := enabledOvnServices(r.Context(), s)
 	if err != nil {
 		logger.Errorf("Failed to lookup local services eligible for certificate refresh: %s", err)
-		return response.ErrorResponse(500, "internal server error.")
+		return response.InternalError(errors.New("internal server error"))
 	}
 
 	isCertificateAllowed := false
@@ -57,7 +58,7 @@ func issueCertificatesPut(s state.State, r *http.Request) response.Response {
 			strings.Join(eligibleServices, ", "),
 		)
 		logger.Warn(missingMsg)
-		return response.ErrorResponse(404, missingMsg)
+		return response.NotFound(errors.New(missingMsg))
 	}
 
 	// Attempt to issue new certificate and return response object

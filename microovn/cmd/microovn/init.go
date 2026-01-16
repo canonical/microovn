@@ -10,10 +10,9 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
-	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/validate"
-	"github.com/canonical/microcluster/v2/microcluster"
+	"github.com/canonical/microcluster/v3/microcluster"
 	microovnAPI "github.com/canonical/microovn/microovn/api"
 	"github.com/spf13/cobra"
 )
@@ -97,13 +96,8 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	lc, err := m.LocalClient()
-	if err != nil {
-		return err
-	}
-
 	// Check if already initialized.
-	_, err = lc.GetClusterMembers(context.Background())
+	_, err = m.GetClusterMembers(context.Background())
 	isUninitialized := err != nil && api.StatusErrorCheck(err, http.StatusServiceUnavailable)
 	if err != nil && !isUninitialized {
 		return err
@@ -111,7 +105,7 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 
 	// User interaction.
 	mode := "existing"
-	customEncapsulationIPSupported := shared.ValueInSlice("custom_encapsulation_ip", microovnAPI.Extensions())
+	customEncapsulationIPSupported := slices.Contains(microovnAPI.Extensions(), "custom_encapsulation_ip")
 
 	if isUninitialized {
 		// Get system name.

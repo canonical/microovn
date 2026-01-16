@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/client"
-	"github.com/canonical/microcluster/v2/rest"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/microcluster/rest"
+	"github.com/canonical/microcluster/v3/microcluster/rest/response"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
+	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	microovnClient "github.com/canonical/microovn/microovn/client"
@@ -41,7 +41,7 @@ func infoCaGet(s state.State, r *http.Request) response.Response {
 func regenerateCaPut(s state.State, r *http.Request) response.Response {
 	responseData := types.NewRegenerateCaResponse()
 	// Only one recipient of this request needs to update the CA in the shared DB
-	if !client.IsNotification(r) {
+	if !microTypes.IsNotification(r) {
 		logger.Info("Re-issuing CA certificate and private key")
 		CaUpdate, err := certificates.GenerateNewCACertificate(r.Context(), s)
 		if err != nil {
@@ -62,7 +62,7 @@ func regenerateCaPut(s state.State, r *http.Request) response.Response {
 func setCaPost(s state.State, r *http.Request) response.Response {
 	responseData := types.NewRegenerateCaResponse()
 	// Only one recipient of this request needs to update the CA in the shared DB
-	if !client.IsNotification(r) {
+	if !microTypes.IsNotification(r) {
 		var err error
 		logger.Info("Updating CA certificate and private key from user provided data")
 		var customCaRequest types.CustomCaRequest
@@ -90,20 +90,20 @@ func updateOvnClusterCertificates(s state.State, r *http.Request, responseData *
 	var err error
 	// If this is the initial node that received the request, notify the rest of the nodes
 	// in the cluster to update their OVN certificates
-	if !client.IsNotification(r) {
+	if !microTypes.IsNotification(r) {
 		if !responseData.NewCa {
 			logger.Info("Cluster certificates do not need updating")
 			return response.SyncResponse(true, &responseData)
 		}
 		// Get clients for rest of the cluster members
-		cluster, err := s.Cluster(true)
+		cluster, err := s.Connect().Cluster(true)
 		if err != nil {
 			logger.Errorf("Failed to get a client for every cluster member: %v", err)
 			return response.SyncResponse(false, &responseData)
 		}
 
 		// Bump rest of the cluster members to reissue their certificates with new CA
-		err = cluster.Query(r.Context(), true, func(ctx context.Context, c *client.Client) error {
+		err = cluster.Query(r.Context(), true, func(ctx context.Context, c microTypes.Client) error {
 			clientURL := c.URL()
 			logger.Infof("Requesting cluster member at '%s' to re-issue its OVN certificates", clientURL.String())
 			result, err := microovnClient.RegenerateCA(ctx, c)
