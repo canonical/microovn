@@ -142,14 +142,13 @@ bgp_unnumbered_peering() {
         if [ "$autoconfig_bgp" == "yes" ]; then
             echo "# Enabling MicroOVN BGP in $container with automatic daemon configuration (ASN $host_asn)" >&3
             lxc_exec "$container" "microovn enable bgp \
-                --config ext_connection=$external_connections \
-                --config vrf=$vrf \
-                --config asn=$host_asn"
+                --config ext_connection=$external_connections"
         else
             echo "# Enabling MicroOVN BGP in $container with manual daemon configuration" >&3
             lxc_exec "$container" "microovn enable bgp \
                 --config ext_connection=$external_connections \
-                --config vrf=$vrf"
+                --config vrf=$vrf \
+                --manual-bgpd-config"
 
             echo "# Manually configuring Bird to start BGP daemon on $bgp_iface_1 (ASN $host_asn)" >&3
             microovn_bird_apply_default_config "$container"

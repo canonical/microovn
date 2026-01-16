@@ -139,6 +139,16 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 		logging.Errorf("Failed to parse external connections: %v", err)
 	}
 
+	// Auto-select VRF table ID if not provided by the user
+	vrfTableID := extraConfig.Vrf
+	if vrfTableID == "" {
+		vrfTableID, err = findAvailableVrfTableID(ctx, s)
+		if err != nil {
+			return errors.Join(fmt.Errorf("failed to auto-select VRF table ID: %v", err), DisableService(ctx, s))
+		}
+		logging.Debugf("Auto-selected VRF table ID: %s", vrfTableID)
+	}
+
 	err = createExternalBridges(ctx, s, extConnections)
 	if err != nil {
 		return errors.Join(err, DisableService(ctx, s))
@@ -149,21 +159,43 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 		return errors.Join(err, DisableService(ctx, s))
 	}
 
-	err = createVrf(ctx, s, extConnections, extraConfig.Vrf)
+	err = createVrf(ctx, s, extConnections, vrfTableID)
 	if err != nil {
 		return errors.Join(err, DisableService(ctx, s))
 	}
 
-	err = redirectBgp(ctx, s, extConnections, extraConfig.Vrf)
+	err = redirectBgp(ctx, s, extConnections, vrfTableID)
 	if err != nil {
 		return errors.Join(err, DisableService(ctx, s))
 	}
 
-	if extraConfig.Asn != "" {
-		err = configureBirdBgp(ctx, s, extConnections, extraConfig.Vrf, extraConfig.Asn)
-		if err != nil {
-			return errors.Join(err, DisableService(ctx, s))
+	// Check if BIRD configuration should be skipped for manual configuration
+	if extraConfig.ManualBgpdConfig {
+		logging.Debugf("Skipping automatic BIRD daemon configuration as per user request")
+		return nil
+	}
+
+	// Autoselect ASN if not provided by the user
+	asn := extraConfig.Asn
+	if asn == "" {
+		// Determine the ASN range to use
+		asnRange := extraConfig.AsnRange
+		if asnRange[0] == 0 && asnRange[1] == 0 {
+			// The values 4200000000-4209999999 is reserved for lower tier network
+			// infrastructure to enable structured ASN allocation schemes
+			asnRange = [2]uint64{4210000000, 4294967294}
 		}
+
+		asn, err = generateAsnFromClusterMemberID(ctx, s, asnRange)
+		if err != nil {
+			return errors.Join(fmt.Errorf("failed to auto-select ASN: %v", err), DisableService(ctx, s))
+		}
+		logging.Debugf("Auto-selected ASN: %s", asn)
+	}
+
+	err = configureBirdBgp(ctx, s, extConnections, vrfTableID, asn)
+	if err != nil {
+		return errors.Join(err, DisableService(ctx, s))
 	}
 
 	return nil

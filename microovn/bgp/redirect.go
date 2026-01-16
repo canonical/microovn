@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"context"
 	"crypto/md5"
+	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"slices"
 	"strings"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
+	"github.com/canonical/microcluster/v2/cluster"
 	"github.com/canonical/microcluster/v2/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/netplan"
@@ -106,6 +109,42 @@ func generateBGPRouterID(s string) string {
 	return strings.TrimRight(routerID, ".")
 }
 
+// generateAsnFromClusterMemberID generates a unique ASN within the specified range based on the cluster member ID.
+// It uses the cluster member ID from the dqlite database, which is incremental and guaranteed to be unique within the cluster.
+// As a side effect, this will leave gaps of unused IDs in case members are removed from the cluster,
+// but it will prevent the risk of ASN collisions, unless the total number of cluster members joins exceeds the size of the
+// input ASN range. For this reason, a warning is logged if the member ID exceeds the size of the ASN range.
+// Returns the generated ASN as a string, or an error if unable to retrieve the cluster member ID.
+func generateAsnFromClusterMemberID(ctx context.Context, s state.State, asnRange [2]uint64) (string, error) {
+	minAsn := asnRange[0]
+	maxAsn := asnRange[1]
+	rangeSize := maxAsn - minAsn + 1
+
+	// Get the local cluster member ID from the database
+	var memberID int64
+	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var err error
+		memberID, err = cluster.GetCoreClusterMemberID(ctx, tx, s.Name())
+		return err
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to get cluster member ID: %w", err)
+	}
+
+	// Warn if member ID exceeds range size as it may cause collisions
+	if uint64(memberID) > rangeSize {
+		logger.Warnf("%s cluster member ID %d exceeds ASN range size %d. This may cause ASN collisions with other members. "+
+			"Consider using a larger ASN range.",
+			s.Name(),
+			memberID,
+			rangeSize)
+	}
+
+	asn := minAsn + (uint64(memberID) % rangeSize) - 1
+
+	return fmt.Sprintf("%d", asn), nil
+}
+
 // vsctlGetIfExists runs 'ovs-vsctl' get to retrieve record [column [key]] from the
 // specified table. Returned string has whitespace and quotations trimmed.
 // If the 'ovs-vsctl' command failed due to the "key" not being found in "column",
@@ -175,6 +214,68 @@ func checkKernelModule(moduleName string) error {
 		return fmt.Errorf("%s kernel module missing or not loaded", moduleName)
 	}
 	return nil
+}
+
+// getUsedVrfTableIDs queries system routing tables and VRF tables to find all currently used table IDs.
+// Returns a map of used table IDs and an error if unable to query the system.
+func getUsedVrfTableIDs(ctx context.Context) (map[int]bool, error) {
+	// Reserve special table IDs (local, main, default)
+	usedTableIDs := map[int]bool{253: true, 254: true, 255: true}
+
+	// Check system VRF tables to avoid conflicts with existing VRFs
+	vrfOutput, err := shared.RunCommandContext(
+		ctx,
+		"sh",
+		"-c",
+		"ip -j vrf show | jq '.[] | objects | .table'")
+	if err != nil {
+		return nil, fmt.Errorf("failed to query existing VRF table IDs: %v", err)
+	}
+
+	// Check non-empty routing tables in the system to avoid conflicts
+	routeOutput, err := shared.RunCommandContext(
+		ctx,
+		"sh",
+		"-c",
+		"ip -j -d -N route show table all | jq -r '.[] | objects | .table' | sort | uniq")
+	if err != nil {
+		return nil, fmt.Errorf("failed to query existing routing tables: %v", err)
+	}
+
+	// Parse the output to find table IDs
+	vrfLines := strings.Split(vrfOutput, "\n")
+	routeLines := strings.Split(routeOutput, "\n")
+	routeLines = append(routeLines, vrfLines...)
+	for _, line := range routeLines {
+		var id int
+		if _, err := fmt.Sscanf(line, "%d", &id); err == nil {
+			usedTableIDs[id] = true
+		}
+	}
+
+	return usedTableIDs, nil
+}
+
+// findAvailableVrfTableID returns the first available VRF Table ID.
+// It finds the currently used Table IDs from system routing tables, and returns the lowest available ID,
+// with a minimum value of 10 if no ID is in use.
+// Returns error if unable to query the database or system or the possible table IDs are all in use.
+func findAvailableVrfTableID(ctx context.Context, s state.State) (string, error) {
+	const minID = 10
+
+	usedTableIDs, err := getUsedVrfTableIDs(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Find first available table ID
+	for i := minID; i <= math.MaxUint32; i++ {
+		if !usedTableIDs[i] {
+			return fmt.Sprintf("%d", i), nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to find an available VRF table ID")
 }
 
 // createExternalBridges sets up OVS bridge for each external connection defined in "extConnections" argument.
@@ -296,7 +397,7 @@ func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExt
 		s,
 		"set", "Logical_Router", lrName,
 		"options:dynamic-routing=true",
-		fmt.Sprintf("options:requested-tnl-key=%s", tableID),
+		fmt.Sprintf("options:dynamic-routing-vrf-id=%s", tableID),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create vrf for LR '%s': %v", lrName, err)
