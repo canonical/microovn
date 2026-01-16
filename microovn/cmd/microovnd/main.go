@@ -3,12 +3,13 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"os"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/microcluster"
-	"github.com/canonical/microcluster/v2/rest/types"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/microcluster"
+	"github.com/canonical/microcluster/v3/microcluster/types"
+	"github.com/canonical/microcluster/v3/state"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microovn/microovn/api"
@@ -59,8 +60,17 @@ func (c *cmdDaemon) Command() *cobra.Command {
 }
 
 func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
+	logLevel := slog.LevelInfo
+	if c.global.flagLogDebug {
+		logLevel = slog.LevelDebug
+	}
 
-	m, err := microcluster.App(microcluster.Args{StateDir: c.flagStateDir})
+	// Create our own logging handler to modify the log level and output.
+	logHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: logLevel,
+	})
+
+	m, err := microcluster.App(microcluster.Args{StateDir: c.flagStateDir, LogHandler: logHandler})
 	if err != nil {
 		return err
 	}
@@ -83,8 +93,6 @@ func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
 	h.OnStart = ovn.Start
 
 	daemonArgs := microcluster.DaemonArgs{
-		Verbose:          c.global.flagLogVerbose,
-		Debug:            c.global.flagLogDebug,
 		Version:          version.MajorVersion(version.OvnVersion),
 		ExtensionsSchema: database.SchemaExtensions,
 		APIExtensions:    api.Extensions(),

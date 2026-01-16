@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/node"
@@ -58,7 +58,7 @@ func refresh(ctx context.Context, s state.State) error {
 
 	// Restart OVN Northd service to account for NB/SB cluster changes.
 	if hasCentral {
-		err = snap.Restart("ovn-northd")
+		err = snap.Restart(ctx, "ovn-northd")
 		if err != nil {
 			return fmt.Errorf("failed to restart OVN northd: %w", err)
 		}

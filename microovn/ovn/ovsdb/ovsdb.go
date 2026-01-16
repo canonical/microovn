@@ -10,8 +10,8 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/client"
-	"github.com/canonical/microcluster/v2/state"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
+	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	microovnClient "github.com/canonical/microovn/microovn/client"
@@ -132,7 +132,7 @@ func isNodeUpgradeLeader(ctx context.Context, s state.State) (bool, error) {
 // This function scans every cluster member, regardless of whether they are running "central" services or not. This
 // ensures that even cluster members that are running on "chassis" service are prepared for the schema upgrade.
 func isClusterUpgradeReady(ctx context.Context, s state.State, dbSpec *ovnCmd.OvsdbSpec, targetVersion string) (bool, error) {
-	clusterClient, err := s.Cluster(false)
+	clusterClient, err := s.Connect().Cluster(false)
 	if err != nil {
 		return false, fmt.Errorf("failed to get a client for every cluster member: %w", err)
 	}
@@ -140,7 +140,7 @@ func isClusterUpgradeReady(ctx context.Context, s state.State, dbSpec *ovnCmd.Ov
 	results := map[string]string{}
 
 	// Gather expected schema version from every member in the cluster via their API.
-	err = clusterClient.Query(ctx, true, func(ctx context.Context, c *client.Client) error {
+	err = clusterClient.Query(ctx, true, func(ctx context.Context, c microTypes.Client) error {
 		clientURL := c.URL()
 		clientURLString := clientURL.String()
 		logger.Debugf("Requesting OVSDB %s schema status from '%s'", dbSpec.FriendlyName, clientURLString)
