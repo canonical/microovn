@@ -71,11 +71,15 @@ func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
 	h := &state.Hooks{}
 	h.PostBootstrap = ovn.Bootstrap
 	h.PreJoin = ovn.Join
-	h.OnNewMember = func(ctx context.Context, s state.State, _ types.ClusterMemberLocal) error {
-		return ovn.Refresh(shutdownCtx, ctx, s)
+	h.OnNewMember = func(ctx context.Context, s state.State, newMember types.ClusterMemberLocal) error {
+		ovn.Refresh(ctx, s)
+		return nil
 	}
 	h.PreRemove = ovn.Leave
-	h.PostRemove = func(ctx context.Context, s state.State, _ bool) error { return ovn.Refresh(shutdownCtx, ctx, s) }
+	h.PostRemove = func(ctx context.Context, s state.State, _ bool) error {
+		ovn.Refresh(ctx, s)
+		return nil
+	}
 	h.OnStart = ovn.Start
 
 	daemonArgs := microcluster.DaemonArgs{

@@ -26,7 +26,6 @@ var RegenerateEnvEndpoint = rest.Endpoint{
 // This function triggers and environment update on all MicroOVN cluster members.
 // This is typically to be used with enabling and disabling entral services.
 func regenerateEnvPost(s state.State, r *http.Request) response.Response {
-	var err error
 	responseData := types.NewRegenerateEnvResponse()
 
 	// Check that this is the initial node to recive this request
@@ -61,10 +60,6 @@ func regenerateEnvPost(s state.State, r *http.Request) response.Response {
 
 	logger.Info("Regenerating environment file")
 
-	err = ovn.Refresh(context.Background(), r.Context(), s)
-	if err != nil {
-		logger.Errorf("Failed to refresh environment: %s", err)
-		return response.SyncResponse(false, &responseData)
-	}
+	ovn.Refresh(r.Context(), s)
 	return response.SyncResponse(true, &responseData)
 }
