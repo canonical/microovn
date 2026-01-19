@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/node"
@@ -16,16 +16,11 @@ import (
 )
 
 // Refresh will update the existing OVN central and OVS switch configs.
-func Refresh(shutdownCtx context.Context, _ context.Context, s state.State) error {
-	// Don't block the caller on a refresh as we may build a backlog.
-	go func(ctx context.Context, s state.State) {
-		err := refresh(ctx, s)
-		if err != nil {
-			logger.Errorf("Failed to refresh configuration: %v", err)
-		}
-	}(shutdownCtx, s)
-
-	return nil
+func Refresh(ctx context.Context, s state.State) {
+	err := refresh(ctx, s)
+	if err != nil {
+		logger.Errorf("Failed to refresh configuration: %v", err)
+	}
 }
 
 func refresh(ctx context.Context, s state.State) error {
@@ -63,7 +58,7 @@ func refresh(ctx context.Context, s state.State) error {
 
 	// Restart OVN Northd service to account for NB/SB cluster changes.
 	if hasCentral {
-		err = snap.Restart("ovn-northd")
+		err = snap.Restart(ctx, "ovn-northd")
 		if err != nil {
 			return fmt.Errorf("failed to restart OVN northd: %w", err)
 		}

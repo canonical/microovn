@@ -15,8 +15,7 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/cluster"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/config"
 	"github.com/canonical/microovn/microovn/database"
@@ -79,27 +78,34 @@ func defaultRemoteAddresses(ctx context.Context, s state.State) ([]string, error
 			return err
 		}
 
-		clusterMembers, err := cluster.GetCoreClusterMembers(ctx, tx)
+		// Query core cluster members directly from the database
+		rows, err := tx.QueryContext(ctx, "SELECT name, address FROM core_cluster_members")
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
 
-		for _, clusterMember := range clusterMembers {
+		for rows.Next() {
+			var name, address string
+			if err := rows.Scan(&name, &address); err != nil {
+				return err
+			}
+
 			for _, server := range servers {
-				if server.Member == clusterMember.Name {
-					parsedAddr, err := netip.ParseAddrPort(clusterMember.Address)
+				if server.Member == name {
+					parsedAddr, err := netip.ParseAddrPort(address)
 					if err != nil {
 						return err
 					}
-					// clusterMember.Address is a string containing an IP address and a
-					// Port. We need to parse it into a raw address string
+					// address is a string containing an IP address and a Port.
+					// We need to parse it into a raw address string
 					addrList = append(addrList, parsedAddr.Addr().String())
 					break
 				}
 			}
 		}
 
-		return nil
+		return rows.Err()
 	})
 	return addrList, err
 }

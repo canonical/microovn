@@ -328,9 +328,9 @@ parts:
       # golangci-lint is currently not available on all architectures.
       # (alexmurray/golangci-lint-snap#3)
       - to riscv64:
-        - go/1.22/stable
+        - go/1.25/stable
       - else:
-        - go/1.22/stable
+        - go/1.25/stable
         - golangci-lint
     plugin: nil
     override-pull: |

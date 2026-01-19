@@ -9,7 +9,7 @@ import (
 	"text/template"
 
 	"github.com/canonical/lxd/shared"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 	"github.com/canonical/microovn/microovn/snap"
@@ -123,7 +123,7 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 		}
 	}
 
-	err := snap.Start(BirdService, true)
+	err := snap.Start(ctx, BirdService, true)
 	if err != nil {
 		logging.Errorf("Failed to start %s service: %s", BirdService, err)
 		err = errors.New("failed to start BGP service")
@@ -205,7 +205,7 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 func DisableService(ctx context.Context, s state.State) error {
 	var allErrors error
 
-	err := snap.Stop(BirdService, true)
+	err := snap.Stop(ctx, BirdService, true)
 	if err != nil {
 		logging.Warnf("Failed to stop %s service: %s", BirdService, err)
 		allErrors = errors.Join(allErrors, errors.New("failed to stop BGP service"))

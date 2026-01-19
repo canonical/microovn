@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/canonical/microcluster/v2/microcluster"
+	"github.com/canonical/microcluster/v3/microcluster"
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/client"
 	"github.com/canonical/microovn/microovn/ovn/paths"
@@ -89,7 +89,7 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	if caInfo.Error != "" {
-		return fmt.Errorf(caInfo.Error)
+		return fmt.Errorf("%s", caInfo.Error)
 	}
 	expectedCertificates.Ca = &caCertInfo{
 		Cert:      paths.PkiCaCertFile(),
