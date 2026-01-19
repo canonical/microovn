@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-
-	"github.com/canonical/microcluster/v2/microcluster"
-	"github.com/canonical/microovn/microovn/api/config"
+	
+  "github.com/canonical/microcluster/v3/microcluster"
+  "github.com/canonical/microovn/microovn/api/config"
 	"github.com/canonical/microovn/microovn/client"
 	"github.com/spf13/cobra"
 )

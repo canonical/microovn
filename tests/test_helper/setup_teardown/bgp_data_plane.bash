@@ -72,6 +72,7 @@ setup_file() {
 
 
 teardown_file() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
     collect_coverage $TEST_CONTAINERS
     delete_containers "$TEST_CONTAINER $BGP_PEER $EXT_HOST"
     delete_lxd_network "$BGP_INT_NET"

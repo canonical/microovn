@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/rest"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/microcluster/rest"
+	"github.com/canonical/microcluster/v3/microcluster/rest/response"
+	"github.com/canonical/microcluster/v3/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	microOvnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/canonical/microovn/microovn/config"
@@ -63,7 +63,7 @@ func setConfig(s state.State, r *http.Request) response.Response {
 	if handler != nil {
 		err = handler(r.Context(), s, configRequest.Key, configRequest.Value)
 		if err != nil {
-			logger.Errorf(err.Error())
+			logger.Errorf("%s", err.Error())
 			configResponse.Error = fmt.Sprintf("Error occurred while handling config change: %v", err)
 			return response.SyncResponse(false, &configResponse)
 		}
@@ -117,7 +117,7 @@ func deleteConfig(s state.State, r *http.Request) response.Response {
 	if handler != nil {
 		err = handler(r.Context(), s, configRequest.Key, "")
 		if err != nil {
-			logger.Errorf(err.Error())
+			logger.Errorf("%s", err.Error())
 			configResponse.Error = fmt.Sprintf("Error occurred while handling config change: %v", err)
 		}
 	}
@@ -182,7 +182,7 @@ func parseConfigRequest(r *http.Request, parsedData any) (configHandler, error) 
 func ovnCentralIpsUpdated(ctx context.Context, s state.State, key string, _ string) error {
 	errMsgPrefix := fmt.Sprintf("handling of '%s' config failed.", key)
 
-	client, err := s.Leader()
+	client, err := s.Connect().Leader(false)
 	if err != nil {
 		logger.Errorf("failed to trigger OVN environment refresh. %v", err)
 		errMsg := fmt.Sprintf(
@@ -196,7 +196,7 @@ func ovnCentralIpsUpdated(ctx context.Context, s state.State, key string, _ stri
 	refreshResponse, err := microOvnClient.RegenerateEnvironment(ctx, client)
 	if err != nil || !refreshResponse.Success {
 		logger.Errorf("failed to refresh OVN environment. %v", err)
-		logger.Errorf(strings.Join(refreshResponse.Errors, "\n"))
+		logger.Errorf("%s", strings.Join(refreshResponse.Errors, "\n"))
 		errMsg := fmt.Sprintf(
 			"%s Failed to trigger environment update in the OVN cluster. "+
 				"Cluster may be in inconsistent state! Please see logs for more details.",

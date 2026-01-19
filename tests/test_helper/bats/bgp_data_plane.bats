@@ -17,6 +17,10 @@ setup() {
     assert [ -n "$EXT_HOST" ]
 }
 
+teardown() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
+}
+
 bgp_data_plane_register_test_functions() {
     bats_test_function \
         --description "Test connectivity from External network via TOR to OVN NAT IP" \

@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/canonical/lxd/lxd/response"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v2/rest"
-	"github.com/canonical/microcluster/v2/state"
+	"github.com/canonical/microcluster/v3/microcluster/rest"
+	"github.com/canonical/microcluster/v3/microcluster/rest/response"
+	"github.com/canonical/microcluster/v3/state"
 	"github.com/gorilla/mux"
 
 	"github.com/canonical/microovn/microovn/api/types"
@@ -33,7 +33,7 @@ func enableService(s state.State, r *http.Request) response.Response {
 	requestedService, err := url.PathUnescape(mux.Vars(r)["service"])
 	if err != nil {
 		logger.Errorf("Failed to get service: %s", err)
-		return response.ErrorResponse(500, "internal server error")
+		return response.InternalError(errors.New("internal server error"))
 	}
 	if !types.CheckValidService(requestedService) {
 		return response.InternalError(errors.New("service does not exist"))
@@ -54,7 +54,7 @@ func enableService(s state.State, r *http.Request) response.Response {
 	scr.Warnings, err = node.ServiceWarnings(r.Context(), s)
 	if err != nil {
 		logger.Errorf("Failed to generate warnings for service: %s: %s", requestedService, err)
-		return response.ErrorResponse(500, "internal server error")
+		return response.InternalError(errors.New("internal server error"))
 	}
 	scr.Message = requestedService + " enabled"
 
@@ -70,7 +70,7 @@ func disableService(s state.State, r *http.Request) response.Response {
 	requestedService, err := url.PathUnescape(mux.Vars(r)["service"])
 	if err != nil {
 		logger.Errorf("Failed to get service: %s", err)
-		return response.ErrorResponse(500, "internal server error")
+		return response.InternalError(errors.New("internal server error"))
 	}
 
 	if !types.CheckValidService(requestedService) {
@@ -80,7 +80,7 @@ func disableService(s state.State, r *http.Request) response.Response {
 	var requestData types.DisableServiceRequest
 	err = json.NewDecoder(r.Body).Decode(&requestData)
 	if err != nil {
-		return response.ErrorResponse(500, fmt.Sprintf("failed to decode request: %v", err))
+		return response.InternalError(fmt.Errorf("failed to decode request: %w", err))
 	}
 
 	err = node.DisableService(r.Context(), s, requestedService, requestData.AllowDisableLastCentral)
@@ -92,7 +92,7 @@ func disableService(s state.State, r *http.Request) response.Response {
 	scr.Warnings, err = node.ServiceWarnings(r.Context(), s)
 	if err != nil {
 		logger.Errorf("Failed to generate warnings for service: %s: %s", requestedService, err)
-		return response.ErrorResponse(500, "internal server error")
+		return response.InternalError(errors.New("internal server error"))
 	}
 	scr.Message = requestedService + " disabled"
 

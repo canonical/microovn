@@ -7,12 +7,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/canonical/microcluster/v2/microcluster"
+	"github.com/canonical/microcluster/v3/microcluster"
 	"github.com/canonical/microovn/microovn/api/types"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/spf13/cobra"
 
-	microClusterClient "github.com/canonical/microcluster/v2/client"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/canonical/microovn/microovn/client"
 )
 
@@ -48,7 +48,7 @@ func (c *cmdStatus) Run(_ *cobra.Command, _ []string) error {
 	}
 
 	// Get cluster members.
-	clusterMembers, err := cli.GetClusterMembers(context.Background())
+	clusterMembers, err := m.GetClusterMembers(context.Background())
 	if err != nil {
 		return err
 	}
@@ -73,21 +73,21 @@ func (c *cmdStatus) Run(_ *cobra.Command, _ []string) error {
 
 	// Get OVN clustered DB schema version status
 	fmt.Println("OVN Database summary:")
-	reportOvsdbSchemaStatus(cli, ovnCmd.OvsdbTypeNBLocal)
-	reportOvsdbSchemaStatus(cli, ovnCmd.OvsdbTypeSBLocal)
+	reportOvsdbSchemaStatus(m, &cli, ovnCmd.OvsdbTypeNBLocal)
+	reportOvsdbSchemaStatus(m, &cli, ovnCmd.OvsdbTypeSBLocal)
 	return nil
 }
 
 // reportOvsdbSchemaStatus fetches currently active schema version and list of expected schema version from each
 // node in the deployment. Based on the results it then prints a report for the user.
-func reportOvsdbSchemaStatus(cli *microClusterClient.Client, ovsdbType ovnCmd.OvsdbType) {
+func reportOvsdbSchemaStatus(m *microcluster.MicroCluster, cli *microTypes.Client, ovsdbType ovnCmd.OvsdbType) {
 	ovnDB, err := ovnCmd.NewOvsdbSpec(ovsdbType)
 	if err != nil {
 		printOvsdbSummaryError(err, nil)
 		return
 	}
 
-	activeSchema, errType := client.GetActiveOvsdbSchemaVersion(context.Background(), cli, ovnDB)
+	activeSchema, errType := client.GetActiveOvsdbSchemaVersion(context.Background(), *cli, ovnDB)
 	if errType != types.OvsdbSchemaFetchErrorNone {
 		printOvsdbSummaryError(
 			fmt.Errorf("failed to get OVN %s active schema version", ovnDB.FriendlyName),
@@ -95,7 +95,7 @@ func reportOvsdbSchemaStatus(cli *microClusterClient.Client, ovsdbType ovnCmd.Ov
 		)
 	}
 
-	expectedSchemas, err := client.GetAllExpectedOvsdbSchemaVersions(context.Background(), cli, ovnDB)
+	expectedSchemas, err := client.GetAllExpectedOvsdbSchemaVersions(context.Background(), *cli, ovnDB)
 	if err != nil {
 		printOvsdbSummaryError(
 			fmt.Errorf("failed to get expected OVN %s schema versions", ovnDB.FriendlyName),
@@ -103,13 +103,13 @@ func reportOvsdbSchemaStatus(cli *microClusterClient.Client, ovsdbType ovnCmd.Ov
 		)
 	}
 
-	printOvsdbSchemaReport(cli, ovnDB, activeSchema, expectedSchemas)
+	printOvsdbSchemaReport(m, ovnDB, activeSchema, expectedSchemas)
 }
 
 // printOvsdbSchemaReport evaluates active and expected schema versions of given OVN database and prints the report. If
 // there's no attention of a user required, it prints simple "OK" message, otherwise it prints detailed reported about
 // the database's active schema version and schema versions expected on each node in the deployment.
-func printOvsdbSchemaReport(cli *microClusterClient.Client, dbSpec *ovnCmd.OvsdbSpec, activeSchema string, expectedSchemas types.OvsdbSchemaReport) {
+func printOvsdbSchemaReport(m *microcluster.MicroCluster, dbSpec *ovnCmd.OvsdbSpec, activeSchema string, expectedSchemas types.OvsdbSchemaReport) {
 	attentionRequired, err := ovsdbSchemaRequiresAttention(activeSchema, expectedSchemas)
 	if err != nil {
 		printOvsdbSummaryError(err, dbSpec)
@@ -121,7 +121,7 @@ func printOvsdbSchemaReport(cli *microClusterClient.Client, dbSpec *ovnCmd.Ovsdb
 		return
 	}
 
-	clusterMembers, _ := cli.GetClusterMembers(context.Background())
+	clusterMembers, _ := m.GetClusterMembers(context.Background())
 
 	addrToName := func(addr string) (string, error) {
 		for _, member := range clusterMembers {

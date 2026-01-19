@@ -9,3 +9,7 @@ setup_file() {
     TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 4)
     export TEST_CONTAINERS
 }
+
+teardown_file() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
+}

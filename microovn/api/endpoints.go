@@ -2,7 +2,7 @@
 package api
 
 import (
-	"github.com/canonical/microcluster/v2/rest"
+	"github.com/canonical/microcluster/v3/microcluster/rest"
 	"github.com/canonical/microovn/microovn/api/config"
 	"github.com/canonical/microovn/microovn/api/ovsdb"
 

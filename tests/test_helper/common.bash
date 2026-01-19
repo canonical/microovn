@@ -375,3 +375,39 @@ function container_can_ping() {
     local addr=$1; shift
     lxc_exec "$container" "ping -W 1 -c 1 $addr"
 }
+
+# print_diagnostics_on_failure CONTAINERS
+function print_diagnostics_on_failure() {
+    local containers=$*
+    local container
+
+    if [ -n "$BATS_TEST_COMPLETED" ] ||
+       [ -n "$BATS_SETUP_FILE_COMPLETED" ]; then
+        return
+    fi
+
+    local cmds
+    cmds=journalctl
+    local files
+    files="/var/log/cloud-init.log /var/log/cloud-init-output.log"
+    echo "# BEGIN DIAGNOSTICS" >&3
+    echo "# Diagnostics for test instances:" >&3
+    for container in $containers; do
+        local cmd
+        for cmd in $cmds; do
+            echo "# ($container) $cmd:" >&3
+            lxc_exec "$container" "$cmd" >&3
+        done
+        local file
+        for file in $files; do
+            echo "# ($container) $file:" >&3
+            lxc_exec "$container" "cat $file" >&3
+        done
+    done
+    echo "# Diagnostics for test runner:" >&3
+    free -h >&3
+    df -h >&3
+    lxc storage info default >&3
+    journalctl >&3
+    echo "# END DIAGNOSTICS" >&3
+}

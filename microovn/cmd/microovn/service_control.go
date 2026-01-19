@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/canonical/microcluster/v2/microcluster"
+	"github.com/canonical/microcluster/v3/microcluster"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microovn/microovn/api/types"
@@ -65,9 +65,10 @@ func (c *cmdDisable) Run(_ *cobra.Command, args []string) error {
 }
 
 type cmdEnable struct {
-	common      *CmdControl
-	extraConfig []string
-	nodeName    string
+	common           *CmdControl
+	extraConfig      []string
+	nodeName         string
+	manualBgpdConfig bool
 }
 
 func (c *cmdEnable) Command() *cobra.Command {
@@ -86,6 +87,13 @@ func (c *cmdEnable) Command() *cobra.Command {
 		"config",
 		[]string{},
 		"Additional configuration options for enabling service",
+	)
+
+	cmd.Flags().BoolVar(
+		&c.manualBgpdConfig,
+		"manual-bgpd-config",
+		false,
+		"Skip automatic BIRD daemon configuration for manual BGP setup",
 	)
 
 	cmd.Flags().StringVar(
@@ -158,6 +166,8 @@ func (c *cmdEnable) parseExtraConfig(targetService types.SrvName) (types.ExtraSe
 		if err != nil {
 			return extraConfig, err
 		}
+		// Set the manual BIRD config flag from command-line flag
+		bgpConfig.ManualBgpdConfig = c.manualBgpdConfig
 		extraConfig.BgpConfig = &bgpConfig
 	} else {
 		return extraConfig, fmt.Errorf("service '%s' does not accpet extra config", targetService)

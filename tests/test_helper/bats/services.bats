@@ -13,6 +13,10 @@ setup() {
     assert [ -n "$TEST_CONTAINERS" ]
 }
 
+teardown() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
+}
+
 services_register_test_functions() {
     bats_test_function \
         --description "Testing of service functionality" \

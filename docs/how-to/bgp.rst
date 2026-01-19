@@ -12,13 +12,11 @@ Enable BGP integration
 In this example, we have a host connected to two external networks via
 interfaces ``eth1`` and ``eth2``.
 
-All we need to proceed with the configuration is an unused `VRF`_ table number
-and AS number. The AS number is an optional argument. If it's omitted, MicroOVN
-won't configure a BGP daemon. See the section below on
-:ref:`Manual BGP daemon configuration <manual_bgp>`.
+The only required configuration is specifying the external connection interfaces.
+Both `VRF`_ table number and AS number are optional:
 
-For this example, we'll pick VRF ``10`` and AS number from the private range,
-``4210000000``.
+- If VRF is not specified, MicroOVN will automatically select an available VRF table ID
+- If AS number is not specified, MicroOVN will automatically generate an unique ASN
 
 .. important::
 
@@ -26,11 +24,47 @@ For this example, we'll pick VRF ``10`` and AS number from the private range,
    of OVN BGP integration. These interfaces are meant for the OVN's traffic,
    they will be assigned to a OVS bridge and you will lose your connection to the host.
 
-To enable BGP integration run:
+Basic usage with automatic configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To enable BGP integration with automatic VRF and ASN selection:
+
+.. code-block:: none
+
+   microovn enable bgp --config ext_connection=eth1,eth2
+
+MicroOVN will automatically:
+
+- Select an available VRF table ID
+- Generate a unique ASN from the default range (4210000000-4294967294)
+
+.. note::
+
+   The default ASN range reserves the first IDs of the full `RFC 6996`_ private range (4200000000-4209999999)
+   for lower tier network infrastructure components (switches, routers, top-of-rack equipment).
+
+Advanced configuration
+~~~~~~~~~~~~~~~~~~~~~~
+
+You can explicitly specify VRF table ID, ASN, or provide a custom ASN range, in any combination.
+
+Specify both VRF and ASN explicitly:
 
 .. code-block:: none
 
    microovn enable bgp --config ext_connection=eth1,eth2 --config vrf=10 --config asn=4210000000
+
+Provide a custom ASN range for automatic selection:
+
+.. code-block:: none
+
+   microovn enable bgp --config ext_connection=eth1,eth2 --config asn_range=4210000000-4210999999
+
+.. important::
+
+   When using a custom ASN range, provide one sufficiently large to avoid collisions between cluster members.
+   Take into account that the ASN that would be allocated for a certain cluster member will never be reused by
+   another, even if the first one is removed from the cluster.
 
 You will receive positive confirmation message in the CLI and the setup is
 done.
@@ -123,8 +157,14 @@ Manual BGP daemon configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In case that the automatic BIRD configuration provided by MicroOVN does not
-suite your needs, you can just omit the ``--config asn=<ASN>`` option when
-enabling BGP. Without that option, MicroOVN won't configure the built-in
+suit your needs, you can just use the ``--manual-bgpd-config`` flag when
+enabling BGP, for example:
+
+.. code-block:: none
+
+   microovn enable bgp --config ext_connection=eth1,eth2 --manual-bgpd-config
+
+With this flag, MicroOVN won't configure the built-in
 BIRD daemon, Allowing you to perform manual configuration or use entirely
 different BGP daemon.
 
@@ -148,3 +188,4 @@ BIRD configuration.
 
 .. LINKS
 .. _VRF: https://docs.kernel.org/networking/vrf.html
+.. _RFC 6996: https://datatracker.ietf.org/doc/html/rfc6996

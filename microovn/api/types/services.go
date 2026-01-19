@@ -129,12 +129,55 @@ type ExtraBgpConfig struct {
 	Vrf string `json:"vrf,omitempty" yaml:"vrf,omitempty"`
 	// Asn is an Autonomous System Number that will be used to set up BGP daemon
 	Asn string `json:"asn,omitempty" yaml:"asn,omitempty"`
+	// AsnRange is an optional range of RFC 6996 private ASNs [min, max] parsed from user input
+	// from which a unique ASN will be auto-selected (based on cluster member ID)
+	AsnRange [2]uint64 `json:"asn_range,omitempty" yaml:"asn_range,omitempty"`
+	// ManualBgpdConfig if set, skips automatic BIRD daemon configuration, allowing manual BGP daemon configuration.
+	// This was the former default behavior when no ASN was provided
+	ManualBgpdConfig bool `json:"manual_bgpd_config,omitempty" yaml:"manual_bgpd_config,omitempty"`
 }
 
 // BgpExternalConnection represents a parsed structure from ExtraBgpConfig.ExternalConnection string.
 type BgpExternalConnection struct {
 	// Iface is a name of the physical interface that provides external connectivity
 	Iface string
+}
+
+// parseAsnRange parses an ASN range string in format "min-max".
+// Returns [2]uint64 array with [min, max] values, or an error if parsing fails.
+func parseAsnRange(asnRangeStr string) ([2]uint64, error) {
+	parts := strings.Split(asnRangeStr, "-")
+	if len(parts) != 2 {
+		return [2]uint64{}, fmt.Errorf("option 'asn_range' must be in format 'min-max': %s", asnRangeStr)
+	}
+
+	min, err := strconv.ParseUint(parts[0], 10, 32)
+	if err != nil {
+		return [2]uint64{}, fmt.Errorf("option 'asn_range' min value is not valid: %s", parts[0])
+	}
+
+	max, err := strconv.ParseUint(parts[1], 10, 32)
+	if err != nil {
+		return [2]uint64{}, fmt.Errorf("option 'asn_range' max value is not valid: %s", parts[1])
+	}
+
+	return [2]uint64{min, max}, nil
+}
+
+// validateAsnRange validates that an ASN range is within RFC 6996 private ASN range (4200000000-4294967294).
+// Returns an error if the range is invalid.
+func validateAsnRange(asnRange [2]uint64) error {
+	if asnRange[0] >= asnRange[1] {
+		return fmt.Errorf("option 'asn_range' min must be less than max: %d-%d", asnRange[0], asnRange[1])
+	}
+
+	if asnRange[0] < 4200000000 || asnRange[1] > 4294967294 {
+		return fmt.Errorf("option 'asn_range' must be within RFC 6996 range (4200000000-4294967294): %d-%d",
+			asnRange[0],
+			asnRange[1])
+	}
+
+	return nil
 }
 
 // FromMap initializes ExtraBgpConfig structure from the provided map of string keys and string values.
@@ -153,26 +196,45 @@ func (bgpConf *ExtraBgpConfig) FromMap(rawConfig map[string]string) error {
 			bgpConf.Asn = value
 			continue
 		}
+		if key == "asn_range" {
+			asnRange, err := parseAsnRange(value)
+			if err != nil {
+				return err
+			}
+			bgpConf.AsnRange = asnRange
+			continue
+		}
 		return fmt.Errorf("unknown BGP config option: %s", key)
 	}
+
 	return bgpConf.Validate()
 }
 
 // Validate ensures that all required fields of ExtraBgpConfig are present and that they have
 // correct types and values.
 func (bgpConf *ExtraBgpConfig) Validate() error {
-	if bgpConf.Vrf == "" {
-		return fmt.Errorf("option 'vrf' is rquired")
+	// VRF is optional, it will be automatically selected if not provided
+	if bgpConf.Vrf != "" {
+		_, err := strconv.Atoi(bgpConf.Vrf)
+		if err != nil {
+			return fmt.Errorf("option 'vrf' is not a number: %s", bgpConf.Vrf)
+		}
 	}
 
-	_, err := strconv.Atoi(bgpConf.Vrf)
-	if err != nil {
-		return fmt.Errorf("option 'vrf' is not a number: %s", bgpConf.Vrf)
+	// ASN is optional, it will be automatically selected if not provided
+	if bgpConf.Asn != "" {
+		_, err := strconv.ParseUint(bgpConf.Asn, 10, 32)
+		if err != nil {
+			return fmt.Errorf("option 'asn' is not a valid number: %s", bgpConf.Asn)
+		}
 	}
 
-	_, err = strconv.Atoi(bgpConf.Asn)
-	if err != nil && bgpConf.Asn != "" {
-		return fmt.Errorf("option 'asn' is not a number: %s", bgpConf.Asn)
+	// Validate ASN range if provided
+	if bgpConf.AsnRange[0] != 0 || bgpConf.AsnRange[1] != 0 {
+		err := validateAsnRange(bgpConf.AsnRange)
+		if err != nil {
+			return err
+		}
 	}
 
 	extConnections, err := bgpConf.ParseExternalConnection()

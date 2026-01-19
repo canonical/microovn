@@ -106,6 +106,15 @@ do it automatically for locally installed snaps.
                 system-trace; do \
        sudo snap connect microovn:$plug;done
 
+.. note::
+
+   Once this is done you will need to restart running MicroOVN processes as
+   certain newly added permissions do not apply to running process.
+
+.. code-block:: none
+
+   snap restart microovn
+
 To verify that all the required plugs are correctly connected to their slots,
 you can run:
 

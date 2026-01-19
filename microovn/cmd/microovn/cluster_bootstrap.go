@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/canonical/lxd/lxd/util"
-	"github.com/canonical/microcluster/v2/microcluster"
+	"github.com/canonical/microcluster/v3/microcluster"
 	"github.com/spf13/cobra"
 )
 

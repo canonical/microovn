@@ -38,6 +38,7 @@ setup() {
 }
 
 teardown() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
     lxc_exec "$TEST_CONTAINER" "snap remove microovn" || true
 }
 

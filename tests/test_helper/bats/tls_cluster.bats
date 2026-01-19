@@ -32,6 +32,8 @@ teardown() {
     # If tests adjust system time in the VM, they should export
     # RESET_TIME variable. If set, all containers will sync their
     # time with the host
+    print_diagnostics_on_failure $TEST_CONTAINERS
+
     local container
     if [ -n "$RESET_TIME" ]; then
         local host_time
