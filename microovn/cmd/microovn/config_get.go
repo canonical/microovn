@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/canonical/microcluster/v3/microcluster"
+	"github.com/canonical/microovn/microovn/api/config"
 	"github.com/canonical/microovn/microovn/client"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +19,7 @@ type cmdConfigGet struct {
 func (c *cmdConfigGet) Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <KEY>",
-		Short: "Get value of the configuration option",
+		Short: "Get value of the configuration option, use list to see available options",
 		Args:  cobra.ExactArgs(1),
 		RunE:  c.Run,
 	}
@@ -28,6 +29,14 @@ func (c *cmdConfigGet) Command() *cobra.Command {
 // Run method is an implementation of the "microovn config get" subcommand
 func (c *cmdConfigGet) Run(_ *cobra.Command, args []string) error {
 	key := args[0]
+
+	if key == "list" {
+		fmt.Println("Available options")
+		for _, keySpec := range config.AllowedConfigKeys {
+			fmt.Println(keySpec.Key)
+		}
+		return nil
+	}
 
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})
 	if err != nil {

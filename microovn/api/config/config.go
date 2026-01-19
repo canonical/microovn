@@ -41,6 +41,7 @@ type spec struct {
 // AllowedConfigKeys is a list of all valid configuration options
 var AllowedConfigKeys = []spec{
 	{Key: "ovn.central-ips", Handler: ovnCentralIpsUpdated, Validator: validateOvnCentralIps},
+	{Key: "list", Handler: nil, Validator: nil},
 }
 
 // setConfig function handles configuration value changes submitted via POST request to config endpoint
