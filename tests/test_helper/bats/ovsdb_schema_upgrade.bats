@@ -2,7 +2,7 @@
 
 # Define test filename prefix that helps to determine from which version should
 # the upgrade be tested.
-export TEST_NAME_PREFIX="ovsdb_schema_upgrade"
+export TEST_NAME_PREFIX=${TEST_NAME_PREFIX:-"ovsdb_schema_upgrade"}
 
 load "test_helper/setup_teardown/$(basename "${BATS_TEST_FILENAME//.bats/.bash}")"
 
