@@ -24,5 +24,8 @@ func (c *cmdConfig) Command() *cobra.Command {
 	configDeleteCmd := &cmdConfigDelete{common: c.common, config: c}
 	cmd.AddCommand(configDeleteCmd.Command())
 
+	configListCmd := &cmdConfigList{common: c.common, config: c}
+	cmd.AddCommand(configListCmd.Command())
+
 	return cmd
 }
