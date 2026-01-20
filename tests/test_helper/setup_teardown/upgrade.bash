@@ -22,10 +22,12 @@ setup_file() {
     TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 4)
     CENTRAL_CONTAINERS=""
     CHASSIS_CONTAINERS=""
+    PING_CONTAINERS=""
 
     export TEST_CONTAINERS
     export CENTRAL_CONTAINERS
     export CHASSIS_CONTAINERS
+    export PING_CONTAINERS
 
     launch_containers_args \
         "${TEST_LXD_LAUNCH_ARGS:--c security.nesting=true}" $TEST_CONTAINERS
@@ -59,7 +61,11 @@ setup_file() {
 
     if [ -n "$UPGRADE_DO_UPGRADE" ]; then
         assert [ -n "$CENTRAL_CONTAINERS" ]
-        assert [ -n "$CHASSIS_CONTAINERS" ]
+        if [ -n "$CHASSIS_CONTAINERS" ]; then
+            PING_CONTAINERS="$CHASSIS_CONTAINERS"
+        else
+            PING_CONTAINERS="$CENTRAL_CONTAINERS"
+        fi
 
         # Export names used locally on chassis containers for use in
         # teardown_file().
@@ -67,7 +73,7 @@ setup_file() {
         export UPGRADE_VIF_NAME="upgrade_vif0"
 
         # Set up gateway router, workload and background ping on each chassis.
-        for container in $CHASSIS_CONTAINERS; do
+        for container in $PING_CONTAINERS; do
             local ctn_n
             ctn_n=$(microovn_extract_ctn_n "$container")
             microovn_add_gw_router "$container"
@@ -88,9 +94,12 @@ setup_file() {
 
         maybe_perform_manual_upgrade_steps $CENTRAL_CONTAINERS
 
-        # Reap ping and assert on result.
+        # For multi node test, reap ping and assert zero loss.
         #
         # Start background ping for next measurement.
+        #
+        # The single node test will have schema conversion induced
+        # loss measured further below.
         for container in $CHASSIS_CONTAINERS; do
             local ctn_n
             ctn_n=$(microovn_extract_ctn_n "$container")
@@ -104,9 +113,11 @@ setup_file() {
             ping_start "$container" 10.42.${ctn_n}.1 "$UPGRADE_NS_NAME"
         done
 
-        echo "# Upgrading MicroOVN from revision $MICROOVN_SNAP_REV "\
-             "on chassis container(s)." >&3
-        install_microovn "$MICROOVN_SNAP_PATH" $CHASSIS_CONTAINERS
+        if [ -n "$CHASSIS_CONTAINERS" ]; then
+            echo "# Upgrading MicroOVN from revision $MICROOVN_SNAP_REV "\
+                 "on chassis container(s)." >&3
+            install_microovn "$MICROOVN_SNAP_PATH" $CHASSIS_CONTAINERS
+        fi
 
         # Now that the remaining containers have been upgraded any pending
         # schema conversions will be performed both for the microcluster and
@@ -123,7 +134,7 @@ setup_file() {
         done
 
         # Reap ping and assert on result.
-        for container in $CHASSIS_CONTAINERS; do
+        for container in $PING_CONTAINERS; do
             local ctn_n
             ctn_n=$(microovn_extract_ctn_n "$container")
             local max_lost=16
@@ -146,7 +157,7 @@ teardown_file() {
 
     if [ -n "$UPGRADE_NS_NAME" ] && [ -n "$UPGRADE_VIF_NAME" ]; then
         local container
-        for container in $CHASSIS_CONTAINERS; do
+        for container in $PING_CONTAINERS; do
             microovn_delete_vif "$container" \
                 "$UPGRADE_NS_NAME" "$UPGRADE_VIF_NAME"
             netns_delete "$container" "$UPGRADE_NS_NAME"
