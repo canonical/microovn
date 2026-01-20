@@ -18,8 +18,10 @@ setup_file() {
     test_name=$(basename "$BATS_TEST_FILENAME")
     MICROOVN_SNAP_CHANNEL=$(get_upgrade_test_version "$test_name" "$TEST_NAME_PREFIX")
 
+    TEST_N_CONTAINERS=${TEST_N_CONTAINERS:-4}
+
     # Create test deployment
-    TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" 4)
+    TEST_CONTAINERS=$(container_names "$BATS_TEST_FILENAME" $TEST_N_CONTAINERS)
     CENTRAL_CONTAINERS=""
     CHASSIS_CONTAINERS=""
     PING_CONTAINERS=""
