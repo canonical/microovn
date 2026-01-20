@@ -13,7 +13,6 @@ setup() {
     # provide false positive results.
     assert [ -n "$TEST_CONTAINERS" ]
     assert [ -n "$CENTRAL_CONTAINERS" ]
-    assert [ -n "$CHASSIS_CONTAINERS" ]
 
     # Temporary location to be used for uploading user-supplied CA certificate
     # and key inside the MicroOVN container.
@@ -108,6 +107,9 @@ tls_cluster_central_have_tls() {
 
 tls_cluster_certificates_valid() {
     # Validate certificate files issued by MicroOVN
+    if [ -z "$CHASSIS_CONTAINERS" ]; then
+        skip "Test requires containers with no central compoments."
+    fi
 
     for container in $CENTRAL_CONTAINERS; do
         verify_central_cert_files "$container"
@@ -158,6 +160,10 @@ tls_cluster_central_list_certificates() {
 tls_cluster_chassis_list_certificates() {
     # Ensure that expected certificates are listed in the output of the 'microovn certificates list'
     # command.
+    if [ -z "$CHASSIS_CONTAINERS" ]; then
+        skip "Test requires containers with no central compoments."
+    fi
+
     local container=""
     container=$(echo "$CHASSIS_CONTAINERS" | awk '{print $1;}')
     local expected_output='{
@@ -214,6 +220,10 @@ tls_cluster_central_reissue_certificates() {
 
 tls_cluster_chassis_reissue_certificates() {
     # Ensure that MicroOVN is capable of individually re-issuing certificates used on OVN chassis nodes
+    if [ -z "$CHASSIS_CONTAINERS" ]; then
+        skip "Test requires containers with no central compoments."
+    fi
+
     local container=""
     container=$(echo "$CHASSIS_CONTAINERS" | awk '{print $1;}')
     declare -A enabled_services=(\
@@ -309,6 +319,10 @@ tls_cluster_central_reissue_all_certificates() {
 tls_cluster_chassis_reissue_all_certificates() {
     # Ensure that MicroOVN does not issue certificates for disabled services when using magic argument 'all'
     # Remaining functionality of 'microovn certificates reissue all' is tested in "central" node test.
+    if [ -z "$CHASSIS_CONTAINERS" ]; then
+        skip "Test requires containers with no central compoments."
+    fi
+
     local container=""
     container=$(echo "$CHASSIS_CONTAINERS" | awk '{print $1;}')
     declare -A disabled_services=(\
@@ -335,6 +349,10 @@ tls_cluster_chassis_reissue_all_certificates() {
 tls_cluster_regenerate_ca() {
     # Test recreation of the entire PKI. New CA should be created and then used to
     # reissue all server/client certificates
+    if [ -z "$CHASSIS_CONTAINERS" ]; then
+        skip "Test requires containers with no central compoments."
+    fi
+
     local container=""
     container=$(echo "$TEST_CONTAINERS" | awk '{print $1;}')
     local old_ca_hash=""
@@ -376,6 +394,9 @@ tls_cluster_regenerate_ca() {
 tls_cluster_set_user_ca() {
     # Test rebuilding of the PKI from user-supplied CA. CA certificate should
     # be updated and then used to reissue all server/client certificates
+    if [ -z "$CHASSIS_CONTAINERS" ]; then
+        skip "Test requires containers with no central compoments."
+    fi
 
     # This test expects key type (ec, ed or rsa) as a first parameter
     local key_type=$1; shift
