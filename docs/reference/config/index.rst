@@ -8,6 +8,7 @@ via the ``microovn config`` subcommands. These include:
 * ``microovn config set`` - Set or update value of the config option
 * ``microovn config get`` - Print value the config option
 * ``microovn config delete`` - Remove the configuration option completely
+* ``microovn config list`` - List allowed configuration keys
 
 Below is the list of available configuration options.
 
