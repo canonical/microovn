@@ -95,31 +95,32 @@ func updateOvnClusterCertificates(s state.State, r *http.Request, responseData *
 			logger.Info("Cluster certificates do not need updating")
 			return response.SyncResponse(true, &responseData)
 		}
-		// Get clients for rest of the cluster members
-		cluster, err := s.Connect().Cluster(true)
-		if err != nil {
-			logger.Errorf("Failed to get a client for every cluster member: %v", err)
-			return response.SyncResponse(false, &responseData)
-		}
-
-		// Bump rest of the cluster members to reissue their certificates with new CA
-		err = cluster.Query(r.Context(), true, func(ctx context.Context, c microTypes.Client) error {
-			clientURL := c.URL()
-			logger.Infof("Requesting cluster member at '%s' to re-issue its OVN certificates", clientURL.String())
-			result, err := microovnClient.RegenerateCA(ctx, c)
+		if s.Remotes().Count() > 0 {
+			// Get clients for rest of the cluster members
+			cluster, err := s.Connect().Cluster(true)
 			if err != nil {
-				errMsg := fmt.Sprintf("failed to contact cluster member with address %q: %s", clientURL.String(), err)
-				responseData.Errors = append(responseData.Errors, errMsg)
-			} else {
-				for host, service := range result.ReissuedCertificates {
-					responseData.ReissuedCertificates[host] = service
-				}
+				logger.Errorf("Failed to get a client for every cluster member: %v", err)
+				return response.SyncResponse(false, &responseData)
 			}
+			// Bump rest of the cluster members to reissue their certificates with new CA
+			err = cluster.Query(r.Context(), true, func(ctx context.Context, c microTypes.Client) error {
+				clientURL := c.URL()
+				logger.Infof("Requesting cluster member at '%s' to re-issue its OVN certificates", clientURL.String())
+				result, err := microovnClient.RegenerateCA(ctx, c)
+				if err != nil {
+					errMsg := fmt.Sprintf("failed to contact cluster member with address %q: %s", clientURL.String(), err)
+					responseData.Errors = append(responseData.Errors, errMsg)
+				} else {
+					for host, service := range result.ReissuedCertificates {
+						responseData.ReissuedCertificates[host] = service
+					}
+				}
 
-			return nil
-		})
-		if err != nil {
-			return response.SmartError(err)
+				return nil
+			})
+			if err != nil {
+				return response.SmartError(err)
+			}
 		}
 	}
 

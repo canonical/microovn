@@ -91,13 +91,15 @@ func getAllExpectedSchemaVersions(s state.State, r *http.Request) response.Respo
 		},
 	}
 
+	if s.Remotes().Count() <= 0 {
+		return response.SyncResponse(true, &responseData)
+	}
 	// Get clients for each member in the cluster
 	clusterClient, err := s.Connect().Cluster(false)
 	if err != nil {
 		logger.Errorf("Failed to get a client for every cluster member: %s", err)
 		return response.InternalError(errors.New("internal server error"))
 	}
-
 	// Fetch expected schema versions from each cluster member.
 	_ = clusterClient.Query(r.Context(), true, func(ctx context.Context, c microTypes.Client) error {
 		clientURL := c.URL()
@@ -164,7 +166,7 @@ func forwardActiveSchemaVersion(s state.State, r *http.Request, dbSpec *ovnCmd.O
 	clusterClients, err := s.Connect().Cluster(false)
 	if err != nil {
 		logger.Errorf("Failed to get cluster clients: %v", err)
-		return response.InternalError(errors.New("internal server error"))
+		return response.InternalError(errors.New("failed to get cluster clients"))
 	}
 
 	for _, _client := range clusterClients {
