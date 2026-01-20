@@ -87,6 +87,9 @@ cli_ovsovn_register_test_functions() {
     bats_test_function \
         --description "Test enable disable microovn"\
         -- test_disable_microovn
+    bats_test_function \
+        --description "Test microovn config list"\
+        -- test_config_list_microovn_cli
 }
 
 ovs-appctl_ovs-vswitchd() {
@@ -285,6 +288,15 @@ test_disable_microovn(){
         assert_success
         run lxc_exec $container "microovn.ovn-nbctl --wait=sb lr-del test"
         assert_success
+    done;
+}
+
+test_config_list_microovn_cli(){
+    for container in $TEST_CONTAINERS; do
+        run lxc_exec $container "microovn config list"
+        assert_success
+        assert_line --partial "Available options"
+        assert_line --partial "ovn.central-ips"
     done;
 }
 
