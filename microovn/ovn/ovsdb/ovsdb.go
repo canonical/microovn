@@ -132,11 +132,6 @@ func isNodeUpgradeLeader(ctx context.Context, s state.State) (bool, error) {
 // This function scans every cluster member, regardless of whether they are running "central" services or not. This
 // ensures that even cluster members that are running on "chassis" service are prepared for the schema upgrade.
 func isClusterUpgradeReady(ctx context.Context, s state.State, dbSpec *ovnCmd.OvsdbSpec, targetVersion string) (bool, error) {
-	if s.Remotes().Count() == 0 {
-		logger.Debugf("No other cluster members available, skipping upgrade readiness check")
-		return true, nil
-	}
-
 	clusterClient, err := s.Connect().Cluster(false)
 	if err != nil {
 		return false, fmt.Errorf("failed to get a client for every cluster member: %w", err)
