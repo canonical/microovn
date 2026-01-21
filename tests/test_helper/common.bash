@@ -408,6 +408,6 @@ function print_diagnostics_on_failure() {
     free -h >&3
     df -h >&3
     lxc storage info default >&3
-    journalctl >&3
+    journalctl --boot >&3
     echo "# END DIAGNOSTICS" >&3
 }

@@ -2,7 +2,7 @@
 
 # Define test filename prefix that helps to determine from which version should
 # the upgrade be tested.
-export TEST_NAME_PREFIX="ovsdb_schema_upgrade"
+export TEST_NAME_PREFIX=${TEST_NAME_PREFIX:-"ovsdb_schema_upgrade"}
 
 load "test_helper/setup_teardown/$(basename "${BATS_TEST_FILENAME//.bats/.bash}")"
 
@@ -23,7 +23,12 @@ teardown() {
     print_diagnostics_on_failure $TEST_CONTAINERS
 }
 
-@test "Test OVSDB cluster schema upgrade" {
+ovsdb_schema_upgrade_register_test_functions() {
+    bats_test_function --description "Test OVSDB cluster schema upgrade" \
+    -- ovsdb_schema_upgrade
+}
+
+ovsdb_schema_upgrade() {
     echo "# Checking if SB or NB database schema changed from MicroOVN rev. $MICROOVN_SNAP_REV" >&3
     local original_nb=""
     local original_sb=""
@@ -204,3 +209,5 @@ teardown() {
 
     echo "# OVN database schema upgrade finished" >&3
 }
+
+ovsdb_schema_upgrade_register_test_functions
