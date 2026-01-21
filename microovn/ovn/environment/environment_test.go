@@ -4,7 +4,6 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/microcluster/v3/state"
 )
 
@@ -18,15 +17,13 @@ type MockState struct {
 	state.State
 }
 
-func (ms MockState) Address() *api.URL {
+func (ms MockState) Address() *url.URL {
 	netURL := url.URL{
 		Scheme: "https",
 		Host:   ms.localNodeIP + ":6443",
 		Path:   "/1.0",
 	}
-	return &api.URL{
-		URL: netURL,
-	}
+	return &netURL
 }
 
 func TestUnexported_initialNbSbHost(t *testing.T) {

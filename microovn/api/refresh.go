@@ -29,7 +29,7 @@ func regenerateEnvPost(s state.State, r *http.Request) response.Response {
 	responseData := types.NewRegenerateEnvResponse()
 
 	// Check that this is the initial node to recive this request
-	if !microTypes.IsNotification(r) && s.Remotes().Count() > 0 {
+	if !microTypes.IsNotification(r) {
 		logger.Infof("Understood notification, forwarding refresh env request")
 		// Get clients for the rest of the cluster members
 		cluster, err := s.Connect().Cluster(true)
@@ -38,8 +38,8 @@ func regenerateEnvPost(s state.State, r *http.Request) response.Response {
 			responseData.Success = false
 			return response.SyncResponse(false, &responseData)
 		}
-
 		responseData.Success = true
+
 		// Bump rest of the cluster members to regenerate their environment
 		err = cluster.Query(r.Context(), true, func(ctx context.Context, c microTypes.Client) error {
 			clientURL := c.URL()
