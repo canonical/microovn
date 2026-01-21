@@ -4,7 +4,7 @@ go 1.25.4
 
 require (
 	github.com/canonical/lxd v0.0.0-20251211093832-ac7a1edf4d94
-	github.com/canonical/microcluster/v3 v3.0.0-20260116100328-a757ad79cdbd
+	github.com/canonical/microcluster/v3 v3.0.0-20260121114850-ead5e49aa73b
 	github.com/gorilla/mux v1.8.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.10.2

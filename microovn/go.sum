@@ -8,8 +8,8 @@ github.com/canonical/go-dqlite/v3 v3.0.3 h1:JkdMD+f21yuPcS+r6gzO57lBkU5U76xmWyk8
 github.com/canonical/go-dqlite/v3 v3.0.3/go.mod h1:6O+E6MiYesijRUOECyywp16iT+N4QOrvjDWWiMJ/xF0=
 github.com/canonical/lxd v0.0.0-20251211093832-ac7a1edf4d94 h1:caMm/t8Q4NUeBaTVh+FdoVmZkS87QWj1EoovT5DAK+s=
 github.com/canonical/lxd v0.0.0-20251211093832-ac7a1edf4d94/go.mod h1:u+1ws9V/DUiKU5qqXxifLG8jig2szQCH2rcQluO5edo=
-github.com/canonical/microcluster/v3 v3.0.0-20260116100328-a757ad79cdbd h1:JCL7Wz0NZ4CNwPems5GjPQLInq6wTYX7L1XEBBH+wnY=
-github.com/canonical/microcluster/v3 v3.0.0-20260116100328-a757ad79cdbd/go.mod h1:QwBGX0cmAj8sB3+i/kdzN4YHZ6+pxZncFh/ATKSXAcQ=
+github.com/canonical/microcluster/v3 v3.0.0-20260121114850-ead5e49aa73b h1:9ARZYqtSivjyKtg587wdRtclGWZul01xdnELSccF3VQ=
+github.com/canonical/microcluster/v3 v3.0.0-20260121114850-ead5e49aa73b/go.mod h1:QwBGX0cmAj8sB3+i/kdzN4YHZ6+pxZncFh/ATKSXAcQ=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/clipperhouse/stringish v0.1.1 h1:+NSqMOr3GR6k1FdRhhnXrLfztGzuG+VuFDfatpWHKCs=
