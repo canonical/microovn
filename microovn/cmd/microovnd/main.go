@@ -70,6 +70,11 @@ func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
 		Level: logLevel,
 	})
 
+	err := logger.InitLogger("", "", c.global.flagLogVerbose, c.global.flagLogDebug, nil)
+	if err != nil {
+		return err
+	}
+
 	m, err := microcluster.App(microcluster.Args{StateDir: c.flagStateDir, LogHandler: logHandler})
 	if err != nil {
 		return err
