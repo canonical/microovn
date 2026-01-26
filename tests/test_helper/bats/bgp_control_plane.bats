@@ -297,6 +297,7 @@ function bgp_no_vrf(){
     local vrf=10
     local external_connections="$OVN_CONTAINER_NET_1_IFACE"
 
+    run lxc_exec "$TEST_VM_NO_VRF" "sudo ip link add $OVN_CONTAINER_NET_1_IFACE type dummy"
     run lxc_exec "$TEST_VM_NO_VRF" "microovn enable bgp \
         --config ext_connection=$external_connections \
         --config vrf=$vrf \
