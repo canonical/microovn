@@ -1,8 +1,10 @@
 name: microovn
 icon: microovn.png
-base: core24
+base: core26
+build-base: devel
+grade: devel
 assumes:
- - snapd2.59
+ - snapd2.73
 adopt-info: microovn
 source-code: https://github.com/canonical/microovn.git
 summary: Simple clustered OVN deployment
@@ -182,7 +184,7 @@ parts:
     source: https://github.com/canonical/dqlite
     source-type: git
     source-depth: 1
-    source-tag: v1.17.1
+    source-tag: v1.18.5
     plugin: autotools
     autotools-configure-parameters:
       - --prefix=

@@ -18,6 +18,7 @@ function install_microovn() {
                   from edge channel for $snap_file" >&3
             lxc_exec "$container" "snap install --edge $snap_base"
         fi
+        lxc_exec "$container" "apt update && apt install -y snapd"
         echo "# Deploying MicroOVN to $container" >&3
         lxc_file_push "$snap_file" "$container/tmp/microovn.snap"
         echo "# Installing MicroOVN in container $container" >&3
