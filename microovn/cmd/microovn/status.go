@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -75,6 +76,24 @@ func (c *cmdStatus) Run(_ *cobra.Command, _ []string) error {
 	fmt.Println("OVN Database summary:")
 	reportOvsdbSchemaStatus(m, &cli, ovnCmd.OvsdbTypeNBLocal)
 	reportOvsdbSchemaStatus(m, &cli, ovnCmd.OvsdbTypeSBLocal)
+
+	//Check certificates status and report expired ones
+	localHostname, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+
+	caInfo, err := client.GetCaInfo(context.Background(), cli)
+	if err != nil {
+		return err
+	}
+	if caInfo.Error != "" {
+		return fmt.Errorf("%s", caInfo.Error)
+	}
+	var expectedCertificates ovnCertificatePaths
+	populateExpectedCertificates(&expectedCertificates, services, caInfo, localHostname)
+	printCertsSummary(&expectedCertificates)
+
 	return nil
 }
 
@@ -202,4 +221,24 @@ func printOvsdbSummaryError(err error, ovsdbSpec *ovnCmd.OvsdbSpec) {
 		dbName = ovsdbSpec.FriendlyName
 	}
 	fmt.Printf("Error creating OVN %s Database summary: %s\n", dbName, err)
+}
+
+// printCertsSummary in the case of a certificate expiration, prints the expired certificate name/names
+func printCertsSummary(certificates *ovnCertificatePaths) {
+	printCertsSummaryHelper(certificates.Ca.Cert, "OVN CA")
+	printCertsSummaryHelper(certificates.Ca.Cert, "OVN Northbound Service")
+	printCertsSummaryHelper(certificates.Ca.Cert, "OVN Southbound Service")
+	printCertsSummaryHelper(certificates.Ca.Cert, "OVN Northd Service")
+	printCertsSummaryHelper(certificates.Ca.Cert, "OVN Chassis Service")
+	printCertsSummaryHelper(certificates.Ca.Cert, "Client")
+}
+
+func printCertsSummaryHelper(filePath string, certName string) {
+	result, err := certIsExpired(filePath)
+	if err == nil && result {
+		fmt.Println(certName, "certificate has expired")
+	}
+	if err != nil {
+		fmt.Println(err)
+	}
 }
