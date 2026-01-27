@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/canonical/lxd/shared"
 	"github.com/canonical/microcluster/v3/microcluster"
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/client"
@@ -83,17 +84,12 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	var expectedCertificates ovnCertificatePaths
 	caInfo, err := client.GetCaInfo(context.Background(), cli)
 	if err != nil {
 		return err
 	}
 	if caInfo.Error != "" {
 		return fmt.Errorf("%s", caInfo.Error)
-	}
-	expectedCertificates.Ca = &caCertInfo{
-		Cert:      paths.PkiCaCertFile(),
-		AutoRenew: caInfo.AutoRenew,
 	}
 
 	// Get list of all services in microovn
@@ -102,6 +98,30 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	var expectedCertificates ovnCertificatePaths
+	populateExpectedCertificates(&expectedCertificates, services, caInfo, localHostname)
+
+	outputFormat := cmd.Flag("format").Value.String()
+	switch outputFormat {
+	case "text":
+		printOvnCertStatus(&expectedCertificates)
+	case "json":
+		jsonString, err := json.Marshal(expectedCertificates)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s", string(jsonString))
+	default:
+		return fmt.Errorf("unknown output format specified: %s", outputFormat)
+	}
+	return nil
+}
+
+func populateExpectedCertificates(expectedCertificates *ovnCertificatePaths, services types.Services, caInfo types.CaInfo, localHostname string) {
+	expectedCertificates.Ca = &caCertInfo{
+		Cert:      paths.PkiCaCertFile(),
+		AutoRenew: caInfo.AutoRenew,
+	}
 	// Gather paths to all certificates that should be running on local host
 	for _, srv := range services {
 		// Skip service that do not run on this member
@@ -126,21 +146,6 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 		clientCert, clientKey := paths.PkiClientCertFiles()
 		expectedCertificates.Client = &certBundle{clientCert, clientKey}
 	}
-
-	outputFormat := cmd.Flag("format").Value.String()
-	switch outputFormat {
-	case "text":
-		printOvnCertStatus(&expectedCertificates)
-	case "json":
-		jsonString, err := json.Marshal(expectedCertificates)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("%s", string(jsonString))
-	default:
-		return fmt.Errorf("unknown output format specified: %s", outputFormat)
-	}
-	return nil
 }
 
 // printOvnCertStatus prints overall status of certificate bundles contained in
@@ -151,6 +156,7 @@ func printOvnCertStatus(certificates *ovnCertificatePaths) {
 		fmt.Println("Error: missing")
 	} else {
 		printFileStatus(certificates.Ca.Cert)
+		printCertExpDate(certificates.Ca.Cert)
 		fmt.Printf("Auto-renew: %t\n", certificates.Ca.AutoRenew)
 	}
 
@@ -176,6 +182,7 @@ func printCertBundleStatus(bundle *certBundle) {
 		fmt.Println("Not present.")
 	} else {
 		printFileStatus(bundle.Cert)
+		printCertExpDate(bundle.Cert)
 		printFileStatus(bundle.Key)
 	}
 }
@@ -191,4 +198,27 @@ func printFileStatus(filePath string) {
 		certStatus = "OK: Present"
 	}
 	fmt.Printf("%s (%s)\n", filePath, certStatus)
+}
+
+// printCertExpDate prints expiration date of public certificates
+func printCertExpDate(filePath string) {
+	result, err := shared.RunCommandContext(context.Background(), "openssl", "x509", "-in", filePath, "-noout", "-enddate")
+	if err == nil {
+		fmt.Println("expiration date: ", result)
+		return
+	}
+	fmt.Println(err)
+}
+
+// certIsExpired returns true if certificate has expired, else false
+func certIsExpired(filePath string) (bool, error) {
+	result, err := shared.RunCommandContext(context.Background(), "openssl", "x509", "-in", filePath, "-noout", "-checkend", "0")
+	if err == nil {
+		if strings.Contains(result, "Certificate will not expire") {
+			return false, nil
+		} else {
+			return true, nil
+		}
+	}
+	return true, err
 }
