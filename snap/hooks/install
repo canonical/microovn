@@ -25,5 +25,14 @@ bird_data_dir="$SNAP_COMMON/data/bird"
 mkdir -p "$bird_data_dir"
 mkdir -p "$SNAP_COMMON/run/bird"
 
+mkdir -p "$SNAP_COMMON/etc/bird"
+
+# create default bird conf
+cat > "$SNAP_COMMON/etc/bird/bird.conf" <<EOF
+log syslog all;
+protocol device {}
+EOF
+
+
 # Seed default config files for Bird routing daemon
-cp -r --update=none "$SNAP/etc/bird/bird.conf" "$bird_data_dir"
+cp -r --update=none "$SNAP_COMMON/etc/bird/bird.conf" "$bird_data_dir"

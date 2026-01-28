@@ -1,8 +1,10 @@
 name: microovn
 icon: microovn.png
-base: core24
+base: core26
+build-base: devel
+grade: devel
 assumes:
- - snapd2.59
+ - snapd2.73
 adopt-info: microovn
 source-code: https://github.com/canonical/microovn.git
 summary: Simple clustered OVN deployment
@@ -182,7 +184,7 @@ parts:
     source: https://github.com/canonical/dqlite
     source-type: git
     source-depth: 1
-    source-tag: v1.17.1
+    source-tag: v1.18.5
     plugin: autotools
     autotools-configure-parameters:
       - --prefix=
@@ -205,84 +207,34 @@ parts:
       - lib/*/libuv*so*
 
   bird:
-    plugin: autotools
-    source: https://gitlab.nic.cz/labs/bird.git
-    source-type: git
-    source-tag: v3.1.4
-    autotools-configure-parameters:
-      - --prefix=/usr
-      - --sysconfdir=/etc/bird
-      - --mandir=/usr/share/man
-      - --infodir=/usr/share/info
-      - --localstatedir=/var
-      - --runstatedir=/run/bird
-      - --docdir=/usr/share/bird3
-      - --enable-client
-    build-packages:
-      - gcc
-      - autoconf
-      - libtool
-      - bison
-      - flex
-      - libncurses-dev
-      - libreadline-dev
-    override-prime: |
-      craftctl default
-      # shrink the default bird.conf to bare minimum
-      printf "log syslog all;\nprotocol device {};\n" > $CRAFT_PRIME/etc/bird/bird.conf
-  ovn:
-    plugin: autotools
-    source: https://github.com/ovn-org/ovn.git
-    source-type: git
-    source-tag: branch-25.09
-    override-build: |
-      # build OVS first
-      cd ovs
-      ./boot.sh
-      ./configure \
-        --enable-ssl \
-        --localstatedir=/var \
-        --sysconfdir=/etc \
-        --prefix=/usr
-      make -j$CRAFT_PARALLEL_BUILD_COUNT
-      # build OVN
-      cd ..
-      ./boot.sh
-      ./configure \
-        --prefix=/usr \
-        --localstatedir=/var \
-        --sysconfdir=/etc \
-        --with-dbdir=/var/lib/ovn \
-        --enable-ssl
-      make -j$CRAFT_PARALLEL_BUILD_COUNT
-      make install DESTDIR=$CRAFT_PART_INSTALL
-      mkdir -p $CRAFT_PART_INSTALL/etc/ovn
-    build-packages:
-      - gcc
-      - libssl-dev
-      - libunbound-dev
-      - python3
-      - make
-      - automake
-      - autoconf
-      - libtool-bin
-      - pkgconf
+    plugin: nil
     stage-packages:
-      - libunbound8
+      - bird3
+    organize:
+      usr/sbin/: bin/
+      usr/bin/: bin/
+      etc/bird/: etc/bird/
+    prime:
+      - bin/bird
+      - bin/birdc
+      - etc/bird/**
+  ovn:
+    plugin: nil
+    stage-packages:
+      - ovn-central
+      - ovn-host
     organize:
       usr/bin/: bin/
-      usr/share/: share/
       usr/sbin/: bin/
-      usr/lib/: lib/
+      usr/share/: share/
     prime:
-     - bin/ovn-appctl
-     - bin/ovn-controller
-     - bin/ovn-nbctl
-     - bin/ovn-northd
-     - bin/ovn-sbctl
-     - bin/ovn-trace
-     - etc/ovn
-     - share/ovn
+      - bin/ovn-appctl
+      - bin/ovn-controller
+      - bin/ovn-nbctl
+      - bin/ovn-northd
+      - bin/ovn-sbctl
+      - bin/ovn-trace
+      - share/ovn/**
   ovs:
     plugin: nil
     stage-packages:
@@ -380,8 +332,9 @@ parts:
       # Note (mkalcok): This code reaches into other snapcraft parts via hardcoded paths
       #                 to determine version of packages from which they were built. It
       #                 will require updates if these part names ever change.
-      ovn_pkg_version=$(grep -E '^PACKAGE_VERSION' $CRAFT_PART_SRC/../../ovn/build/Makefile | \
-                        awk '{print $NF;}')
+      ovn_pkg_version=$(
+          dpkg-deb -f \
+          $CRAFT_PART_SRC/../../ovn/stage_packages/ovn-central*.deb Version)
       ovs_pkg_version=$(
           dpkg-deb -f \
           $CRAFT_PART_SRC/../../ovs/stage_packages/openvswitch-switch*.deb Version)
