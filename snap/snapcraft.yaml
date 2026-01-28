@@ -219,58 +219,22 @@ parts:
       - bin/birdc
       - etc/bird/**
   ovn:
-    plugin: autotools
-    source: https://github.com/ovn-org/ovn.git
-    source-type: git
-    source-tag: branch-25.09
-    override-build: |
-      # build OVS first
-      cd ovs
-      ./boot.sh
-      ./configure \
-        --enable-ssl \
-        --localstatedir=/var \
-        --sysconfdir=/etc \
-        --prefix=/usr
-      make -j$CRAFT_PARALLEL_BUILD_COUNT
-      # build OVN
-      cd ..
-      ./boot.sh
-      ./configure \
-        --prefix=/usr \
-        --localstatedir=/var \
-        --sysconfdir=/etc \
-        --with-dbdir=/var/lib/ovn \
-        --enable-ssl
-      make -j$CRAFT_PARALLEL_BUILD_COUNT
-      make install DESTDIR=$CRAFT_PART_INSTALL
-      mkdir -p $CRAFT_PART_INSTALL/etc/ovn
-    build-packages:
-      - gcc
-      - libssl-dev
-      - libunbound-dev
-      - python3
-      - make
-      - automake
-      - autoconf
-      - libtool-bin
-      - pkgconf
+    plugin: nil
     stage-packages:
-      - libunbound8
+      - ovn-central
+      - ovn-host
     organize:
       usr/bin/: bin/
-      usr/share/: share/
       usr/sbin/: bin/
-      usr/lib/: lib/
+      usr/share/: share/
     prime:
-     - bin/ovn-appctl
-     - bin/ovn-controller
-     - bin/ovn-nbctl
-     - bin/ovn-northd
-     - bin/ovn-sbctl
-     - bin/ovn-trace
-     - etc/ovn
-     - share/ovn
+      - bin/ovn-appctl
+      - bin/ovn-controller
+      - bin/ovn-nbctl
+      - bin/ovn-northd
+      - bin/ovn-sbctl
+      - bin/ovn-trace
+      - share/ovn/**
   ovs:
     plugin: nil
     stage-packages:
@@ -368,8 +332,9 @@ parts:
       # Note (mkalcok): This code reaches into other snapcraft parts via hardcoded paths
       #                 to determine version of packages from which they were built. It
       #                 will require updates if these part names ever change.
-      ovn_pkg_version=$(grep -E '^PACKAGE_VERSION' $CRAFT_PART_SRC/../../ovn/build/Makefile | \
-                        awk '{print $NF;}')
+      ovn_pkg_version=$(
+          dpkg-deb -f \
+          $CRAFT_PART_SRC/../../ovn/stage_packages/ovn-central*.deb Version)
       ovs_pkg_version=$(
           dpkg-deb -f \
           $CRAFT_PART_SRC/../../ovs/stage_packages/openvswitch-switch*.deb Version)
