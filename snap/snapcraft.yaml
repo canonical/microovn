@@ -207,31 +207,17 @@ parts:
       - lib/*/libuv*so*
 
   bird:
-    plugin: autotools
-    source: https://gitlab.nic.cz/labs/bird.git
-    source-type: git
-    source-tag: v3.1.4
-    autotools-configure-parameters:
-      - --prefix=/usr
-      - --sysconfdir=/etc/bird
-      - --mandir=/usr/share/man
-      - --infodir=/usr/share/info
-      - --localstatedir=/var
-      - --runstatedir=/run/bird
-      - --docdir=/usr/share/bird3
-      - --enable-client
-    build-packages:
-      - gcc
-      - autoconf
-      - libtool
-      - bison
-      - flex
-      - libncurses-dev
-      - libreadline-dev
-    override-prime: |
-      craftctl default
-      # shrink the default bird.conf to bare minimum
-      printf "log syslog all;\nprotocol device {};\n" > $CRAFT_PRIME/etc/bird/bird.conf
+    plugin: nil
+    stage-packages:
+      - bird3
+    organize:
+      usr/sbin/: bin/
+      usr/bin/: bin/
+      etc/bird/: etc/bird/
+    prime:
+      - bin/bird
+      - bin/birdc
+      - etc/bird/**
   ovn:
     plugin: autotools
     source: https://github.com/ovn-org/ovn.git
