@@ -89,6 +89,9 @@ tls_cluster_register_test_functions() {
     bats_test_function \
         --description "Don't renew expiring CA cert managed by the user" \
         -- tls_cluster_ca_auto_renew "user"
+    bats_test_function \
+        --description "Automatically refresh expiring certs when microovn daemon starts" \
+        -- tls_cluster_ca_certs_refresh_on_start
 }
 
 tls_cluster_central_have_tls() {
@@ -128,30 +131,36 @@ tls_cluster_central_list_certificates() {
     local expected_output='{
   "ca": {
     "cert": "/var/snap/microovn/common/data/pki/cacert.pem",
-    "auto_renew": true
+    "auto_renew": true,
+    "expiration_date": "DATE"
   },
   "ovnnb": {
     "cert": "/var/snap/microovn/common/data/pki/ovnnb-cert.pem",
-    "key": "/var/snap/microovn/common/data/pki/ovnnb-privkey.pem"
+    "key": "/var/snap/microovn/common/data/pki/ovnnb-privkey.pem",
+    "expiration_date": "DATE"
   },
   "ovnsb": {
     "cert": "/var/snap/microovn/common/data/pki/ovnsb-cert.pem",
-    "key": "/var/snap/microovn/common/data/pki/ovnsb-privkey.pem"
+    "key": "/var/snap/microovn/common/data/pki/ovnsb-privkey.pem",
+    "expiration_date": "DATE"
   },
   "ovn-northd": {
     "cert": "/var/snap/microovn/common/data/pki/ovn-northd-cert.pem",
-    "key": "/var/snap/microovn/common/data/pki/ovn-northd-privkey.pem"
+    "key": "/var/snap/microovn/common/data/pki/ovn-northd-privkey.pem",
+    "expiration_date": "DATE"
   },
   "ovn-controller": {
     "cert": "/var/snap/microovn/common/data/pki/ovn-controller-cert.pem",
-    "key": "/var/snap/microovn/common/data/pki/ovn-controller-privkey.pem"
+    "key": "/var/snap/microovn/common/data/pki/ovn-controller-privkey.pem",
+    "expiration_date": "DATE"
   },
   "client": {
     "cert": "/var/snap/microovn/common/data/pki/client-cert.pem",
-    "key": "/var/snap/microovn/common/data/pki/client-privkey.pem"
+    "key": "/var/snap/microovn/common/data/pki/client-privkey.pem",
+    "expiration_date": "DATE"
   }
 }'
-    run lxc_exec "$container" "microovn certificates list --format json | jq"
+    run lxc_exec "$container" "microovn certificates list --format json | jq 'walk( if type == \"object\" and has(\"expiration_date\") then .expiration_date = \"DATE\" else . end)'"
     assert_success
     assert_output "$expected_output"
 
@@ -169,21 +178,24 @@ tls_cluster_chassis_list_certificates() {
     local expected_output='{
   "ca": {
     "cert": "/var/snap/microovn/common/data/pki/cacert.pem",
-    "auto_renew": true
+    "auto_renew": true,
+    "expiration_date": "DATE"
   },
   "ovnnb": null,
   "ovnsb": null,
   "ovn-northd": null,
   "ovn-controller": {
     "cert": "/var/snap/microovn/common/data/pki/ovn-controller-cert.pem",
-    "key": "/var/snap/microovn/common/data/pki/ovn-controller-privkey.pem"
+    "key": "/var/snap/microovn/common/data/pki/ovn-controller-privkey.pem",
+    "expiration_date": "DATE"
   },
   "client": {
     "cert": "/var/snap/microovn/common/data/pki/client-cert.pem",
-    "key": "/var/snap/microovn/common/data/pki/client-privkey.pem"
+    "key": "/var/snap/microovn/common/data/pki/client-privkey.pem",
+    "expiration_date": "DATE"
   }
 }'
-    run lxc_exec "$container" "microovn certificates list --format json | jq"
+    run lxc_exec "$container" "microovn certificates list --format json | jq 'walk( if type == \"object\" and has(\"expiration_date\") then .expiration_date = \"DATE\" else . end)'"
     assert_success
     assert_output "$expected_output"
 
@@ -544,6 +556,59 @@ tls_cluster_ca_auto_renew() {
         local_ca_hash=$(get_cert_fingerprint "$container" "$CA_CERT_PATH")
 
         assert [ "$local_ca_hash" == "$after_refresh_ca_hash" ]
+    done
+}
+
+tls_cluster_ca_certs_refresh_on_start() {
+    # Test that the auto-refresh script runs when microovn daemon starts
+    # and refreshes expired certificates.
+    if [ -n "$SKIP_TLS_RENEW" ]; then
+        skip "SKIP_TLS_RENEW is set. Skipping"
+    fi
+    local container=""
+    container=$(echo "$TEST_CONTAINERS" | awk '{print $1;}')
+    local refresh_timer="snap.microovn.refresh-expiring-certs.timer"
+    declare -A services=(\
+        ["client"]=$CLIENT_CERT_PATH\
+        ["ovnnb"]=$OVN_NB_CERT_PATH\
+        ["ovnsb"]=$OVN_SB_CERT_PATH\
+        ["ovn-controller"]=$CONTROLLER_CERT_PATH\
+        ["ovn-northd"]=$NORTHD_CERT_PATH\
+    )
+    declare -A old_hashes=()
+
+    # Collect original certificate fingerprints
+    for service in "${!services[@]}"; do
+        local cert_path="${services[$service]}"
+        old_hashes["$service"]=$(get_cert_fingerprint "$container" "$cert_path")
+    done
+
+    # Adjust container date so that the CA cert is eligible for renewal
+    # (min. 10 days before expiry) outside of the time the script
+    # is allowed to run (02:00-02:30)
+    for container in $TEST_CONTAINERS; do
+        # disable systemctl timer so that we can trigger refresh manually
+        lxc_exec "$container" "systemctl disable --now $refresh_timer"
+        lxc_exec "$container" "timedatectl set-ntp no"
+        lxc_exec "$container" "timedatectl set-time +9y360d"
+        #random time that is not 02:00-02:30 when refresh the script would normally run
+        lxc_exec "$container" "timedatectl set-time 09:01:00"
+    done
+    export RESET_TIME="yes"
+
+    run lxc_exec "$container" "snap restart microovn.daemon"
+    assert_success
+
+    # Verify that certificates have new fingerprints
+    for service in "${!services[@]}"; do
+        local cert_path="${services[$service]}"
+        local new_hash=""
+        local old_hash=""
+
+        new_hash=$(get_cert_fingerprint "$container" "$cert_path")
+        old_hash="${old_hashes[$service]}"
+
+        assert [ "$old_hash" != "$new_hash" ]
     done
 }
 
