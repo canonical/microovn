@@ -158,10 +158,10 @@ func printOvnCertStatus(certificates *ovnCertificatePaths) {
 		fmt.Printf("Auto-renew: %t\n", certificates.Ca.AutoRenew)
 	}
 
-	fmt.Println("\n[OVN Northbound Service]")
+	fmt.Println("\n[OVN Northbound Database]")
 	printCertBundleStatus(certificates.Nb)
 
-	fmt.Println("\n[OVN Southbound Service]")
+	fmt.Println("\n[OVN Southbound Database]")
 	printCertBundleStatus(certificates.Sb)
 
 	fmt.Println("\n[OVN Northd Service]")
