@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -75,6 +76,27 @@ func (c *cmdStatus) Run(_ *cobra.Command, _ []string) error {
 	fmt.Println("OVN Database summary:")
 	reportOvsdbSchemaStatus(m, &cli, ovnCmd.OvsdbTypeNBLocal)
 	reportOvsdbSchemaStatus(m, &cli, ovnCmd.OvsdbTypeSBLocal)
+
+	//Check certificates status and report expired ones
+	localHostname, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+
+	caInfo, err := client.GetCaInfo(context.Background(), cli)
+	if err != nil {
+		return err
+	}
+	if caInfo.Error != "" {
+		return fmt.Errorf("%s", caInfo.Error)
+	}
+	var expectedCertificates ovnCertificatePaths
+	err = populateExpectedCertificates(&expectedCertificates, services, caInfo, localHostname)
+	if err != nil {
+		return err
+	}
+	printCertsSummary(&expectedCertificates)
+
 	return nil
 }
 
@@ -202,4 +224,34 @@ func printOvsdbSummaryError(err error, ovsdbSpec *ovnCmd.OvsdbSpec) {
 		dbName = ovsdbSpec.FriendlyName
 	}
 	fmt.Printf("Error creating OVN %s Database summary: %s\n", dbName, err)
+}
+
+// printCertsSummary in the case of a certificate expiration, prints the expired certificate name/names
+func printCertsSummary(certificates *ovnCertificatePaths) {
+	printCertsSummaryHelper(certificates.Ca, "OVN CA")
+	printCertsSummaryHelper(certificates.Nb, "OVN Northbound Database")
+	printCertsSummaryHelper(certificates.Sb, "OVN Southbound Database")
+	printCertsSummaryHelper(certificates.Northd, "OVN Northd Service")
+	printCertsSummaryHelper(certificates.Chassis, "OVN Chassis Service")
+	printCertsSummaryHelper(certificates.Client, "Client")
+}
+
+func printCertsSummaryHelper(cert certProvider, certName string) {
+	switch v := cert.(type) {
+	case *caCertInfo:
+		if v == nil {
+			return
+		}
+	case *certBundle:
+		if v == nil {
+			return
+		}
+	}
+	result, err := certIsExpired(cert.CertPath())
+	if err != nil {
+		fmt.Printf("Failed to get %s certificate expiration date: %s\n", certName, err)
+	}
+	if result {
+		fmt.Println(certName, "certificate has expired")
+	}
 }
