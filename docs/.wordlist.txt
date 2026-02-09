@@ -14,6 +14,7 @@ JSON
 Juju
 Kubernetes
 Kubeflow
+MicroCloud
 MyST
 namespace
 namespaces
