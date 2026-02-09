@@ -83,17 +83,12 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	var expectedCertificates ovnCertificatePaths
 	caInfo, err := client.GetCaInfo(context.Background(), cli)
 	if err != nil {
 		return err
 	}
 	if caInfo.Error != "" {
 		return fmt.Errorf("%s", caInfo.Error)
-	}
-	expectedCertificates.Ca = &caCertInfo{
-		Cert:      paths.PkiCaCertFile(),
-		AutoRenew: caInfo.AutoRenew,
 	}
 
 	// Get list of all services in microovn
@@ -102,6 +97,30 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	var expectedCertificates ovnCertificatePaths
+	populateExpectedCertificates(&expectedCertificates, services, caInfo, localHostname)
+
+	outputFormat := cmd.Flag("format").Value.String()
+	switch outputFormat {
+	case "text":
+		printOvnCertStatus(&expectedCertificates)
+	case "json":
+		jsonString, err := json.Marshal(expectedCertificates)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s", string(jsonString))
+	default:
+		return fmt.Errorf("unknown output format specified: %s", outputFormat)
+	}
+	return nil
+}
+
+func populateExpectedCertificates(expectedCertificates *ovnCertificatePaths, services types.Services, caInfo types.CaInfo, localHostname string) {
+	expectedCertificates.Ca = &caCertInfo{
+		Cert:      paths.PkiCaCertFile(),
+		AutoRenew: caInfo.AutoRenew,
+	}
 	// Gather paths to all certificates that should be running on local host
 	for _, srv := range services {
 		// Skip service that do not run on this member
@@ -126,21 +145,6 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 		clientCert, clientKey := paths.PkiClientCertFiles()
 		expectedCertificates.Client = &certBundle{clientCert, clientKey}
 	}
-
-	outputFormat := cmd.Flag("format").Value.String()
-	switch outputFormat {
-	case "text":
-		printOvnCertStatus(&expectedCertificates)
-	case "json":
-		jsonString, err := json.Marshal(expectedCertificates)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("%s", string(jsonString))
-	default:
-		return fmt.Errorf("unknown output format specified: %s", outputFormat)
-	}
-	return nil
 }
 
 // printOvnCertStatus prints overall status of certificate bundles contained in
