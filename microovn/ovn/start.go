@@ -3,7 +3,9 @@ package ovn
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
+	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
 
 	"github.com/canonical/microcluster/v3/state"
@@ -13,6 +15,7 @@ import (
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/environment"
 	"github.com/canonical/microovn/microovn/ovn/ovsdb"
+	"github.com/canonical/microovn/microovn/ovn/paths"
 )
 
 // Start will update the existing OVN central and OVS switch configs.
@@ -78,6 +81,14 @@ func Start(ctx context.Context, s state.State) error {
 				logger.Errorf("Failed to perform OVN NB schema upgrade. '%s'", err)
 			}
 		}()
+	}
+
+	_, err = shared.RunCommandContext(ctx, filepath.Join(paths.Wrappers(), "refresh-expiring-certs"))
+	if err != nil {
+		logger.Warnf("Failed to execute refresh-expiring-certs script. '%s'", err)
+	}
+	if err == nil {
+		logger.Debug("refresh-expiring-certs script has been run")
 	}
 
 	return nil
