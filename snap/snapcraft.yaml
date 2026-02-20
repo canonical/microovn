@@ -1,8 +1,10 @@
 name: microovn
 icon: microovn.png
-base: core24
+base: core26
+build-base: devel
+grade: devel
 assumes:
- - snapd2.59
+ - snapd2.73
 adopt-info: microovn
 source-code: https://github.com/canonical/microovn.git
 summary: Simple clustered OVN deployment
@@ -182,7 +184,7 @@ parts:
     source: https://github.com/canonical/dqlite
     source-type: git
     source-depth: 1
-    source-tag: v1.17.1
+    source-tag: v1.18.5
     plugin: autotools
     autotools-configure-parameters:
       - --prefix=
@@ -231,61 +233,10 @@ parts:
       # shrink the default bird.conf to bare minimum
       printf "log syslog all;\nprotocol device {};\n" > $CRAFT_PRIME/etc/bird/bird.conf
   ovn:
-    plugin: autotools
-    source: https://github.com/ovn-org/ovn.git
-    source-type: git
-    source-tag: branch-25.09
-    override-build: |
-      # build OVS first
-      cd ovs
-      ./boot.sh
-      ./configure \
-        --enable-ssl \
-        --localstatedir=/var \
-        --sysconfdir=/etc \
-        --prefix=/usr
-      make -j$CRAFT_PARALLEL_BUILD_COUNT
-      # build OVN
-      cd ..
-      ./boot.sh
-      ./configure \
-        --prefix=/usr \
-        --localstatedir=/var \
-        --sysconfdir=/etc \
-        --with-dbdir=/var/lib/ovn \
-        --enable-ssl
-      make -j$CRAFT_PARALLEL_BUILD_COUNT
-      make install DESTDIR=$CRAFT_PART_INSTALL
-      mkdir -p $CRAFT_PART_INSTALL/etc/ovn
-    build-packages:
-      - gcc
-      - libssl-dev
-      - libunbound-dev
-      - python3
-      - make
-      - automake
-      - autoconf
-      - libtool-bin
-      - pkgconf
-    stage-packages:
-      - libunbound8
-    organize:
-      usr/bin/: bin/
-      usr/share/: share/
-      usr/sbin/: bin/
-      usr/lib/: lib/
-    prime:
-     - bin/ovn-appctl
-     - bin/ovn-controller
-     - bin/ovn-nbctl
-     - bin/ovn-northd
-     - bin/ovn-sbctl
-     - bin/ovn-trace
-     - etc/ovn
-     - share/ovn
-  ovs:
     plugin: nil
     stage-packages:
+      - ovn-central
+      - ovn-host
       - openvswitch-switch
     organize:
       usr/bin/: bin/
@@ -293,24 +244,31 @@ parts:
       usr/lib/: lib/
       usr/share/: share/
     prime:
-     - bin/ovs-appctl
-     - bin/ovs-dpctl
-     - bin/ovs-ofctl
-     - bin/ovs-vsctl
-     - bin/ovs-vswitchd
-     - bin/ovsdb-client
-     - bin/ovsdb-server
-     - bin/ovsdb-tool
-       # The lib cherry-picking is unfortunately necessary to avoid pulling in
-       # external symlinks provided by the openssl package dependency.
-       # (External symlinks, i.e. pointing at something in /, are not allowed.)
-     - lib/*/libevent-2.1.so*
-     - lib/*/libnuma.so.*
-     - lib/*/bpf/*
-     - lib/*/libbpf.so.*
-     - lib/*/libxdp.so.*
-     - lib/*/libunbound.so*
-     - share/openvswitch
+      - bin/ovn-appctl
+      - bin/ovn-controller
+      - bin/ovn-nbctl
+      - bin/ovn-northd
+      - bin/ovn-sbctl
+      - bin/ovn-trace
+      - share/ovn
+      - bin/ovs-appctl
+      - bin/ovs-dpctl
+      - bin/ovs-ofctl
+      - bin/ovs-vsctl
+      - bin/ovs-vswitchd
+      - bin/ovsdb-client
+      - bin/ovsdb-server
+      - bin/ovsdb-tool
+        # The lib cherry-picking is unfortunately necessary to avoid pulling in
+        # external symlinks provided by the openssl package dependency.
+        # (External symlinks, i.e. pointing at something in /, are not allowed.)
+      - lib/*/libevent-2.1.so*
+      - lib/*/libnuma.so.*
+      - lib/*/bpf/*
+      - lib/*/libbpf.so.*
+      - lib/*/libxdp.so.*
+      - lib/*/libunbound.so*
+      - share/openvswitch
     override-build: |
         craftctl default
 
@@ -323,7 +281,6 @@ parts:
     after:
       - dqlite
       - ovn
-      - ovs
     build-snaps:
       # golangci-lint is currently not available on all architectures.
       # (alexmurray/golangci-lint-snap#3)
@@ -380,18 +337,20 @@ parts:
       # Note (mkalcok): This code reaches into other snapcraft parts via hardcoded paths
       #                 to determine version of packages from which they were built. It
       #                 will require updates if these part names ever change.
-      ovn_pkg_version=$(grep -E '^PACKAGE_VERSION' $CRAFT_PART_SRC/../../ovn/build/Makefile | \
-                        awk '{print $NF;}')
+      ovn_pkg_version=$(
+          dpkg-deb -f \
+          $CRAFT_PART_SRC/../../ovn/stage_packages/ovn-central*.deb Version)
       ovs_pkg_version=$(
           dpkg-deb -f \
-          $CRAFT_PART_SRC/../../ovs/stage_packages/openvswitch-switch*.deb Version)
+          $CRAFT_PART_SRC/../../ovn/stage_packages/openvswitch-switch*.deb Version)
       git_version=$(
           git -C $CRAFT_PROJECT_DIR describe \
               --always \
               --dirty \
               --abbrev=10)
-      
-      craftctl set version=${ovn_pkg_version}+snap${git_version}
+
+      # version has to be less than 32 chars so we truncate the ovn version
+      craftctl set version=$(echo "$ovn_pkg_version" | cut -c1-10 )+snap${git_version}
       
       version_package=github.com/canonical/microovn/microovn/version
       go_ldflags="-X '${version_package}.MicroOvnVersion=${git_version}${EXTRA_BUILD_ARGS}' \
