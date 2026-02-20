@@ -166,4 +166,4 @@ be used:
 
 .. code-block:: none
 
-   .sphinx/venv/pip freeze > freeze-constraints.txt
+   .sphinx/venv/bin/pip freeze > freeze-constraints.txt
