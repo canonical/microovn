@@ -340,8 +340,8 @@ parts:
       - libxslt1-dev
       - make
       - python3-venv
-      - rustc-1.85
-      - cargo-1.85
+      - rustc
+      - cargo
     override-build: |
       set -ex
       make .sphinx/venv PIPOPTS="-c freeze-constraints.txt" \
