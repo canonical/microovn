@@ -17,9 +17,12 @@ should be `reported as a bug`_ using the normal bug process.
 
 Reporting a vulnerability
 -------------------------
-To report a security issue, please email `security@ubuntu.com`_ with a
-description of the issue, the steps you took to create the issue, affected
-versions, and, if known, mitigations for the issue.
+To report a security issue, please file a `Private Security Report on Launchpad`_
+(to ensure the information stays private, change the “This bug contains
+information that is:” from “Public” to “Private Security” when filing),
+or email `security@ubuntu.com`_ with a description of the issue,
+the steps you took to create the issue, affected versions, and,
+if known, mitigations for the issue.
 
 The `Ubuntu Security disclosure and embargo policy`_ contains more information
 about what you can expect when you contact us and what we expect from you.
@@ -62,6 +65,7 @@ to the section on `reporting a vulnerability`_.
 
 .. LINKS
 .. _security@ubuntu.com: mailto:security@ubuntu.com
+.. _Private Security Report on Launchpad: https://bugs.launchpad.net/microovn/+filebug
 .. _Ubuntu Security disclosure and embargo policy: https://ubuntu.com/security/disclosure-policy
 .. _reported as a bug: https://bugs.launchpad.net/microovn/+filebug
 .. _Ubuntu lifecycle and release cadence: https://ubuntu.com/about/release-cycle
