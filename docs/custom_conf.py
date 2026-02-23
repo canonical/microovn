@@ -75,7 +75,7 @@ html_context = {
     # Change to the discourse instance you want to be able to link to
     # using the :discourse: metadata at the top of a file
     # (use an empty value if you don't want to link)
-    'discourse': 'https://discourse.ubuntu.com/c/microovn/support/164',
+    'discourse': 'https://discourse.ubuntu.com/c/project/microcloud/145',
 
     # Change to the GitHub URL for your project
     "github_url": "https://github.com/canonical/microovn",

@@ -10,6 +10,7 @@ SOURCEDIR     = .
 BUILDDIR      = _build
 VENVDIR       = $(SPHINXDIR)/venv
 VENV          = $(VENVDIR)/bin/activate
+PIPOPTS       ?=
 
 
 # Put it first so that "make" without argument is like "make help".
@@ -25,8 +26,8 @@ $(SPHINXDIR)/requirements.txt:
 # If requirements are updated, venv should be rebuilt and timestamped.
 $(VENVDIR): $(SPHINXDIR)/requirements.txt
 	@echo "... setting up virtualenv"
-	python3 -m venv $(VENVDIR)
-	. $(VENV); pip install --require-virtualenv \
+	python3 -m venv --upgrade-deps $(VENVDIR)
+	. $(VENV); pip install $(PIPOPTS) --require-virtualenv \
         --upgrade -r $(SPHINXDIR)/requirements.txt \
         --log $(VENVDIR)/pip_install.log
 	@test ! -f $(VENVDIR)/pip_list.txt || \
