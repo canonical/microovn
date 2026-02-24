@@ -1,0 +1,2 @@
+# setuptools 82 drops the `pkg_resources` module.
+setuptools==81.0.0

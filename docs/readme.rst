@@ -147,23 +147,28 @@ Change to specific dependencies can be accomplished by manually updating
 To refresh the whole set to most recent versions the following procedure can
 be used:
 
-1. Clear the current virtual environment, pip cache and empty the
-   ``freeze-constraints.txt`` file.
+1. Clear the current virtual environment and pip cache.
 
 .. code-block:: none
 
    rm -rf .sphinx/venv
    rm -rf ~/.cache/pip
-   :> freeze-constraints.txt
 
-2. Build the virtual environment without constraints.
+2. Build the virtual environment, overriding ``PIPOPTS`` to ensure build from
+   source without constraints.
 
 .. code-block:: none
 
-   make .sphinx/venv
+   make .sphinx/venv PIPOPTS="--no-binary :all:"
+
+.. note::
+
+   In the event of the current state of dependencies being in an impossible
+   state, populate the ``build-constraints.txt`` file and make use of the
+   ``--build-constraint`` argument in ``PIPOPTS``.
 
 3. Ensure everything works as expected and then record the new constraints.
 
 .. code-block:: none
 
-   .sphinx/venv/pip freeze > freeze-constraints.txt
+   .sphinx/venv/bin/pip freeze > freeze-constraints.txt
