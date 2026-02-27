@@ -1,12 +1,88 @@
-===============================
-Configuration safety guidelines
-===============================
+=========
+Hardening
+=========
 
-MicroOVN is a very opinionated way to deploy OVN. It enforces TLS encryption and
-authentication on its network endpoints, and it tries to use sane defaults
-wherever possible. In general, it does not provide many ways to deviate from
-the standard configuration, but this section will highlight those places where
-it does and where the security can be improved by the user manually.
+MicroOVN enforces TLS encryption and authentication on all network endpoints
+and uses sane defaults wherever possible. This page documents areas where the
+default posture can be strengthened and how MicroOVN relates to upstream OVN
+security guidance.
+
+Default protections
+-------------------
+
+The following are active out of the box:
+
+* **Mutual TLS** on all OVN/OVS and MicroCluster network endpoints (since snap
+  revision 111).
+* **ECDSA P-384** keys with automatic daily renewal of expiring certificates.
+* **Snap strict confinement** limiting filesystem and network access.
+* **Root-only permissions** on all on-disk state
+  (``/var/snap/microovn/common/data``).
+
+Filesystem and disk
+-------------------
+
+Databases, private keys, and certificates are stored unencrypted on disk.
+Consider enabling full-disk encryption on hosts that process sensitive
+network policies.
+
+Network exposure
+----------------
+
+MicroOVN listens on the following TCP ports. Restrict access to these ports
+through firewalls or network segmentation to the set of hosts that need them:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Port
+     - Service
+     - Authentication
+   * - 6641
+     - OVN Northbound OVSDB
+     - mTLS
+   * - 6642
+     - OVN Southbound OVSDB
+     - mTLS
+   * - 6643
+     - OVN Northbound cluster (RAFT)
+     - mTLS
+   * - 6644
+     - OVN Southbound cluster (RAFT)
+     - mTLS
+   * - 6081
+     - Geneve tunnel (OVS datapath)
+     - None (upstream OVN)
+   * - 6686
+     - MicroCluster REST API
+     - mTLS
+   * - 179
+     - BGP (BIRD), when enabled
+     - None by default
+
+OVSDB access
+------------
+
+MicroOVN does not enable OVN's optional RBAC on the Northbound or Southbound
+databases. Any client presenting a valid TLS certificate signed by the cluster
+CA has full read/write access. In multi-tenant or shared environments, consider
+network-level restrictions to limit which hosts can reach the OVSDB ports.
+
+Upstream OVN security guidance
+------------------------------
+
+The OVN upstream documentation covers security topics such as RBAC for the
+Southbound database, TLS configuration, and OVSDB access control (see the
+`OVN RBAC tutorial`_ for details). MicroOVN's opinionated design satisfies or
+deviates from this guidance as follows:
+
+* **TLS**: upstream defaults to plaintext; MicroOVN enables TLS by default.
+* **RBAC**: upstream supports optional Southbound RBAC; MicroOVN does not
+  configure it.
+* **Certificate management**: upstream leaves PKI to the operator; MicroOVN
+  auto-provisions a self-signed CA and manages the full certificate lifecycle.
+
+.. _OVN RBAC tutorial: https://docs.ovn.org/en/latest/tutorials/ovn-rbac.html
 
 BGP integration
 ---------------
