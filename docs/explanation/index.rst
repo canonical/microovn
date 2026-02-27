@@ -9,5 +9,6 @@ topics related to ``OVN`` or ``OVS``.
 .. toctree::
    :maxdepth: 1
 
+   security
    tracks-and-upgrades
    bgp-redirect
