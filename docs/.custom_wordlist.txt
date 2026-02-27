@@ -1,3 +1,4 @@
+ACLs
 ASN
 BFD
 BGP
@@ -39,6 +40,7 @@ PCI
 PKI
 Permalink
 PRs
+RBAC
 README
 RPKI
 RSA
@@ -46,6 +48,7 @@ RST
 RTD
 Snapcraft
 SSL
+TCP
 TLS
 UI
 VRF
@@ -64,8 +67,10 @@ composability
 config
 crypto
 cryptographic
+datapath
 datapaths
 devel
+dqlite
 downscaling
 eth
 failover
@@ -84,6 +89,7 @@ lxd
 manpage
 microovn
 mitigations
+mTLS
 monospaced
 movn
 natively
