@@ -1,5 +1,8 @@
 ACLs
 ASN
+AUTHN
+AUTHZ
+Authorization
 BFD
 BGP
 BIRD's
@@ -34,6 +37,7 @@ Netplan
 OVN
 OVN's
 OVS
+OWASP
 OpenSSL
 OpenStack
 PCI
@@ -48,9 +52,12 @@ RST
 RTD
 Snapcraft
 SSL
+SYS
 TCP
 TLS
 UI
+Unauthorized
+untrusted
 VRF
 VRFs
 VMs

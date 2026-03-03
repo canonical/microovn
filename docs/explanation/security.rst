@@ -76,6 +76,132 @@ central cluster via :doc:`/reference/config/ovn-central-ips`). There is no
 built-in log redaction, OVN/OVS logs may contain IP addresses and port numbers
 but not user payload.
 
+Security event logging
+----------------------
+
+MicroOVN emits structured security event log entries in accordance with the
+`OWASP Application Logging Vocabulary`_ and `Logging Cheat Sheet`_. Every
+security event carries the following structured fields:
+
+``security``
+  Always ``true`` — allows filtering security events from operational logs.
+``category``
+  One of ``AUTHN``, ``AUTHZ`` or ``SYS``.
+``event``
+  An OWASP vocabulary identifier (e.g. ``authn_password_changed``,
+  ``authz_admin``, ``sys_startup``).
+
+Additional context fields (``node``, ``service``, ``action``, ``subject``)
+are included where applicable. All entries are emitted through the same
+framework used by the rest of MicroOVN, so they appear in the daemon's
+standard log output (``journalctl`` for a snap installation).
+
+Covered events
+~~~~~~~~~~~~~~
+
+Authentication [AUTHN]
+^^^^^^^^^^^^^^^^^^^^^^
+
+Because MicroOVN uses mutual TLS (mTLS) exclusively, the OWASP authentication
+vocabulary is mapped to TLS certificate lifecycle operations:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 30 40
+
+   * - OWASP event
+     - MicroOVN mapping
+     - Example log
+   * - ``authn_password_changed``
+     - CA or service certificate (re)issued
+     - ``category=AUTHN event=authn_password_changed subject=CA auto_renew=true msg="CA certificate generated and stored"``
+
+Authorization [AUTHZ]
+^^^^^^^^^^^^^^^^^^^^^
+
+MicroOVN has no per-user RBAC, all mutating operations are therefore logged as administrative activity:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 30 40
+
+   * - OWASP event
+     - MicroOVN mapping
+     - Example log
+   * - ``authz_admin``
+     - Cluster join / leave
+     - ``category=AUTHZ event=authz_admin action=cluster_join node=node-2 msg="Node 'node-2' joined cluster"``
+   * - ``authz_admin``
+     - Service enable / disable
+     - ``category=AUTHZ event=authz_admin action=enable_service service=central node=node-1 msg="Enabling service 'central' on node 'node-1'"``
+   * - ``authz_admin``
+     - Configuration change (set / delete)
+     - ``category=AUTHZ event=authz_admin action=config_set key=ovn.central-ips msg="Setting configuration key 'ovn.central-ips'"``
+   * - ``authz_admin``
+     - CA regeneration or custom CA upload
+     - ``category=AUTHZ event=authz_admin action=regenerate_ca msg="CA certificate regeneration requested via API"``
+
+System [SYS]
+^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 30 40
+
+   * - OWASP event
+     - MicroOVN mapping
+     - Example log
+   * - ``sys_startup``
+     - Daemon start (``OnStart`` hook, fires on every start including post-bootstrap)
+     - ``category=SYS event=sys_startup node=node-1 msg="MicroOVN daemon starting on 'node-1'"``
+   * - ``sys_shutdown``
+     - Node leaving cluster
+     - ``category=SYS event=sys_shutdown node=node-2 msg="Node 'node-2' shutting down OVN services before departure"``
+
+Events not applicable
+~~~~~~~~~~~~~~~~~~~~~
+
+The following OWASP events do not apply to MicroOVN due to its architecture
+and are intentionally not implemented:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Event category
+     - Reason
+   * - Successful / Failed Login
+     - MicroOVN uses mTLS only. The TLS handshake is handled inside the
+       ``microcluster`` library; successful and failed connection attempts
+       are logged by the TLS layer, not by MicroOVN application code.
+   * - Account Lockout
+     - There are no user accounts. Identity is certificate-based and there
+       is no lockout mechanism.
+   * - Token Created / Deleted / Revoked / Reused
+     - Join token lifecycle is handled entirely within the ``microcluster``
+       library. ``microovn cluster add`` calls ``microcluster``
+       ``NewJoinToken`` API. Tokens are single-use and expire automatically.
+       MicroOVN application code has no visibility into any of these
+       transitions.
+   * - Unauthorized Access Attempt
+     - Requests from untrusted clients are rejected by the ``microcluster``
+       TLS listener before reaching MicroOVN handlers (all endpoints set
+       ``AllowUntrusted: false``). The rejection is logged at the framework
+       level.
+   * - User Created / Updated
+     - There are no user accounts. Node membership (join / leave) is the
+       closest equivalent and is covered under ``authz_admin``.
+   * - System Restart / Crash
+     - Snap service restarts are managed by ``systemd``; crash recovery is
+       handled by the snap runtime. MicroOVN does not have in-process
+       restart or crash-handler hooks.
+   * - System Monitoring Disabled
+     - MicroOVN does not provide a monitoring subsystem that can be
+       selectively disabled.
+
+.. _OWASP Application Logging Vocabulary: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Vocabulary_Cheat_Sheet.html
+.. _Logging Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
+
 Further reading
 ---------------
 
