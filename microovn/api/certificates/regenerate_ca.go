@@ -15,6 +15,7 @@ import (
 	"github.com/canonical/microovn/microovn/api/types"
 	microovnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
+	"github.com/canonical/microovn/microovn/securitylog"
 )
 
 // RegenerateCaEndpoint defines endpoint for /1.0/ca
@@ -39,6 +40,12 @@ func infoCaGet(s state.State, r *http.Request) response.Response {
 // regenerateCaPut implements PUT method for /1.0/ca endpoint. The function issues new CA certificate
 // and triggers re-issue of all service certificates on all MicroOVN cluster members
 func regenerateCaPut(s state.State, r *http.Request) response.Response {
+	securitylog.Log(
+		securitylog.CatAuthz,
+		securitylog.EventAdminActivity,
+		logger.Ctx{"action": "regenerate_ca"},
+		"CA certificate regeneration requested via API",
+	)
 	responseData := types.NewRegenerateCaResponse()
 	// Only one recipient of this request needs to update the CA in the shared DB
 	if !microTypes.IsNotification(r) {
@@ -60,6 +67,12 @@ func regenerateCaPut(s state.State, r *http.Request) response.Response {
 // from data provided by the user and triggers re-issue of all service certificates on all MicroOVN
 // cluster members
 func setCaPost(s state.State, r *http.Request) response.Response {
+	securitylog.Log(
+		securitylog.CatAuthz,
+		securitylog.EventAdminActivity,
+		logger.Ctx{"action": "set_custom_ca"},
+		"Custom CA certificate upload requested via API",
+	)
 	responseData := types.NewRegenerateCaResponse()
 	// Only one recipient of this request needs to update the CA in the shared DB
 	if !microTypes.IsNotification(r) {
