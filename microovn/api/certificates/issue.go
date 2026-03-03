@@ -15,6 +15,7 @@ import (
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/ovn/certificates"
+	"github.com/canonical/microovn/microovn/securitylog"
 )
 
 // IssueCertificatesEndpoint defines endpoint for /1.0/certificates/<service-name>.
@@ -33,6 +34,13 @@ func issueCertificatesPut(s state.State, r *http.Request) response.Response {
 		logger.Errorf("Failed to parse service name from URL '%s'", r.URL)
 		return response.InternalError(errors.New("internal server error"))
 	}
+	securitylog.Log(
+		securitylog.CatAuthn,
+		securitylog.EventPasswordChanged,
+		logger.Ctx{"action": "issue_certificate", "service": requestedService},
+		"Certificate reissue requested for service '%s'",
+		requestedService,
+	)
 	logger.Infof("Issuing new certificate for '%s' service.", requestedService)
 
 	// Get all enabled services and make sure that the requested service is among them.
