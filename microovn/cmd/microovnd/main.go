@@ -15,6 +15,7 @@ import (
 	"github.com/canonical/microovn/microovn/api"
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/ovn"
+	"github.com/canonical/microovn/microovn/securitylog"
 	"github.com/canonical/microovn/microovn/version"
 )
 
@@ -30,8 +31,9 @@ type cmdGlobal struct {
 	flagHelp    bool
 	flagVersion bool
 
-	flagLogDebug   bool
-	flagLogVerbose bool
+	flagLogDebug               bool
+	flagLogVerbose             bool
+	flagDisableSecurityLogging bool
 }
 
 func (c *cmdGlobal) Run(_ *cobra.Command, _ []string) error {
@@ -60,6 +62,10 @@ func (c *cmdDaemon) Command() *cobra.Command {
 }
 
 func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
+	if c.global.flagDisableSecurityLogging {
+		securitylog.SetEnabled(false)
+	}
+
 	logLevel := slog.LevelInfo
 	if c.global.flagLogDebug {
 		logLevel = slog.LevelDebug
@@ -119,6 +125,7 @@ func main() {
 	app.PersistentFlags().BoolVarP(&daemonCmd.global.flagLogDebug, "debug", "d", false, "Show all debug messages")
 	app.PersistentFlags().BoolVarP(&daemonCmd.global.flagLogVerbose, "verbose", "v", false, "Show all information messages")
 
+	app.PersistentFlags().BoolVar(&daemonCmd.global.flagDisableSecurityLogging, "disable-security-logging", false, "Disable OWASP security event logging")
 	app.PersistentFlags().StringVar(&daemonCmd.flagStateDir, "state-dir", "", "Path to store state information"+"``")
 
 	app.SetVersionTemplate("{{.Version}}\n")

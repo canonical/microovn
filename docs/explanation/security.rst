@@ -96,6 +96,9 @@ are included where applicable. All entries are emitted through the same
 framework used by the rest of MicroOVN, so they appear in the daemon's
 standard log output (``journalctl`` for a snap installation).
 
+Security logging is **enabled by default**. It can be disabled on a per-node
+basis through snap configuration — see :ref:`disable-security-logging` below.
+
 Covered events
 ~~~~~~~~~~~~~~
 
@@ -201,6 +204,35 @@ and are intentionally not implemented:
 
 .. _OWASP Application Logging Vocabulary: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Vocabulary_Cheat_Sheet.html
 .. _Logging Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
+
+.. _disable-security-logging:
+
+Disabling security logging
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Security event logging is enabled by default and is recommended for production
+deployments to meet audit and compliance requirements.
+
+If the additional log output is not required (for example during development or
+testing), it can be disabled on a per-node basis using snap configuration.
+
+Disable security logging on a node:
+
+.. code-block:: bash
+
+   sudo snap set microovn security-logging=false
+   sudo snap restart microovn.daemon
+
+Re-enable:
+
+.. code-block:: bash
+
+   sudo snap set microovn security-logging=true
+   sudo snap restart microovn.daemon
+
+The setting is per-node: each cluster member must be configured independently.
+A restart of the ``microovn.daemon`` service is required for the change to take
+effect.
 
 Further reading
 ---------------

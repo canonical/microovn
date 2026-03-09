@@ -15,6 +15,12 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 )
 
+// enabled controls whether security events are emitted
+var enabled = true
+
+// SetEnabled turns security event logging on or off
+func SetEnabled(on bool) { enabled = on }
+
 // Category is an OWASP security event category
 type Category string
 
