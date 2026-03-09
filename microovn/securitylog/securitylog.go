@@ -15,6 +15,12 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 )
 
+// enabled controls whether security events are emitted
+var enabled = true
+
+// SetEnabled turns security event logging on or off
+func SetEnabled(on bool) { enabled = on }
+
 // Category is an OWASP security event category
 type Category string
 
@@ -37,6 +43,10 @@ const (
 // Log emits a structured security event at INFO level,
 // it is a no-op when security logging has been disabled via SetEnabled
 func Log(cat Category, evt Event, extra logger.Ctx, format string, args ...any) {
+	if !enabled {
+		return
+	}
+
 	ctx := logger.Ctx{
 		"security": true,
 		"category": string(cat),

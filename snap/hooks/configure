@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Validate the "security-logging" snap configuration option.
+# Accepted values: "true", "false", or unset.
+value=$(snapctl get security-logging)
+
+if [ -n "$value" ] && [ "$value" != "true" ] && [ "$value" != "false" ]; then
+    echo "security-logging must be \"true\" or \"false\", got \"$value\"" >&2
+    exit 1
+fi
