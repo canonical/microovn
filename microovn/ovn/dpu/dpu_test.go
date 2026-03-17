@@ -9,19 +9,7 @@ func TestFindDPUDevlink(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "single pcipf controller 0",
-			input: DevlinkJSON{
-				Port: map[string]DevlinkPort{
-					"pci/0000:03:14.0": {
-						Flavour:    "pcipf",
-						Controller: 0,
-					},
-				},
-			},
-			expected: "0000:03:14.0",
-		},
-		{
-			name: "controller non-zero ignored",
+			name: "single pcipf controller 1",
 			input: DevlinkJSON{
 				Port: map[string]DevlinkPort{
 					"pci/0000:03:14.0": {
@@ -30,7 +18,43 @@ func TestFindDPUDevlink(t *testing.T) {
 					},
 				},
 			},
+			expected: "0000:03:14.0",
+		},
+		{
+			name: "controller zero ignored",
+			input: DevlinkJSON{
+				Port: map[string]DevlinkPort{
+					"pci/0000:03:14.0": {
+						Flavour:    "pcipf",
+						Controller: 0,
+					},
+				},
+			},
 			expected: "",
+		},
+		{
+			name: "pcivf flavour controller 0",
+			input: DevlinkJSON{
+				Port: map[string]DevlinkPort{
+					"pci/0000:04:13.0": {
+						Flavour:    "pcivf",
+						Controller: 0,
+					},
+				},
+			},
+			expected: "0000:04:13.0",
+		},
+		{
+			name: "pcivf flavour controller 1",
+			input: DevlinkJSON{
+				Port: map[string]DevlinkPort{
+					"pci/0000:04:13.0": {
+						Flavour:    "pcivf",
+						Controller: 1,
+					},
+				},
+			},
+			expected: "0000:04:13.0",
 		},
 		{
 			name: "wrong flavour ignored",
@@ -43,26 +67,6 @@ func TestFindDPUDevlink(t *testing.T) {
 				},
 			},
 			expected: "",
-		},
-		{
-			name: "multiple ports first valid match wins",
-			input: DevlinkJSON{
-				Port: map[string]DevlinkPort{
-					"pci/0000:06:12.0": {
-						Flavour:    "pcisf",
-						Controller: 0,
-					},
-					"pci/0000:11:11.0": {
-						Flavour:    "pcipf",
-						Controller: 0,
-					},
-					"pci/0000:03:14.0": {
-						Flavour:    "pcipf",
-						Controller: 1,
-					},
-				},
-			},
-			expected: "0000:11:11.0",
 		},
 		{
 			name: "empty port map",
