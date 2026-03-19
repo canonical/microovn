@@ -175,6 +175,8 @@ parts:
     source-depth: 1
     source-tag: v1.17.1
     plugin: autotools
+    build-environment:
+      - CFLAGS: -Wno-error=discarded-qualifiers #https://github.com/canonical/dqlite/pull/875
     autotools-configure-parameters:
       - --prefix=
       - --enable-build-raft
