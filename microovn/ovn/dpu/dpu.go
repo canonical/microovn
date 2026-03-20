@@ -48,10 +48,10 @@ func detectDPU(ctx context.Context) (string, error) {
 // returns the PCI address of a port we expect to be a DPU.
 func findDPUDevlink(devlinkOutput DevlinkJSON) string {
 	for key, port := range devlinkOutput.Port {
-		// local controller ports (dpu side) will have controller to be 0, this
+		// local controller ports (dpu side) will have controller to be 1, this
 		// however does not guarentee we are dealing with a local controller
 		// port on the dpu side, which is why we check the port flavour.
-		if port.Controller == 0 && port.Flavour == "pcipf" {
+		if (port.Controller == 1 && port.Flavour == "pcipf") || port.Flavour == "pcivf" {
 			pci := strings.Split(key, "/")[1]
 			return pci
 		}
