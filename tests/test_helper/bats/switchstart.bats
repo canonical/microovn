@@ -28,8 +28,18 @@ start_switch_first_tests() {
         run lxc_exec "$container" "microovn status"
         assert_failure
 
+        run lxc_exec "$container" "/usr/bin/ovs-vsctl add-br br-$container"
+        assert_success
+        run lxc_exec "$container" "/usr/bin/ovs-dpctl dump-dps"
+        assert_output -p "ovs-system"
+        lxc_exec "$container" "touch /var/snap/microovn/common/shutdown_standard_ovs_please"
         run lxc_exec "$container" "snap start microovn.switch"
         assert_success
+
+        run lxc_exec "$TEST_CONTAINER" \
+            "journalctl -xeu snap.microovn.switch | grep 'exited apt installed ovs'"
+        run lxc_exec "$TEST_CONTAINER" "/usr/bin/ovs-vsctl show"
+        assert_failure
 
         run lxc_exec "$container" "snap services microovn.switch |
                                    grep -q inactive"

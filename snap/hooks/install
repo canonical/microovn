@@ -14,9 +14,9 @@ An already running copy of Open vSwitch detected in current namespace.
 The microovn snap provides Open vSwitch.
 
 Running multiple instances of Open vSwitch in the same namespace is not
-supported.
+supported. Starting microovn.switch will attempt to shut down the
+currently running Open vSwitch instance.
 EOF
-	exit 1
 fi
 
 umask 077

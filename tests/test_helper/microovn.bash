@@ -34,6 +34,7 @@ function install_microovn() {
                                                   network-control \
                                                   hardware-observe \
                                                   openvswitch-support \
+                                                  openvswitch \
                                                   process-control \
                                                   system-trace \
                                                   network-setup-control; do \
