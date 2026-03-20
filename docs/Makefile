@@ -26,7 +26,7 @@ $(SPHINXDIR)/requirements.txt:
 # If requirements are updated, venv should be rebuilt and timestamped.
 $(VENVDIR): $(SPHINXDIR)/requirements.txt
 	@echo "... setting up virtualenv"
-	python3 -m venv $(VENVDIR)
+	python3 -m venv --upgrade-deps $(VENVDIR)
 	. $(VENV); pip install $(PIPOPTS) --require-virtualenv \
         --upgrade -r $(SPHINXDIR)/requirements.txt \
         --log $(VENVDIR)/pip_install.log

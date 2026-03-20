@@ -1,0 +1,11 @@
+# Constrain indirect build dependencies.
+#
+# Note that any direct dependencies of packages mentioned in requirements.txt
+# must be constrained in `constraints.txt`.
+#
+# maturin v1.10 bumped Cargo.lock version to 4 which is not supported by rust
+# toolchain in a 24.04 build base.
+maturin==1.9.6
+
+# setuptools 82 drops the `pkg_resources` module.
+setuptools==81.0.0
