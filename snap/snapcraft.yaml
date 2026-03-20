@@ -115,6 +115,7 @@ apps:
       - network-bind
       - network-control
       - openvswitch-support
+      - openvswitch
       - process-control
       - system-trace
 
@@ -187,7 +188,7 @@ parts:
     source-tag: v1.18.5
     plugin: autotools
     build-environment:
-      - CFLAGS: -Wno-error=discarded-qualifiers #https://github.com/canonical/dqlite/pull/875
+      - CFLAGS: -Wno-error=discarded-qualifiers
     autotools-configure-parameters:
       - --prefix=
       - --enable-build-raft

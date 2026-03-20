@@ -1,4 +1,26 @@
 #!/bin/sh
+
+# we dont have global environment variables to point the ovs commands to the
+# right place so these will use the default sockets, which is what the standard
+# ovs from apt uses so even if using microovn ovs commands these are still
+# talking to apt ovs
+
+
+ovs-dpctl dump-dps 2>&1 | grep ovs-system > /dev/null
+rc=$?
+if [ $rc -eq 0 ] && [ -f "${SNAP_COMMON}/shutdown_standard_ovs_please" ]; then
+    ovs-appctl exit
+    rc=$?
+    ovs-appctl -t ovsdb-server exit
+    if [ $rc -eq 0 ] && [ $? -eq 0 ]; then
+        echo "exited apt installed ovs, " \
+            "if services are enabled please disable them"
+    else
+        echo "failed exit of apt installed ovs, " \
+            "it is possibly not running"
+    fi
+fi;
+
 set -eu
 
 . "${SNAP}/ovn.env"

@@ -62,8 +62,12 @@ The snap service this controls is ``microovn.chassis``
 ``switch service``
 -------------------
 
-This service ``Open vSwitch`` and ensures its running properly. Much like chassis it
-is enabled by default.
+This service ``Open vSwitch`` and ensures its running properly. Much like
+chassis it is enabled by default.
+
+If a conflicting ``Open vSwitch`` service is running, for example from apt
+installed ``openvswitch-switch``, enabling this service will attempt to shut
+down the currently running ``Open vSwitch`` instance.
 
 The snap service this controls is ``microovn.switch``
 
