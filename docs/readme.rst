@@ -134,3 +134,41 @@ the `woke User Guide <https://docs.getwoke.tech/usage/#file-globs>`_ for help).
 Some circumstances may compel you to retain some non-inclusive words. In such
 cases you will need to create check exemptions for them. See file
 :doc:`help-woke` for how to do that.
+
+Sphinx virtual environment Python dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For the purpose of consistent and reproducible builds, we freeze the direct
+and indirect Python dependencies of Sphinx.
+
+Change to specific dependencies can be accomplished by manually updating
+``docs/freeze-constraints.txt``.
+
+To refresh the whole set to most recent versions the following procedure can
+be used:
+
+1. Clear the current virtual environment and pip cache.
+
+.. code-block:: none
+
+   rm -rf .sphinx/venv
+   rm -rf ~/.cache/pip
+
+2. Build the virtual environment, overriding ``PIPOPTS`` to ensure build from
+   source without constraints.
+
+.. code-block:: none
+
+   make .sphinx/venv PIPOPTS="--no-binary :all:"
+
+.. note::
+
+   In the event of the current state of dependencies being in an impossible
+   state, populate the ``build-constraints.txt`` file and make use of the
+   ``--build-constraint`` argument in ``PIPOPTS``.
+
+3. Ensure everything works as expected and then record the new constraints.
+
+.. code-block:: none
+
+   .sphinx/venv/bin/pip freeze > freeze-constraints.txt
