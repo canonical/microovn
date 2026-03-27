@@ -25,6 +25,16 @@ start_switch_first_tests() {
         assert_failure
 
         run lxc_exec "$container" "snap start microovn.switch"
+        run lxc_exec "$container" "microovn.ovs-vsctl show"
+        assert_failure
+
+        run lxc_exec "$container" "systemctl stop openvswitch-switch.service"
+
+        run lxc_exec "$TEST_CONTAINER" "/usr/bin/ovs-vsctl show"
+        assert_failure
+
+
+        run lxc_exec "$container" "snap start microovn.switch"
         assert_success
 
         run lxc_exec "$container" "snap services microovn.switch |
