@@ -7,7 +7,7 @@
 # data path, it will be listed.
 ovs-dpctl dump-dps 2>&1 | grep ovs-system > /dev/null
 rc=$?
-if [ $rc -eq 0 ]; then
+if [ $rc -eq 0 ] && ! [ -f "${SNAP_COMMON}/break_system_ovs" ]; then
         cat << EOF >&2
 An already running copy of Open vSwitch detected in current namespace.
 
@@ -15,6 +15,9 @@ The microovn snap provides Open vSwitch.
 
 Running multiple instances of Open vSwitch in the same namespace is not
 supported.
+
+If you are certain you want this, create the file break_system_ovs in
+${SNAP_COMMON}, but if you do this and it breaks it is your fault. Be warned.
 EOF
 	exit 1
 fi
