@@ -1,4 +1,8 @@
+ACLs
 ASN
+AUTHN
+AUTHZ
+Authorization
 BFD
 BGP
 BIRD's
@@ -26,11 +30,13 @@ Netplan
 OVN
 OVN's
 OVS
+OWASP
 OpenSSL
 OpenStack
 PKI
 Permalink
 PRs
+RBAC
 README
 RPKI
 RSA
@@ -38,8 +44,12 @@ RST
 RTD
 Snapcraft
 SSL
+SYS
+TCP
 TLS
 UI
+Unauthorized
+untrusted
 VRF
 VRFs
 VMs
@@ -56,8 +66,10 @@ composability
 config
 crypto
 cryptographic
+datapath
 datapaths
 devel
+dqlite
 downscaling
 eth
 failover
@@ -75,6 +87,7 @@ lxd
 manpage
 microovn
 mitigations
+mTLS
 monospaced
 movn
 natively

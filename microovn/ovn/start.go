@@ -16,10 +16,18 @@ import (
 	"github.com/canonical/microovn/microovn/ovn/environment"
 	"github.com/canonical/microovn/microovn/ovn/ovsdb"
 	"github.com/canonical/microovn/microovn/ovn/paths"
+	"github.com/canonical/microovn/microovn/securitylog"
 )
 
 // Start will update the existing OVN central and OVS switch configs.
 func Start(ctx context.Context, s state.State) error {
+	securitylog.Log(
+		securitylog.CatSys,
+		securitylog.EventSysStartup,
+		logger.Ctx{"node": s.Name()},
+		"MicroOVN daemon starting on '%s'",
+		s.Name(),
+	)
 	// Skip if the database isn't ready.
 	err := s.Database().IsOpen(ctx)
 	if err != nil {
