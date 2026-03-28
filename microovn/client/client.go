@@ -172,11 +172,9 @@ func getOvsdbSchemaVersion(ctx context.Context, c microTypes.Client, dbSpec *ovn
 // DisableService sends request to disable service with name as specified in
 // "serviceName" argument.
 func DisableService(ctx context.Context, c microTypes.Client, serviceName string, allowLastCentral bool, target string) (types.WarningSet, types.RegenerateEnvResponse, error) {
-	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
-	defer cancel()
 	requestData := types.DisableServiceRequest{AllowDisableLastCentral: allowLastCentral}
 	scr := types.ServiceControlResponse{}
-	err := c.Query(queryCtx, "DELETE", types.APIVersion, &url.URL{Path: "service/" + serviceName, RawQuery: "target=" + target}, requestData, &scr)
+	err := c.Query(ctx, "DELETE", types.APIVersion, &url.URL{Path: "service/" + serviceName, RawQuery: "target=" + target}, requestData, &scr)
 
 	if err != nil {
 		return types.WarningSet{}, types.RegenerateEnvResponse{}, fmt.Errorf("failed to disable service '%s': '%s'", serviceName, err)
