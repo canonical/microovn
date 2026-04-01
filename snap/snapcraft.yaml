@@ -117,6 +117,8 @@ apps:
       - openvswitch-support
       - process-control
       - system-trace
+      - kernel-module-observe
+      - network-setup-control
 
   # Commands
   microovn:
@@ -240,6 +242,8 @@ parts:
       - ovn-central
       - ovn-host
       - openvswitch-switch
+      - openvswitch-switch-dpdk
+      - libdpdk-dev
     organize:
       usr/bin/: bin/
       usr/sbin/: bin/
@@ -264,6 +268,9 @@ parts:
         # The lib cherry-picking is unfortunately necessary to avoid pulling in
         # external symlinks provided by the openssl package dependency.
         # (External symlinks, i.e. pointing at something in /, are not allowed.)
+      - lib/*/librte_*.so*
+      - lib/*/libethdev.so*
+      - lib/*/libvhost.so*
       - lib/*/libevent-2.1.so*
       - lib/*/libnuma.so.*
       - lib/*/bpf/*
@@ -276,6 +283,7 @@ parts:
 
         mkdir -p "${CRAFT_PART_INSTALL}/bin/"
         mv "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch/ovs-vswitchd" "${CRAFT_PART_INSTALL}/bin/"
+        mv "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch-dpdk/ovs-vswitchd-dpdk" "${CRAFT_PART_INSTALL}/bin/ovs-vswitchd-dpdk"
 
   # Main part
   microovn:
@@ -422,6 +430,7 @@ parts:
     stage-packages:
       - jq
       - iproute2
+      - pciutils
     organize:
       usr/bin/: bin/
       usr/sbin/: sbin/
@@ -433,3 +442,4 @@ parts:
       - sbin/devlink
       - lib/*/libjq.so*
       - lib/*/libonig.so*
+      - lib/*/lspci.so*
