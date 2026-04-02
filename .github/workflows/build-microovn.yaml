@@ -1,0 +1,80 @@
+name: Build MicroOVN
+
+on:
+  workflow_call:
+    inputs:
+      build-image:
+        description: "Whether to build the LXD image"
+        type: boolean
+        default: false
+      coverage:
+        description: "Enable coverage build"
+        type: boolean
+        default: false
+      possible-target-branch:
+        required: false
+        type: string
+    outputs:
+      snap-artifact:
+        value: microovn.snap
+      image-artifact:
+        value: microovn-lxd-template.tar.gz
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      MICROOVN_SNAP: microovn.snap
+      MICROOVN_IMAGE: microovn-lxd-template.tar.gz
+      POSSIBLE_TARGET_BRANCH: ${{ inputs.possible-target-branch }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Clear FORWARD firewall rules
+        run: |
+          sudo iptables -P FORWARD ACCEPT  || true
+          sudo ip6tables -P FORWARD ACCEPT || true
+          sudo iptables -F FORWARD  || true
+          sudo ip6tables -F FORWARD || true
+
+      - name: Install dependencies
+        run: |
+          sudo snap refresh
+          sudo snap install lxd
+          sudo snap set lxd daemon.group=adm
+          sudo lxd init --auto
+          if [ "${POSSIBLE_TARGET_BRANCH}" = "main" ]; then
+            export SNAPCRAFT_CHANNEL=latest/edge
+          fi
+          sudo snap install snapcraft \
+            --channel "${SNAPCRAFT_CHANNEL:-latest/stable}" \
+            --classic
+
+      - name: Enable coverage (optional)
+        if: inputs.coverage
+        run: |
+          sed -i 's/MICROOVN_COVERAGE=.*/MICROOVN_COVERAGE="yes"/g' \
+            microovn/build-aux/environment
+
+      - name: Build snap (and image if requested)
+        run: |
+          if [ "${{ inputs.build-image }}" = "true" ]; then
+            make $MICROOVN_IMAGE
+          else
+            make
+          fi
+
+      - name: Upload snap
+        uses: actions/upload-artifact@v4
+        with:
+          name: snaps
+          path: ${{ env.MICROOVN_SNAP }}
+
+      - name: Upload LXD image
+        if: inputs.build-image
+        uses: actions/upload-artifact@v4
+        with:
+          name: lxd-image
+          path: ${{ env.MICROOVN_IMAGE }}
