@@ -122,7 +122,14 @@ func DPUSetup(ctx context.Context, s state.State) error {
 			logger.Warn("lspci not found; skipping DPU setup")
 			return nil
 		}
-
+		if strings.Contains(err.Error(), "Failed to connect to devlink Netlink") {
+			logger.Warn(
+				"cannot connect to Netlink, check required kernel" +
+					"modules and snap interfaces are enabled;" +
+					" Skipping DPU setup",
+			)
+			return nil
+		}
 		// real failure
 		return err
 	}
