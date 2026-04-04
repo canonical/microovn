@@ -15,6 +15,7 @@ import (
 	"github.com/canonical/microovn/microovn/api/types"
 	microOvnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/canonical/microovn/microovn/config"
+	"github.com/canonical/microovn/microovn/securitylog"
 )
 
 // ConfigEndpoint - /1.0/config endpoint.
@@ -53,6 +54,13 @@ func setConfig(s state.State, r *http.Request) response.Response {
 		return response.SyncResponse(false, &configResponse)
 	}
 
+	securitylog.Log(
+		securitylog.CatAuthz,
+		securitylog.EventAdminActivity,
+		logger.Ctx{"action": "config_set", "key": configRequest.Key},
+		"Setting configuration key '%s'",
+		configRequest.Key,
+	)
 	err = config.SetConfig(r.Context(), s, configRequest.Key, configRequest.Value)
 	if err != nil {
 		configResponse.Error = fmt.Sprintf("Error occurred while setting config: %v", err)
@@ -107,6 +115,13 @@ func deleteConfig(s state.State, r *http.Request) response.Response {
 		return response.SyncResponse(false, &configResponse)
 	}
 
+	securitylog.Log(
+		securitylog.CatAuthz,
+		securitylog.EventAdminActivity,
+		logger.Ctx{"action": "config_delete", "key": configRequest.Key},
+		"Deleting configuration key '%s'",
+		configRequest.Key,
+	)
 	err = config.DeleteConfig(r.Context(), s, configRequest.Key)
 	if err != nil {
 		configResponse.Error = fmt.Sprintf("Error occurred while deleting config: %v", err)

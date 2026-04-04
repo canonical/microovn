@@ -5,4 +5,11 @@
 export DQLITE_SOCKET="@snap.${SNAP_INSTANCE_NAME}.dqlite"
 
 . "$SNAP/coverage.env" 2>/dev/null || true
-exec microovnd --verbose --state-dir "${SNAP_COMMON}/state"
+
+EXTRA_FLAGS=""
+SECURITY_LOGGING=$(snapctl get security-logging)
+if [ "$SECURITY_LOGGING" = "false" ]; then
+    EXTRA_FLAGS="--disable-security-logging"
+fi
+
+exec microovnd --verbose --state-dir "${SNAP_COMMON}/state" ${EXTRA_FLAGS}

@@ -16,6 +16,7 @@ import (
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/dpu"
 	"github.com/canonical/microovn/microovn/ovn/environment"
+	"github.com/canonical/microovn/microovn/securitylog"
 )
 
 // Join will join an existing OVN deployment.
@@ -157,5 +158,12 @@ func Join(ctx context.Context, s state.State, initConfig map[string]string) erro
 		return err
 	}
 
+	securitylog.Log(
+		securitylog.CatAuthz,
+		securitylog.EventAdminActivity,
+		logger.Ctx{"action": "cluster_join", "node": s.Name()},
+		"Node '%s' joined cluster",
+		s.Name(),
+	)
 	return nil
 }
