@@ -96,10 +96,13 @@ func setOVNDPUSerial(ctx context.Context, s state.State, serial string) error {
 	if err != nil && !strings.Contains(fmt.Sprintf("%v", err), "ovs-vsctl: no key") {
 		return err
 	}
-	externalIDs := strings.Join([]string{
-		out,
-		fmt.Sprintf("ovn-cms-options=card-serial-number=%s", serial),
-	}, ",")
+	externalIDs := fmt.Sprintf("ovn-cms-options=card-serial-number=%s", serial)
+	if out != "" {
+		externalIDs = strings.Join([]string{
+			out,
+			externalIDs,
+		}, ",")
+	}
 	_, err = ovnCmd.VSCtl(
 		ctx,
 		s,
