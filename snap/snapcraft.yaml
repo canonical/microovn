@@ -439,7 +439,8 @@ parts:
       - commands/*
       - ./*.env
       - bin/jq
+      - bin/lspci
       - sbin/devlink
       - lib/*/libjq.so*
       - lib/*/libonig.so*
-      - lib/*/lspci.so*
+      - lib/*/libpci.so*
