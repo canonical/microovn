@@ -132,11 +132,7 @@ function snap_print_base() {
 # Returns 0 if base snap has stable channel, 1 otherwise
 function test_snap_is_stable_base() {
     local base_snap=$1; shift
-
-    local version_info
-    version_info=$(snap info "$base_snap" | awk '/\/stable/{print$2}')
-
-    [ "$version_info" != "--" ]
+    snap info "$base_snap" | awk '/\/stable/{print$2}' | grep -vq -- --
 }
 
 # get_upgrade_test_version TEST_FILE_NAME TEST_PREFIX

@@ -13,12 +13,15 @@ function install_microovn() {
     snap_base=$(snap_print_base $snap_file)
 
     for container in $containers; do
+        lxc_exec "$container" "apt update && apt install -y snapd"
         if ! test_snap_is_stable_base "$snap_base"; then
+            # if using unstable base use unstable snapd
+            lxc_exec "$container" "snap install snapd --channel latest/edge"
+            lxc_exec "$container" "snap refresh snapd --channel latest/edge"
             echo "# !!NOTE!! Installing $snap_base \
                   from edge channel for $snap_file" >&3
             lxc_exec "$container" "snap install --edge $snap_base"
         fi
-        lxc_exec "$container" "apt update && apt install -y snapd"
         echo "# Deploying MicroOVN to $container" >&3
         lxc_file_push "$snap_file" "$container/tmp/microovn.snap"
         echo "# Installing MicroOVN in container $container" >&3

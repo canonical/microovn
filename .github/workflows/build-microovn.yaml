@@ -46,7 +46,7 @@ jobs:
           sudo snap set lxd daemon.group=adm
           sudo lxd init --auto
           if [ "${POSSIBLE_TARGET_BRANCH}" = "main" ]; then
-            export SNAPCRAFT_CHANNEL=latest/edge
+            export SNAPCRAFT_CHANNEL=latest/candidate # latest edge is currently broken, so we have to use candidate for now
           fi
           sudo snap install snapcraft \
             --channel "${SNAPCRAFT_CHANNEL:-latest/stable}" \
