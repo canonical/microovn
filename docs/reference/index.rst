@@ -15,3 +15,4 @@ does not cover upstream OVN/OVS topics.
    security
    services
    aliasing
+   dpu
