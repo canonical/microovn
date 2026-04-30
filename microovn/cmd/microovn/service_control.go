@@ -118,6 +118,11 @@ func (c *cmdEnable) Run(_ *cobra.Command, args []string) error {
 	}
 
 	targetService := args[0]
+
+	if targetService == types.SrvBgp {
+		fmt.Printf("Please note, BGP functionality is currently experimental and likely to change.")
+	}
+
 	extraConfig, err := c.parseExtraConfig(targetService)
 	if err != nil {
 		return err

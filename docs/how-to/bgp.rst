@@ -6,6 +6,14 @@ Configuration of the OVN integration with BGP is a single-command process in
 the MicroOVN, for more information about what's happening under the hood, see:
 :doc:`Explanation: OVN integration with BGP </explanation/bgp-redirect>`.
 
+.. note::
+
+   This is experimental and the network architecture this sets up is likely to
+   change in future versions. This use case will not be the long term solution,
+   and nor will deployments using MicroOVN BGP in its current state be fully
+   supported going forward.
+
+
 Enable BGP integration
 ----------------------
 
