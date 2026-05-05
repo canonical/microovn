@@ -32,9 +32,10 @@ type network struct {
 
 // VirtualEthernet is a struct for defining virtual ethernets
 type virtualEthernet struct {
-	Peer       string `yaml:"peer"`
-	MacAddress string `yaml:"macaddress,omitempty"`
-	AcceptRa   bool   `yaml:"accept-ra"`
+	Peer       string   `yaml:"peer"`
+	MacAddress string   `yaml:"macaddress,omitempty"`
+	AcceptRa   bool     `yaml:"accept-ra"`
+	LinkLocal  []string `yaml:"link-local,omitempty"`
 }
 
 // VRF defines vrf entires in the netplan config
@@ -69,11 +70,12 @@ func NewConfig() *Config {
 }
 
 // AddVeth adds a veth pair to the config.
-func (c *Config) AddVeth(iface string, peer string, mac string, acceptRa bool) {
+func (c *Config) AddVeth(iface string, peer string, mac string, acceptRa bool, linkLocal []string) {
 	c.Network.VirtualEthernets[iface] = virtualEthernet{
 		Peer:       peer,
 		MacAddress: mac,
 		AcceptRa:   acceptRa,
+		LinkLocal:  linkLocal,
 	}
 }
 

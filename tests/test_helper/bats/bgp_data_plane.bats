@@ -55,6 +55,8 @@ network:
             peer: veth1-brg
             macaddress: 02:90:b1:a2:e6:28
             accept-ra: false
+            link-local:
+                - ipv6
         veth1-brg:
             peer: veth1-bgp
             accept-ra: false
