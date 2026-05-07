@@ -446,8 +446,11 @@ func generateVeth(ctx context.Context, s state.State, extConnections []types.Bgp
 		mac := generateLrpMac(getLrpName(s, extConnection.Iface))
 
 		// Add to virtual ethernet
-		np.AddVeth(bgpInterface, brgInterface, mac, false)
-		np.AddVeth(brgInterface, bgpInterface, "", false)
+		// The BGP-side veth needs link-local: [ipv6] so that networkd
+		// brings the interface UP and assigns an IPv6 LLA, which is
+		// required for unnumbered BGP peering.
+		np.AddVeth(bgpInterface, brgInterface, mac, false, []string{"ipv6"})
+		np.AddVeth(brgInterface, bgpInterface, "", false, nil)
 		brIntInterfaces = append(brIntInterfaces, brgInterface)
 		vrfInterfaces = append(vrfInterfaces, bgpInterface)
 
@@ -475,7 +478,28 @@ func generateVeth(ctx context.Context, s state.State, extConnections []types.Bgp
 		return err
 	}
 
-	return netplan.Apply(ctx)
+	err = netplan.Apply(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Netplan creates the veth pair, VRF, and bridge, but on some
+	// distributions networkd may not fully configure the interfaces:
+	// - The BGP-side veths may remain DOWN
+	// - VRF binding may not be applied
+	for _, iface := range vrfInterfaces {
+		// Ensure interface is bound to the VRF
+		_, err = shared.RunCommandContext(ctx, "ip", "link", "set", "dev", iface, "master", vrfName)
+		if err != nil {
+			return fmt.Errorf("failed to bind interface '%s' to VRF '%s': %v", iface, vrfName, err)
+		}
+		_, err = shared.RunCommandContext(ctx, "ip", "link", "set", "dev", iface, "up")
+		if err != nil {
+			return fmt.Errorf("failed to bring up interface '%s': %v", iface, err)
+		}
+	}
+
+	return nil
 }
 
 // redirectBgp creates a port in OVS, moves it to the VRF specified by "tableID" and configures OVN to redirect

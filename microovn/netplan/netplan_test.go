@@ -23,7 +23,7 @@ func TestAddMethods(t *testing.T) {
 	if _, ok := cfg.Network.VirtualEthernets["veth413"]; ok {
 		t.Errorf("unexpected veth1 in config")
 	}
-	cfg.AddVeth("veth413", "veth612", "a1:b2:c3:d4:e5:f6", false)
+	cfg.AddVeth("veth413", "veth612", "a1:b2:c3:d4:e5:f6", false, []string{"ipv6"})
 	if _, ok := cfg.Network.VirtualEthernets["veth413"]; !ok {
 		t.Errorf("expected veth413 in config")
 	}
@@ -38,7 +38,7 @@ func TestAddMethods(t *testing.T) {
 		t.Errorf("acceptRa is true when false expected")
 	}
 
-	cfg.AddVeth("veth612", "veth413", "", true)
+	cfg.AddVeth("veth612", "veth413", "", true, nil)
 	if _, ok := cfg.Network.VirtualEthernets["veth612"]; !ok {
 		t.Errorf("expected veth612 in config")
 	}

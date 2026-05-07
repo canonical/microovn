@@ -12,6 +12,10 @@ function install_frr_bgp() {
         lxc_exec "$container" "sed -i 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons"
         # Relax burst restart limit as tests tend to restart the service often
         lxc_exec "$container" "sed -i 's/StartLimitBurst=.*/StartLimitBurst=100/g' /usr/lib/systemd/system/frr.service"
+        # Disable AppArmor profiles for FRR daemons. The bgpd profile in
+        # LXD containers causes EACCES on socket read() for BGP connections
+        # that traverse OVS/OVN virtual network paths.
+        lxc_exec "$container" "mkdir -p /etc/apparmor.d/disable && for f in bgpd bfdd zebra staticd; do [ -f /etc/apparmor.d/\$f ] && ln -sf /etc/apparmor.d/\$f /etc/apparmor.d/disable/ && apparmor_parser -R /etc/apparmor.d/\$f 2>/dev/null; done; true"
         lxc_exec "$container" "systemctl daemon-reload"
         lxc_exec "$container" "systemctl restart frr"
     done
