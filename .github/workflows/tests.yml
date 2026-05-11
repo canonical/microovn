@@ -95,6 +95,7 @@ jobs:
       MICROOVN_SNAP_PATH: ${{ github.workspace }}/microovn.snap
       MICROOVN_SNAP_CHANNEL: 22.03/stable
     strategy:
+      fail-fast: false
       matrix: ${{ fromJson(needs.metadata.outputs.matrix) }}
     steps:
       - name: Checkout code
