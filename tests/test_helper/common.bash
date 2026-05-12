@@ -374,6 +374,10 @@ function container_can_ping() {
 
 # print_diagnostics_on_failure CONTAINERS
 function print_diagnostics_on_failure() {
+    if [ -z "${ACTIONS_RUNNER_DEBUG:-}" ]; then
+        return
+    fi
+
     local containers=$*
     local container
 

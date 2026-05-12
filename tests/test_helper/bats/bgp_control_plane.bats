@@ -264,7 +264,7 @@ function bgp_bad_netplan(){
         --config vrf=$vrf \
         --config asn=$host_asn"
     assert_failure
-    assert_output "Error: failed to enable service 'bgp': 'failed to apply netplan config: installed netplan does not support using ovs-vsctl from microovn'"
+    assert_output "Please note, BGP functionality is currently experimental and likely to change.Error: failed to enable service 'bgp': 'failed to apply netplan config: installed netplan does not support using ovs-vsctl from microovn'"
 
     run lxc_exec "$MICROOVN_BGP_CONTAINER" "microovn.ovs-vsctl find bridge name!=br-int"
     assert_success
@@ -303,7 +303,7 @@ function bgp_no_vrf(){
         --config vrf=$vrf \
         --config asn=$host_asn"
     assert_failure
-    assert_output "Error: failed to enable service 'bgp': 'failed to create vrf for LR 'lr-$TEST_VM_NO_VRF-microovn': vrf kernel module missing or not loaded'"
+    assert_output "Please note, BGP functionality is currently experimental and likely to change.Error: failed to enable service 'bgp': 'failed to create vrf for LR 'lr-microovn-no-vrf-microovn': vrf kernel module missing or not loaded'"
 }
 
 bgp_control_plane_register_test_functions

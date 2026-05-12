@@ -2,10 +2,10 @@
 OVN integration with BGP
 ========================
 
-OVN fully enabled support for integration with BGP in version ``25.03``. The
-support includes the ability to redirect BGP control-plane traffic to a
-specific ``Logical Switch Port`` and the ability of the ``ovn-controller`` to
-advertise and learn routes via a `Linux VRF`_.
+OVN fully enabled experimental support for integration with BGP in version
+``25.03``. The support includes the ability to redirect BGP control-plane traffic
+to a specific ``Logical Switch Port`` and the ability of the ``ovn-controller``
+to advertise and learn routes via a `Linux VRF`_.
 
 BGP control plane
 -----------------
@@ -40,6 +40,14 @@ peers, it inserts them to the VRF, from which they are picked up by the
 
 What MicroOVN sets up
 ---------------------
+
+.. note::
+
+   This is experimental and the network architecture this sets up is likely to
+   change in future versions. This use case will not be the long term solution,
+   and nor will deployments using MicroOVN BGP in its current state be fully
+   supported going forward.
+
 
 MicroOVN can simplify the BGP integration setup described in the previous
 sections. For more information on how to do it, see:
