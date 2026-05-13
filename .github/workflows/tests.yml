@@ -71,18 +71,47 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check for changes to the snap
+        id: path-filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code-or-test-changes:
+              - 'microovn/**'
+              - 'snap/**'
+              - 'snapcraft/**'
+              - 'tests/**'
+              - 'Makefile'
+              - '.github/workflows/**'
+          
       - name: Generate matrix
         id: generate-matrix
         run: |
-          MATRIX_JSON="{\"test-file\": ["
-          TEST_FILES=( $(cd tests; ls -1 *.bats) )
-          for (( i=0 ; i < "${#TEST_FILES[@]}"; i++ )); do
-              if [ $i -gt 0 ]; then
-                  MATRIX_JSON+=","
-              fi
-              MATRIX_JSON+="\"${TEST_FILES[$i]}\""
-          done
-          MATRIX_JSON+="]}"
+          # Check if we should run tests
+          # Always run on schedule, workflow_dispatch, or push
+          # For PRs, check if code/test/build files changed
+          if [[ "${{ github.event_name }}" == "schedule" ]] || \
+             [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || \
+             [[ "${{ github.event_name }}" == "push" ]] || \
+             [[ "${{ github.event_name }}" == "pull_request" && "${{ steps.path-filter.outputs.code-or-test-changes }}" == "true" ]]; then
+            # Generate FULL test matrix (code changes detected)
+            echo "Generating FULL test matrix (code/test/build changes detected)"
+            MATRIX_JSON="{\"test-file\": ["
+            TEST_FILES=( $(cd tests; ls -1 *.bats) )
+            for (( i=0 ; i < "${#TEST_FILES[@]}"; i++ )); do
+                if [ $i -gt 0 ]; then
+                    MATRIX_JSON+=","
+                fi
+                MATRIX_JSON+="\"${TEST_FILES[$i]}\""
+            done
+            MATRIX_JSON+="]}"
+          else
+            # Generate BASIC test matrix (no code changes, e.g., docs-only PR)
+            echo "Generating BASIC test matrix (no code/test/build changes)"
+            # Always run these basic tests
+            MATRIX_JSON='{"test-file": ["init_cluster.bats", "basic_cluster.bats", "services.bats"]}'
+          fi
 
           echo matrix=${MATRIX_JSON} | tee -a ${GITHUB_OUTPUT}
 
