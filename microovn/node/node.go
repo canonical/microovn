@@ -19,6 +19,7 @@ import (
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/environment"
 	"github.com/canonical/microovn/microovn/ovn/paths"
+	"github.com/canonical/microovn/microovn/securitylog"
 	"github.com/canonical/microovn/microovn/snap"
 )
 
@@ -36,6 +37,13 @@ type CoreClusterMember struct {
 // if central is disabled then the environment files for the other nodes will be
 // incorrect, please call with a method of updating the clusters env files afterwards
 func DisableService(ctx context.Context, s state.State, service types.SrvName, allowLastCentral bool) error {
+	securitylog.Log(
+		securitylog.CatAuthz,
+		securitylog.EventAdminActivity,
+		logger.Ctx{"action": "disable_service", "service": string(service), "node": s.Name()},
+		"Disabling service '%s' on node '%s'",
+		service, s.Name(),
+	)
 	exists, err := HasServiceActive(ctx, s, service)
 
 	if err != nil {
@@ -95,6 +103,13 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName, a
 // if central is enabled then the environment files for the other nodes will be
 // incorrect, please call with a method of updating the clusters env files afterwards
 func EnableService(ctx context.Context, s state.State, service types.SrvName, extraConfig *types.ExtraServiceConfig) error {
+	securitylog.Log(
+		securitylog.CatAuthz,
+		securitylog.EventAdminActivity,
+		logger.Ctx{"action": "enable_service", "service": string(service), "node": s.Name()},
+		"Enabling service '%s' on node '%s'",
+		service, s.Name(),
+	)
 	exists, err := HasServiceActive(ctx, s, service)
 	if err != nil {
 		return err

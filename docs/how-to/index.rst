@@ -9,7 +9,7 @@ a basic understanding of OVN.
 .. toctree::
    :maxdepth: 1
 
-   tls
+   Security <tls>
    downscaling
    logs
    major-upgrades

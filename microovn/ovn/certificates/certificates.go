@@ -19,9 +19,11 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/shared/api"
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v3/state"
 	"github.com/canonical/microovn/microovn/database"
 	"github.com/canonical/microovn/microovn/ovn/paths"
+	"github.com/canonical/microovn/microovn/securitylog"
 )
 
 // CACertRecordName    - Key used to store CA certificate in config DB table.
@@ -160,7 +162,16 @@ func GenerateNewCACertificate(ctx context.Context, s state.State) (bool, error) 
 		return false, err
 	}
 
-	return storeCA(ctx, s, string(cert), string(key), true)
+	updated, err := storeCA(ctx, s, string(cert), string(key), true)
+	if err == nil && updated {
+		securitylog.Log(
+			securitylog.CatAuthn,
+			securitylog.EventPasswordChanged,
+			logger.Ctx{"subject": "CA", "auto_renew": true},
+			"CA certificate generated and stored",
+		)
+	}
+	return updated, err
 }
 
 // SetNewCACertificate verifies basic attributes of the provided certificate and private key and
@@ -186,7 +197,16 @@ func SetNewCACertificate(ctx context.Context, s state.State, certPEM string, key
 		}
 	}
 
-	return storeCA(ctx, s, certPEM, keyPEM, false)
+	updated, err := storeCA(ctx, s, certPEM, keyPEM, false)
+	if err == nil && updated {
+		securitylog.Log(
+			securitylog.CatAuthn,
+			securitylog.EventPasswordChanged,
+			logger.Ctx{"subject": "CA", "auto_renew": false},
+			"User-provided CA certificate stored",
+		)
+	}
+	return updated, err
 }
 
 // storeCA saves the CA certificate and private key in a PEM format into the shared database. It also
