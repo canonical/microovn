@@ -125,6 +125,7 @@ type ExtraBgpConfig struct {
 	// "ip4_cidr" is IPv4 address (e.g. 192.0.2.1/24) that should be assigned to a Logical Router
 	// Port connected to the external network
 	ExternalConnection string `json:"ext_iface,omitempty" yaml:"ext_iface,omitempty"`
+	Bridge             string `json:"bridge,omitempty" yaml:"bridge,omitempty"`
 	// Vrf is a VRF table ID into which the OVN will leak its routes
 	Vrf string `json:"vrf,omitempty" yaml:"vrf,omitempty"`
 	// Asn is an Autonomous System Number that will be used to set up BGP daemon
@@ -141,6 +142,12 @@ type ExtraBgpConfig struct {
 type BgpExternalConnection struct {
 	// Iface is a name of the physical interface that provides external connectivity
 	Iface string
+}
+
+// BgpExternalConnection represents a parsed structure from ExtraBgpConfig.ExternalConnection string.
+type BgpBridge struct {
+	// Bridge is the bridge br0
+	Bridge string
 }
 
 // parseAsnRange parses an ASN range string in format "min-max".
@@ -186,6 +193,10 @@ func (bgpConf *ExtraBgpConfig) FromMap(rawConfig map[string]string) error {
 	for key, value := range rawConfig {
 		if key == "ext_connection" {
 			bgpConf.ExternalConnection = value
+			continue
+		}
+		if key == "br" {
+			bgpConf.Bridge = value
 			continue
 		}
 		if key == "vrf" {
@@ -242,8 +253,13 @@ func (bgpConf *ExtraBgpConfig) Validate() error {
 		return fmt.Errorf("failed to parse connection string option: %s", err)
 	}
 
-	if len(extConnections) == 0 {
-		return fmt.Errorf("external connections have to be set")
+	bridges, err := bgpConf.ParseBridge()
+	if err != nil {
+		return fmt.Errorf("failed to parse bridge option: %s", err)
+	}
+
+	if len(extConnections)+len(bridges) == 0 {
+		return fmt.Errorf("external connections or bridges have to be set")
 	}
 
 	return nil
@@ -254,12 +270,33 @@ func (bgpConf *ExtraBgpConfig) Validate() error {
 func (bgpConf *ExtraBgpConfig) ParseExternalConnection() ([]BgpExternalConnection, error) {
 	parsedConnections := make([]BgpExternalConnection, 0)
 	for _, extConn := range strings.Split(bgpConf.ExternalConnection, ",") {
+		extConn = strings.TrimSpace(extConn)
+		if extConn == "" {
+			continue
+		}
 		parsedConnections = append(parsedConnections, BgpExternalConnection{
 			Iface: extConn,
 		})
 	}
 
 	return parsedConnections, nil
+}
+
+// ParseExternalConnection parses ExtraBgpConfig.ExternalConnection string into list of BgpExternalConnection
+// instances.
+func (bgpConf *ExtraBgpConfig) ParseBridge() ([]BgpBridge, error) {
+	parsedBridges := make([]BgpBridge, 0)
+	for _, brg := range strings.Split(bgpConf.Bridge, ",") {
+		brg = strings.TrimSpace(brg)
+		if brg == "" {
+			continue
+		}
+		parsedBridges = append(parsedBridges, BgpBridge{
+			Bridge: brg,
+		})
+	}
+
+	return parsedBridges, nil
 }
 
 // CheckValidService - checks whether the string in "service" is in fact a

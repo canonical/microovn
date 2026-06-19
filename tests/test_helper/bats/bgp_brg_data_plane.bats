@@ -1,0 +1,212 @@
+# This is a bash shell fragment -*- bash -*-
+load "${ABS_TOP_TEST_DIRNAME}test_helper/setup_teardown/$(basename "${BATS_TEST_FILENAME//.bats/.bash}")"
+
+setup() {
+    load ${ABS_TOP_TEST_DIRNAME}test_helper/common.bash
+    load ${ABS_TOP_TEST_DIRNAME}test_helper/microovn.bash
+    load ${ABS_TOP_TEST_DIRNAME}test_helper/lxd.bash
+    load ${ABS_TOP_TEST_DIRNAME}test_helper/bgp_utils.bash
+
+    load ${ABS_TOP_TEST_DIRNAME}../.bats/bats-support/load.bash
+    load ${ABS_TOP_TEST_DIRNAME}../.bats/bats-assert/load.bash
+
+    # Ensure required environment variables are set, otherwise the tests below will
+    # provide false positive results.
+    assert [ -n "$TEST_CONTAINER" ]
+    assert [ -n "$BGP_PEER" ]
+    assert [ -n "$EXT_HOST" ]
+}
+
+teardown() {
+    print_diagnostics_on_failure $TEST_CONTAINERS
+}
+
+bgp_data_plane_register_test_functions() {
+    bats_test_function \
+        --description "Test connectivity from External network via TOR to OVN NAT IP" \
+        -- ping_ovn_int_network_over_bgp_router
+
+}
+
+function ping_ovn_int_network_over_bgp_router() {
+    # Start FRR in BGP peer container
+    local tor_asn=4200000100
+    echo "# Starting BGP in $BGP_PEER on interface $BGP_CONTAINER_INT_IFACE" >&3
+    frr_start_bgp_unnumbered "$BGP_PEER" "$BGP_CONTAINER_INT_IFACE" "$tor_asn"
+
+    local host_asn=4210000000
+    local vrf="10"
+
+    # Enable BGP redirection and start BGP daemon in OVN chassis
+    lxc_exec "$TEST_CONTAINER" "ovs-vsctl add-br br0"
+    lxc_exec "$TEST_CONTAINER" "ovs-vsctl add-port br0 $OVN_CONTAINER_INT_IFACE"
+    echo "# Enabling MicroOVN BGP in $TEST_CONTAINER and configuring BGP" >&3
+    lxc_exec "$TEST_CONTAINER" "microovn enable bgp \
+        --config br=br0 \
+        --config vrf=$vrf \
+        --config asn=$host_asn"
+
+
+    run lxc_exec "$TEST_CONTAINER" "cat /etc/netplan/90-microovn-bgp-veth.yaml"
+
+    expected=$(cat <<'EOF'
+network:
+    version: 2
+    virtual-ethernets:
+        vbr0beth0-bgp:
+            peer: vbr0beth0-brg
+            macaddress: 02:10:a8:1e:37:71
+            accept-ra: false
+            link-local:
+                - ipv6
+        vbr0beth0-brg:
+            peer: vbr0beth0-bgp
+            accept-ra: false
+    vrfs:
+        ovnvrf10:
+            table: "10"
+            interfaces:
+                - vbr0beth0-bgp
+    bridges:
+        br-int:
+            openvswitch:
+                fail-mode: secure
+            interfaces:
+                - vbr0beth0-brg
+    openvswitch:
+        external-ids:
+            dynamic-routing-port-mapping: vbr0beth0-bgp=vbr0beth0-bgp
+EOF
+)
+    assert_output "$expected"
+
+    echo "# ($TEST_CONTAINER) waiting on established BGP with $BGP_PEER" >&3
+
+    wait_until "microovn_bgp_established $TEST_CONTAINER $BGP_PEER"
+
+    run lxc_exec "$TEST_CONTAINER" "ip -6 route show vrf ovnvrf10 proto ra"
+    assert_output ""
+
+    neighbor_address=$(microovn_bgp_neighbor_address $TEST_CONTAINER $BGP_PEER)
+
+    # create VIF that represents VM on the internal OVN network
+    local gw_lr="lr-$TEST_CONTAINER-microovn"
+    local guest_ls="ls-guest-net"
+    local guest_lsp_to_lr="lsp-to-gw"
+    local lrp_to_guest_ls="lrp-to-guest"
+    local guest_lrp_ip="192.168.10.1"
+    local guest_lrp_cidr="$guest_lrp_ip/24"
+    local guest_vm_ip="192.168.10.10"
+    local guest_vm_cidr="$guest_vm_ip/24"
+    local guest_vm_iface="guest-vm"
+    local guest_vm_ns="ns-guest"
+
+    echo "# ($TEST_CONTAINER) Create VIF in the OVN network that represents Virtual Machine with IP $guest_vm_cidr" >&3
+    echo "# ($TEST_CONTAINER) Create OVN network '$guest_ls' and connect it to router '$gw_lr' ($guest_lrp_cidr)"
+    lxc_exec "$TEST_CONTAINER" \
+        "microovn.ovn-nbctl \
+         -- \
+         lrp-add $gw_lr $lrp_to_guest_ls 02:00:ff:00:00:01 $guest_lrp_cidr \
+         -- \
+         ls-add $guest_ls \
+         -- \
+         lsp-add $guest_ls $guest_lsp_to_lr \
+         -- \
+         lsp-set-type $guest_lsp_to_lr router \
+         -- \
+         lsp-set-options $guest_lsp_to_lr router-port=$lrp_to_guest_ls \
+         -- \
+         lsp-set-addresses $guest_lsp_to_lr router \
+         "
+
+    echo "# ($TEST_CONTAINER) Create VIF in the OVN's internal network ($guest_vm_ip)"
+    lxc_exec "$TEST_CONTAINER" "ip netns add $guest_vm_ns"
+    microovn_add_vif "$TEST_CONTAINER" "$guest_vm_ns" "$guest_vm_iface" "$guest_ls" "$guest_vm_cidr"
+
+    echo "# ($TEST_CONTAINER) Set VM's default route via $guest_lrp_ip"
+    lxc_exec "$TEST_CONTAINER" "ip netns exec $guest_vm_ns ip route add default via $guest_lrp_ip"
+
+    # Configure external infrastructure (BGP Peer and External Host)
+    echo "# Configure IPv4 networking on the $BGP_EXT_NET"
+    local bgp_peer_ext_ip="10.42.0.1"
+    local bgp_peer_ext_cidr="$bgp_peer_ext_ip/24"
+    local ext_host_ext_ip="10.42.0.10"
+    local ext_host_ext_cidr="$ext_host_ext_ip/24"
+
+    lxc_exec "$BGP_PEER" "ip link set $BGP_CONTAINER_EXT_IFACE up && ip addr add $bgp_peer_ext_cidr dev $BGP_CONTAINER_EXT_IFACE"
+    lxc_exec "$BGP_PEER" "echo 1 > /proc/sys/net/ipv4/ip_forward"
+    lxc_exec "$BGP_PEER" "echo 1 > /proc/sys/net/ipv6/conf/all/forwarding"
+
+    lxc_exec "$EXT_HOST" "ip link set $EXT_CONTAINER_EXT_IFACE up && ip addr add $ext_host_ext_cidr dev $EXT_CONTAINER_EXT_IFACE"
+    lxc_exec "$EXT_HOST" "ip route del default && ip route add default via $bgp_peer_ext_ip"
+    wait_until "container_can_ping $EXT_HOST $bgp_peer_ext_ip"
+
+    local nat_ext_ip="172.16.10.2"
+    echo "# ($TEST_CONTAINER) Create OVN NAT $nat_ext_ip <-> $guest_vm_ip" >&3
+    lxc_exec "$TEST_CONTAINER" "microovn.ovn-nbctl lr-nat-add $gw_lr dnat_and_snat $nat_ext_ip $guest_vm_ip"
+
+    # Wait for the route to propagate to BGP peer
+    wait_until "container_has_ipv4_route $BGP_PEER $nat_ext_ip $BGP_CONTAINER_INT_IFACE"
+
+    # XXX potential bug?
+    echo "# ($BGP_PEER) Ensure OVN performs ND for its default gateway" >&3
+    lxc_exec "$BGP_PEER" "ping -W 1 -c 3 fe80::10:a8ff:fe1e:3771 || true"
+
+    echo "# Wait for Mac_Binding to be populated for the LRs default gateway" >&3
+    wait_until "microovn_mac_binding_exists $TEST_CONTAINER $neighbor_address lrp-$TEST_CONTAINER-br0beth0"
+
+    # Check that external host can reach NAT address
+    echo "# ($EXT_HOST) Reach NAT address $nat_ext_ip with ping" >&3
+    lxc_exec "$EXT_HOST" "ping -W 1 -c 1 $nat_ext_ip"
+
+    lxc_exec "$TEST_CONTAINER" "microovn.ovn-nbctl lr-nat-del $gw_lr"
+
+    # IPv6 load balancer part of data plane test
+    echo "# Configure IPv6 networking on the $BGP_EXT_NET"
+    local guest_lrp_ip_v6="fd00::1"
+    local guest_lrp_cidr_v6="$guest_lrp_ip_v6/64"
+    local guest_vm_ip_v6="fd00::10"
+    local guest_vm_cidr_v6="$guest_vm_ip_v6/64"
+
+    lxc_exec "$TEST_CONTAINER" "ovn-nbctl set Logical_Router_Port $lrp_to_guest_ls networks='\"$guest_lrp_cidr_v6\"'"
+
+    microovn_delete_vif "$TEST_CONTAINER" "$guest_vm_ns" "$guest_vm_iface"
+    netns_delete "$TEST_CONTAINER" "$guest_vm_ns"
+
+    lxc_exec "$TEST_CONTAINER" "ip netns add $guest_vm_ns"
+    microovn_add_vif "$TEST_CONTAINER" "$guest_vm_ns" "$guest_vm_iface" "$guest_ls" "$guest_vm_cidr_v6"
+    lxc_exec "$TEST_CONTAINER" "ip netns exec $guest_vm_ns ip route add default via $guest_lrp_ip_v6"
+
+    local bgp_peer_ext_ip_v6="2001:db8:412::1"
+    local bgp_peer_ext_cidr_v6="$bgp_peer_ext_ip_v6/64"
+    local ext_host_ext_ip_v6="2001:db8:412::10"
+    local ext_host_ext_cidr_v6="$ext_host_ext_ip_v6/64"
+
+    lxc_exec "$BGP_PEER" "ip link set $BGP_CONTAINER_EXT_IFACE up && \
+        ip addr del $bgp_peer_ext_cidr dev $BGP_CONTAINER_EXT_IFACE && \
+        ip addr add $bgp_peer_ext_cidr_v6 dev $BGP_CONTAINER_EXT_IFACE"
+    lxc_exec "$EXT_HOST" "ip link set $EXT_CONTAINER_EXT_IFACE up && \
+        ip addr del $ext_host_ext_cidr dev $EXT_CONTAINER_EXT_IFACE && \
+        ip addr add $ext_host_ext_cidr_v6 dev $EXT_CONTAINER_EXT_IFACE"
+
+    lxc_exec "$EXT_HOST" "ip route add 2001:db8:612::/64 via $bgp_peer_ext_ip_v6"
+
+    wait_until "container_can_ping $EXT_HOST $bgp_peer_ext_ip_v6"
+
+    # Create an OVN Load Balancer instead of NAT
+    local lb_name="lb-test"
+    local lb_vip="2001:db8:612::3"
+
+    echo "# ($TEST_CONTAINER) Create OVN Load Balancer for VIP $lb_vip -> $guest_vm_ip_v6" >&3
+    lxc_exec "$TEST_CONTAINER" \
+        "microovn.ovn-nbctl \
+            lb-add $lb_name $lb_vip $guest_vm_ip_v6 \
+            -- \
+            lr-lb-add $gw_lr $lb_name"
+
+    wait_until "container_has_ipv6_route $BGP_PEER $lb_vip $BGP_CONTAINER_INT_IFACE"
+
+    echo "# ($EXT_HOST) Reach load balancer address $lb_vip with ping" >&3
+    wait_until "container_can_ping $EXT_HOST $lb_vip"
+}
+bgp_data_plane_register_test_functions
