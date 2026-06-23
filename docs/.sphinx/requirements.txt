@@ -9,3 +9,4 @@ sphinxext-opengraph
 lxd-sphinx-extensions
 sphinx-copybutton
 myst-parser
+sphinx-sitemap~=2.9
