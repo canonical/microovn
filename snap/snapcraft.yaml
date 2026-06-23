@@ -183,7 +183,6 @@ parts:
   dqlite:
     source: https://github.com/canonical/dqlite
     source-type: git
-    source-tag: v1.18.6
     source-depth: 1
     plugin: autotools
     build-environment:
@@ -212,7 +211,6 @@ parts:
     plugin: autotools
     source: https://gitlab.nic.cz/labs/bird.git
     source-type: git
-    source-tag: v3.3.1
     autotools-configure-parameters:
       - --prefix=/usr
       - --sysconfdir=/etc/bird
