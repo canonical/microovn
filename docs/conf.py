@@ -13,6 +13,15 @@ from custom_conf import *
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 ############################################################
+### URL configuration
+############################################################
+
+version_slug = f"{os.environ.get('READTHEDOCS_VERSION', 'local')}"
+slug = 'docs/microovn'
+html_baseurl = f"https://ubuntu.com/docs/microovn/{version_slug}/"
+ogp_site_url = f"https://ubuntu.com/docs/microovn/{version_slug}/"
+
+############################################################
 ### Extensions
 ############################################################
 
@@ -47,10 +56,7 @@ myst_enable_extensions.extend(custom_myst_extensions)
 if not 'discourse_prefix' in html_context and 'discourse' in html_context:
     html_context['discourse_prefix'] = html_context['discourse'] + '/t/'
 
-# The default for notfound_urls_prefix usually works, but not for
-# documentation on documentation.ubuntu.com
-if slug:
-    notfound_urls_prefix = '/' + slug + '/en/latest/'
+notfound_urls_prefix = f'/{slug}/{version_slug}/'
 
 notfound_context = {
     'title': 'Page not found',
@@ -65,9 +71,6 @@ if not 'ogp_image' in locals():
 #######################
 # Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
 #######################
-
-# Use RTD canonical URL to ensure duplicate pages have a specific canonical URL
-html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
 
 # sphinx-sitemap uses html_baseurl to generate the full URL for each page:
 sitemap_url_scheme = "{link}"
@@ -166,7 +169,7 @@ html_css_files = [
 ]
 html_css_files.extend(custom_html_css_files)
 
-html_js_files = ['header-nav.js', 'bundle.js']
+html_js_files = ['header-nav.js', 'bundle.js', 'overwrite_links.js']
 if 'github_issues' in html_context and html_context['github_issues'] and not disable_feedback_button:
     html_js_files.append('github_issue_links.js')
 html_js_files.extend(custom_html_js_files)
