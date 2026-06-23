@@ -1,8 +1,6 @@
 name: microovn
 icon: microovn.png
 base: core26
-build-base: devel
-grade: devel
 assumes:
  - snapd2.73
 adopt-info: microovn
