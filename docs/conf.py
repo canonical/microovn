@@ -7,6 +7,15 @@ import sys
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+############################################################
+### URL configuration
+############################################################
+
+version_slug = f"{os.environ.get('READTHEDOCS_VERSION', 'local')}"
+slug = 'docs/microovn'
+html_baseurl = f"https://ubuntu.com/docs/microovn/{version_slug}/"
+ogp_site_url = f"https://ubuntu.com/docs/microovn/{version_slug}/"
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
@@ -16,7 +25,6 @@ copyright = "%s, %s" % (datetime.date.today().year, author)
 # release = '1.0'
 
 # Open Graph configuration - defines what is displayed in the website preview
-ogp_site_url = "https://microovn.readthedocs-hosted.com/"
 ogp_site_name = "%project"
 ogp_image = "https://assets.ubuntu.com/v1/253da317-image-document-ubuntudocs.svg"
 
@@ -68,9 +76,6 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '.sphinx']
 #######################
 # Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
 #######################
-
-# Use RTD canonical URL to ensure duplicate pages have a specific canonical URL
-html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "/")
 
 # sphinx-sitemap uses html_baseurl to generate the full URL for each page:
 sitemap_url_scheme = "{link}"
@@ -179,7 +184,7 @@ html_css_files = [
     'github_issue_links.css',
 ]
 
-html_js_files = []
+html_js_files = ['overwrite_links.js']
 if "github_issues" in html_context and html_context["github_issues"]:
     html_js_files.append('github_issue_links.js')
 
