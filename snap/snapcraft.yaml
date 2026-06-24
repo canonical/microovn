@@ -184,7 +184,6 @@ parts:
     source: https://github.com/canonical/dqlite
     source-type: git
     source-depth: 1
-    source-tag: v1.18.5
     plugin: autotools
     build-environment:
       - CFLAGS: -Wno-error=discarded-qualifiers #https://github.com/canonical/dqlite/pull/875
@@ -212,7 +211,6 @@ parts:
     plugin: autotools
     source: https://gitlab.nic.cz/labs/bird.git
     source-type: git
-    source-tag: v3.1.4
     autotools-configure-parameters:
       - --prefix=/usr
       - --sysconfdir=/etc/bird
