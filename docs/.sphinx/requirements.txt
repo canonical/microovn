@@ -10,3 +10,4 @@ lxd-sphinx-extensions
 sphinx-copybutton
 myst-parser
 sphinx-sitemap~=2.9
+sphinx-notfound-page~=1.1

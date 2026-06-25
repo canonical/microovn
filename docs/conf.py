@@ -64,6 +64,7 @@ extensions = [
     'sphinxext.opengraph',
     'myst_parser',
     'sphinx_sitemap',
+    'notfound.extension',
     ]
 
 myst_enable_extensions = [
@@ -72,6 +73,13 @@ myst_enable_extensions = [
 ]
 
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '.sphinx']
+
+notfound_urls_prefix = f'/{slug}/{version_slug}/'
+
+notfound_context = {
+    'title': 'Page not found',
+    'body': '<h1>Page not found</h1>\n\n<p>Sorry, but the documentation page that you are looking for was not found.</p>\n<p>Documentation changes over time, and pages are moved around. We try to redirect you to the updated content where possible, but unfortunately, that didn\'t work this time (maybe because the content you were looking for does not exist in this version of the documentation).</p>\n<p>You can try to use the navigation to locate the content you\'re looking for, or search for a similar page.</p>\n',
+}
 
 #######################
 # Sitemap configuration: https://sphinx-sitemap.readthedocs.io/
