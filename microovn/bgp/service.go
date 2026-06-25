@@ -149,9 +149,22 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 		logging.Debugf("Auto-selected VRF table ID: %s", vrfTableID)
 	}
 
-	err = createExternalBridges(ctx, s, extConnections)
+	bridges, err := extraConfig.ParseBridge()
 	if err != nil {
-		return errors.Join(err, DisableService(ctx, s))
+		logging.Errorf("Failed to parse bridges: %v", err)
+	}
+
+	if len(bridges) == 0 {
+		err = createExternalBridges(ctx, s, extConnections)
+		if err != nil {
+			return errors.Join(err, DisableService(ctx, s))
+		}
+	} else {
+		extConnections, err = createBridgeNetworks(ctx, s, bridges)
+		if err != nil {
+			return errors.Join(err, DisableService(ctx, s))
+		}
+
 	}
 
 	err = createExternalNetworks(ctx, s, extConnections)
