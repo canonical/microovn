@@ -34,7 +34,7 @@ file (the actual license) for more information.
 
 .. _snap-deployed OVN: https://snapcraft.io/microovn
 .. _Open Virtual Network: https://www.ovn.org/
-.. _MicroOVN documentation: https://canonical-microovn.readthedocs-hosted.com/
+.. _MicroOVN documentation: https://ubuntu.com/docs/microovn/
 .. _docs: https://github.com/canonical/microovn/tree/main/docs
 .. _Join our online forum: https://discourse.ubuntu.com/c/microovn/160
 .. _Support: https://discourse.ubuntu.com/c/microovn/support/164
