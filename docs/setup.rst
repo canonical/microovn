@@ -4,7 +4,7 @@
 Documentation starter pack
 ==========================
 
-See the `Sphinx and Read the Docs`_ guide for instructions on how to get
+See the `Sphinx Stack documentation`_ guide for instructions on how to get
 started with Sphinx documentation. Then go through the following sections to
 use this starter pack to set up your docs repository.
 
@@ -170,4 +170,4 @@ in a code repository), it will remain in the ``docs`` directory where it can be
 linked to from your project's main README file.
 
 .. LINKS
-.. _Sphinx and Read the Docs: https://canonical-documentation-with-sphinx-and-readthedocscom.readthedocs-hosted.com
+.. _Sphinx Stack Documentation: https://documentation.ubuntu.com/sphinx-stack/
