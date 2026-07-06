@@ -264,7 +264,7 @@ step in the right direction.
 
 
 .. LINKS
-.. _Canonical documentation style guide: https://docs.ubuntu.com/styleguide/en
+.. _Canonical documentation style guide: https://documentation.ubuntu.com/style-guide/
 .. _Canonical Open Documentation Academy: https://github.com/canonical/open-documentation-academy
 .. _Diátaxis: https://diataxis.fr/
 .. _Diátaxis, a new foundation for Canonical documentation: https://ubuntu.com/blog/diataxis-a-new-foundation-for-canonical-documentation
@@ -278,5 +278,5 @@ step in the right direction.
 .. _reStructuredText Primer: https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html
 .. _Follow us on Fosstodon: https://fosstodon.org/@CanonicalDocumentation
 .. _forum post: https://discourse.ubuntu.com/t/documentation-office-hours/42771
-.. _Read the Docs: https://canonical-microovn.readthedocs-hosted.com/en/latest/
+.. _Read the Docs: https://about.readthedocs.com/
 .. _Ubuntu Code of Conduct v2.0: https://ubuntu.com/community/ethos/code-of-conduct
