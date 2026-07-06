@@ -47,7 +47,7 @@ copyright = '%s, %s' % (datetime.date.today().year, author)
 ## when linking to the documentation from another website (see https://ogp.me/)
 # The URL where the documentation will be hosted (leave empty if you
 # don't know yet)
-ogp_site_url = "https://microovn.readthedocs-hosted.com/"
+ogp_site_url = "https://ubuntu.com/docs/microovn/"
 # The documentation website name (usually the same as the product name)
 ogp_site_name = project
 # The URL of an image or logo that is used in the preview
