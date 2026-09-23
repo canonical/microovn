@@ -31,6 +31,52 @@ func GetServices(ctx context.Context, c microTypes.Client) (types.Services, erro
 	return services, nil
 }
 
+// GetNodeSnapshot returns inspection facts collected on the target node.
+func GetNodeSnapshot(ctx context.Context, c microTypes.Client) (types.InspectionNodeSnapshot, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	snapshot := types.InspectionNodeSnapshot{}
+	err := c.Query(queryCtx, "GET", types.APIVersion, &url.URL{Path: "inspect/snapshot"}, nil, &snapshot)
+	if err != nil {
+		return snapshot, fmt.Errorf("failed to get node inspection snapshot: %w", err)
+	}
+
+	return snapshot, nil
+}
+
+// GetDatabaseProbe returns inspection facts collected about cluster database
+func GetDatabaseProbe(ctx context.Context, c microTypes.Client, scope types.InspectionScope) (types.InspectionDatabaseProbe, error) {
+	if scope != types.InspectionScopeCluster && scope != types.InspectionScopeLocal {
+		return types.InspectionDatabaseProbe{}, fmt.Errorf("invalid inspection scope: %s", scope)
+	}
+
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	probe := types.InspectionDatabaseProbe{}
+	err := c.Query(queryCtx, "GET", types.APIVersion, &url.URL{Path: "inspect/database", RawQuery: "scope=" + string(scope)}, nil, &probe)
+	if err != nil {
+		return probe, fmt.Errorf("failed to get database inspection probe: %w", err)
+	}
+
+	return probe, nil
+}
+
+// GetNetworkProbe returns cluster-wide network inspection evidence.
+func GetNetworkProbe(ctx context.Context, c microTypes.Client) (types.InspectionNetworkProbe, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
+
+	probe := types.InspectionNetworkProbe{}
+	err := c.Query(queryCtx, "GET", types.APIVersion, &url.URL{Path: "inspect/network"}, nil, &probe)
+	if err != nil {
+		return probe, fmt.Errorf("failed to get network inspection probe: %w", err)
+	}
+
+	return probe, nil
+}
+
 // ReissueCertificate sends request to local MicroOVN cluster member to re-issue new certificate for
 // selected service.
 func ReissueCertificate(ctx context.Context, c microTypes.Client, serviceName string) (types.IssueCertificateResponse, error) {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"os"
@@ -229,6 +230,22 @@ func GenerateEnvironment(ctx context.Context, s state.State) error {
 	}
 
 	return nil
+}
+
+// ReadEnvironment reads the OVN environment file and returns an io.Reader for its contents.
+func ReadEnvironment() (io.Reader, error) {
+	file, err := os.Open(paths.OvnEnvFile())
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	return strings.NewReader(string(data)), nil
 }
 
 // CreatePaths creates the required directories for OVN.

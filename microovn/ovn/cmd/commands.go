@@ -19,6 +19,7 @@ import (
 
 // DefaultDBConnectWait - Default time to wait for connection to ovsdb.
 const DefaultDBConnectWait = 30
+const DefaultDBStateWait = 10
 
 // OvsdbConnected       - String representing the connected state.
 const OvsdbConnected = "connected"
@@ -118,7 +119,7 @@ func WaitForDBState(ctx context.Context, _ state.State, db *OvsdbSpec, dbState s
 //
 // Argument `db` is usually either `OVN_Northbound` or `OVN_Southbound`
 // Argument 'port' is usually '6641' for the Northbound database and `6642` for the Southbound database
-func WaitForClusterDBState(ctx context.Context, s state.State, db string, dbState string, port int) error {
+func WaitForClusterDBState(ctx context.Context, s state.State, db string, dbState string, port int, connectTimeout int) error {
 	var err error
 	nbIPs, err := environment.CentralIps(ctx, s)
 	if err != nil {
@@ -133,7 +134,8 @@ func WaitForClusterDBState(ctx context.Context, s state.State, db string, dbStat
 		_, err = shared.RunCommandContext(
 			ctx,
 			filepath.Join(paths.Wrappers(), "ovsdb-client"),
-			"-t", "10",
+			"-t",
+			strconv.Itoa(connectTimeout),
 			"wait",
 			socketURL,
 			db,
@@ -204,10 +206,10 @@ func ovnDBCtl(ctx context.Context, s state.State, dbType OvsdbType, timeout int,
 // is a list of arguments that are passed directly to the shell command.
 // Before the command is executed, this function ensures that underlying
 // database is in connected state. If the database does not reach "connected"
-// state before timeout (defined in DefaultDBConnectWait), an error is returned
+// state before timeout (defined in connectTimeout), an error is returned
 // and command is not executed.
-func NBCtl(ctx context.Context, s state.State, args ...string) (string, error) {
-	return ovnDBCtl(ctx, s, OvsdbTypeNBLocal, DefaultDBConnectWait, args...)
+func NBCtl(ctx context.Context, s state.State, connectTimeout int, args ...string) (string, error) {
+	return ovnDBCtl(ctx, s, OvsdbTypeNBLocal, connectTimeout, args...)
 }
 
 // NBCtlCluster is a convenience function for execution of ovn-nbctl command
@@ -217,13 +219,13 @@ func NBCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 // is a list of arguments that are passed directly to the shell command.
 //
 // Warning: This function will fail if local MicroOVN node is not bootstrapped.
-func NBCtlCluster(ctx context.Context, s state.State, args ...string) (string, error) {
+func NBCtlCluster(ctx context.Context, s state.State, connectTimeout int, args ...string) (string, error) {
 	if !slices.Contains(args, "--timeout") && !slices.Contains(args, "-t") {
 		args = append([]string{"--timeout", "30"}, args...)
 	}
 
 	var err error
-	err = WaitForClusterDBState(ctx, s, "OVN_Northbound", OvsdbConnected, 6641)
+	err = WaitForClusterDBState(ctx, s, "OVN_Northbound", OvsdbConnected, 6641, connectTimeout)
 	if err != nil {
 		return "", errors.New("failed to connect to OVN Northbound database cluster")
 	}
@@ -239,6 +241,35 @@ func NBCtlCluster(ctx context.Context, s state.State, args ...string) (string, e
 	return "", err
 }
 
+// SBCtlCluster is a convenience function for execution of ovn-sbctl command
+// against OVN SB cluster endpoints. The command is re-tried up to 3 times.
+// If command arguments do not specify timeout (-t or
+// --timeout), a default of 30s will be added automatically. Parameter "args"
+// is a list of arguments that are passed directly to the shell command.
+//
+// Warning: This function will fail if local MicroOVN node is not bootstrapped.
+func SBCtlCluster(ctx context.Context, s state.State, connectTimeout int, args ...string) (string, error) {
+	if !slices.Contains(args, "--timeout") && !slices.Contains(args, "-t") {
+		args = append([]string{"--timeout", "30"}, args...)
+	}
+
+	var err error
+	err = WaitForClusterDBState(ctx, s, "OVN_Southbound", OvsdbConnected, 6642, connectTimeout)
+	if err != nil {
+		return "", errors.New("failed to connect to OVN Southbound database cluster")
+	}
+
+	// try command 3 times if it is failing
+	for attempts := 0; attempts < 3; attempts++ {
+		var output string
+		output, err = shared.RunCommandContext(ctx, filepath.Join(paths.Wrappers(), "ovn-sbctl"), args...)
+		if err == nil {
+			return output, nil
+		}
+	}
+	return "", err
+}
+
 // SBCtl is a convenience function for execution of ovn-sbctl command against
 // OVN NB local unix socket. The command is re-tried up to 3 times.
 // If command arguments do not specify timeout (-t or
@@ -246,10 +277,10 @@ func NBCtlCluster(ctx context.Context, s state.State, args ...string) (string, e
 // a list of arguments that are passed directly to the shell command. Before the
 // command is executed, this function ensures that underlying database is in
 // connected state. If the database does not reach "connected" state before
-// timeout (defined in DefaultDBConnectWait), an error is returned and command
+// timeout (defined in connectTimeout), an error is returned and command
 // is not executed.
-func SBCtl(ctx context.Context, s state.State, args ...string) (string, error) {
-	return ovnDBCtl(ctx, s, OvsdbTypeSBLocal, DefaultDBConnectWait, args...)
+func SBCtl(ctx context.Context, s state.State, connectTimeout int, args ...string) (string, error) {
+	return ovnDBCtl(ctx, s, OvsdbTypeSBLocal, connectTimeout, args...)
 }
 
 // VSCtl is a convenience function for execution of ovs-vsctl command which is

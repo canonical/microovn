@@ -25,6 +25,7 @@ type CmdControl struct {
 	FlagLogDebug   bool
 	FlagLogVerbose bool
 	FlagStateDir   string
+	ExitCode       int
 
 	asker cli.Asker
 }
@@ -68,6 +69,9 @@ func main() {
 	var cmdWaitReady = cmdWaitReady{common: &commonCmd}
 	app.AddCommand(cmdWaitReady.Command())
 
+	var cmdInspect = cmdInspect{common: &commonCmd}
+	app.AddCommand(cmdInspect.Command())
+
 	// Nested.
 	var cmdCluster = cmdCluster{common: &commonCmd}
 	app.AddCommand(cmdCluster.Command())
@@ -83,8 +87,19 @@ func main() {
 
 	app.InitDefaultHelpCmd()
 
-	err := app.Execute()
-	if err != nil {
-		os.Exit(1)
+	exitCode := commandExitCode(app.Execute(), commonCmd.ExitCode)
+	if exitCode != 0 {
+		os.Exit(exitCode)
 	}
+}
+
+func commandExitCode(err error, configuredExitCode int) int {
+	if configuredExitCode != 0 {
+		return configuredExitCode
+	}
+	if err != nil {
+		return 1
+	}
+
+	return 0
 }

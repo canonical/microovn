@@ -27,6 +27,7 @@ func UpdateOvnListenConfig(ctx context.Context, s state.State) error {
 	_, err = ovnCmd.NBCtl(
 		ctx,
 		s,
+		ovnCmd.DefaultDBConnectWait,
 		"--no-leader-only",
 		fmt.Sprintf("--db=%s", nbDB.SocketURL),
 		"set-connection",
@@ -39,6 +40,7 @@ func UpdateOvnListenConfig(ctx context.Context, s state.State) error {
 	_, err = ovnCmd.SBCtl(
 		ctx,
 		s,
+		ovnCmd.DefaultDBConnectWait,
 		"--no-leader-only",
 		fmt.Sprintf("--db=%s", sbDB.SocketURL),
 		"set-connection",

@@ -11,6 +11,7 @@ a basic understanding of OVN.
 
    Security <tls>
    downscaling
+   inspect
    logs
    major-upgrades
    ovn-underlay

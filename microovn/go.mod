@@ -6,6 +6,7 @@ require (
 	github.com/canonical/lxd v0.0.0-20251211093832-ac7a1edf4d94
 	github.com/canonical/microcluster/v3 v3.0.0-20260121114850-ead5e49aa73b
 	github.com/gorilla/mux v1.8.1
+	github.com/gorilla/websocket v1.5.3
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.10.2
 	github.com/zitadel/logging v0.6.2
@@ -28,7 +29,6 @@ require (
 	github.com/google/renameio v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/gosexy/gettext v0.0.0-20160830220431-74466a0a0c4a // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect

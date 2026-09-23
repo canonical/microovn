@@ -4,6 +4,8 @@ package snap
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
 
 	"github.com/canonical/lxd/shared"
 )
@@ -77,4 +79,18 @@ func Reload(ctx context.Context, service string) error {
 	}
 
 	return nil
+}
+
+// Services - returns the raw list of snap services and their states as reported by "snapctl services" command.
+func Services(ctx context.Context) (io.Reader, error) {
+	args := []string{
+		"services",
+	}
+
+	output, err := shared.RunCommandContext(ctx, "snapctl", args...)
+	if err != nil {
+		return nil, err
+	}
+
+	return strings.NewReader(output), nil
 }

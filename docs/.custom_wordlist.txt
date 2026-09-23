@@ -8,6 +8,7 @@ BGP
 BIRD's
 cms
 Datapath
+DHCP
 DPU
 DPUs
 devlink
