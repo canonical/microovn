@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v3/state"
@@ -456,20 +457,43 @@ func deactivateService(ctx context.Context, service types.SrvName, disable bool)
 // ActivateEnabledServices iterates through all enabled services on the nodes
 // and ensures the corresponding snap services are active
 func ActivateEnabledServices(ctx context.Context, s state.State, enable bool) error {
-	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	return activateEnabledServices(ctx, s.Name(), enable, s.Database().Transaction, activateService)
+}
+
+// Bound each logical service operation like the service-control client does.
+const serviceActivationTimeout = 30 * time.Second
+
+type serviceTransaction func(context.Context, func(context.Context, *sql.Tx) error) error
+
+type serviceActivator func(context.Context, types.SrvName, bool) error
+
+func activateEnabledServices(
+	ctx context.Context,
+	name string,
+	enable bool,
+	transaction serviceTransaction,
+	activate serviceActivator,
+) error {
+	var services []database.Service
+	err := transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		// Get list of all active local services.
-		name := s.Name()
-		services, err := database.GetServices(ctx, tx, database.ServiceFilter{Member: &name})
+		var err error
+		services, err = database.GetServices(ctx, tx, database.ServiceFilter{Member: &name})
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	// External operations must not inherit the transaction deadline or be replayed
+	// if the transaction retries. Give each logical service its own timeout.
+	for _, srv := range services {
+		serviceCtx, cancel := context.WithTimeout(ctx, serviceActivationTimeout)
+		err = activate(serviceCtx, srv.Service, enable)
+		cancel()
 		if err != nil {
 			return err
 		}
-		for _, srv := range services {
-			err = activateService(ctx, srv.Service, enable)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	return err
+	}
+	return nil
 }
