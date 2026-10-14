@@ -6,6 +6,7 @@ require (
 	github.com/canonical/lxd v0.0.0-20251211093832-ac7a1edf4d94
 	github.com/canonical/microcluster/v3 v3.0.0-20260121114850-ead5e49aa73b
 	github.com/gorilla/mux v1.8.1
+	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.10.2
 	github.com/zitadel/logging v0.6.2
@@ -34,7 +35,6 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
-	github.com/mattn/go-sqlite3 v1.14.33 // indirect
 	github.com/muhlemmer/gu v0.3.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/sftp v1.13.10 // indirect
