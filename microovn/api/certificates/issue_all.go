@@ -2,25 +2,23 @@ package certificates
 
 import (
 	"errors"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"net/http"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
-	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/securitylog"
 )
 
 // IssueCertificatesAllEndpoint defines endpoint for /1.0/certificates
-var IssueCertificatesAllEndpoint = rest.Endpoint{
+var IssueCertificatesAllEndpoint = microTypes.Endpoint{
 	Path: "certificates",
-	Put:  rest.EndpointAction{Handler: issueCertificatesAllPut, AllowUntrusted: false, ProxyTarget: true},
+	Put:  microTypes.EndpointAction{Handler: issueCertificatesAllPut, AllowUntrusted: false, ProxyTarget: true},
 }
 
 // issueCertificatesAllPut implements PUT method for /1.0/certificates endpoint. The function issues new
 // certificates for every OVN service enabled on this cluster member.
-func issueCertificatesAllPut(s state.State, r *http.Request) response.Response {
+func issueCertificatesAllPut(s microTypes.State, r *http.Request) microTypes.Response {
 	securitylog.Log(
 		securitylog.CatAuthn,
 		securitylog.EventPasswordChanged,
@@ -31,8 +29,8 @@ func issueCertificatesAllPut(s state.State, r *http.Request) response.Response {
 	responseData, err := reissueAllCertificates(r.Context(), s)
 	if err != nil {
 		logger.Errorf("Failed to issue certificates for all services: %v", err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 
-	return response.SyncResponse(true, responseData)
+	return microTypes.SyncResponse(true, responseData)
 }

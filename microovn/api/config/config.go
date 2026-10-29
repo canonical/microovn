@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"net"
 	"net/http"
 	"strings"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	microOvnClient "github.com/canonical/microovn/microovn/client"
 	"github.com/canonical/microovn/microovn/config"
@@ -19,15 +17,15 @@ import (
 )
 
 // ConfigEndpoint - /1.0/config endpoint.
-var ConfigEndoint = rest.Endpoint{
+var ConfigEndoint = microTypes.Endpoint{
 	Path:   "config",
-	Get:    rest.EndpointAction{Handler: getConfig, AllowUntrusted: false, ProxyTarget: true},
-	Post:   rest.EndpointAction{Handler: setConfig, AllowUntrusted: false, ProxyTarget: true},
-	Delete: rest.EndpointAction{Handler: deleteConfig, AllowUntrusted: false, ProxyTarget: true},
+	Get:    microTypes.EndpointAction{Handler: getConfig, AllowUntrusted: false, ProxyTarget: true},
+	Post:   microTypes.EndpointAction{Handler: setConfig, AllowUntrusted: false, ProxyTarget: true},
+	Delete: microTypes.EndpointAction{Handler: deleteConfig, AllowUntrusted: false, ProxyTarget: true},
 }
 
 // configHandler is a signature of a function that can be invoked on configuration option change.
-type configHandler = func(ctx context.Context, s state.State, key string, value string) error
+type configHandler = func(ctx context.Context, s microTypes.State, key string, value string) error
 
 // configValidator is a signature of a function that will validate configuration option values.
 type configValidator = func(value string) error
@@ -45,13 +43,13 @@ var AllowedConfigKeys = []spec{
 }
 
 // setConfig function handles configuration value changes submitted via POST request to config endpoint
-func setConfig(s state.State, r *http.Request) response.Response {
+func setConfig(s microTypes.State, r *http.Request) microTypes.Response {
 	var configRequest types.SetConfigRequest
 	configResponse := types.SetConfigResponse{}
 	handler, err := parseConfigRequest(r, &configRequest)
 	if err != nil {
 		configResponse.Error = err.Error()
-		return response.SyncResponse(false, &configResponse)
+		return microTypes.SyncResponse(false, &configResponse)
 	}
 
 	securitylog.Log(
@@ -64,7 +62,7 @@ func setConfig(s state.State, r *http.Request) response.Response {
 	err = config.SetConfig(r.Context(), s, configRequest.Key, configRequest.Value)
 	if err != nil {
 		configResponse.Error = fmt.Sprintf("Error occurred while setting config: %v", err)
-		return response.SyncResponse(false, &configResponse)
+		return microTypes.SyncResponse(false, &configResponse)
 	}
 
 	if handler != nil {
@@ -72,27 +70,27 @@ func setConfig(s state.State, r *http.Request) response.Response {
 		if err != nil {
 			logger.Errorf("%s", err.Error())
 			configResponse.Error = fmt.Sprintf("Error occurred while handling config change: %v", err)
-			return response.SyncResponse(false, &configResponse)
+			return microTypes.SyncResponse(false, &configResponse)
 		}
 	}
 
-	return response.SyncResponse(true, &configResponse)
+	return microTypes.SyncResponse(true, &configResponse)
 }
 
 // getConfig handles GET requests to the config endpoint by returning the current config option value
-func getConfig(s state.State, r *http.Request) response.Response {
+func getConfig(s microTypes.State, r *http.Request) microTypes.Response {
 	var configRequest types.GetConfigRequest
 	configResponse := types.GetConfigResponse{}
 	_, err := parseConfigRequest(r, &configRequest)
 	if err != nil {
 		configResponse.Error = err.Error()
-		return response.SyncResponse(false, &configResponse)
+		return microTypes.SyncResponse(false, &configResponse)
 	}
 
 	item, err := config.GetConfig(r.Context(), s, configRequest.Key)
 	if err != nil {
 		configResponse.Error = fmt.Sprintf("Error occurred while getting config: %v", err)
-		return response.SyncResponse(false, &configResponse)
+		return microTypes.SyncResponse(false, &configResponse)
 	}
 
 	if item == nil {
@@ -102,17 +100,17 @@ func getConfig(s state.State, r *http.Request) response.Response {
 		configResponse.Value = item.Value
 	}
 
-	return response.SyncResponse(true, &configResponse)
+	return microTypes.SyncResponse(true, &configResponse)
 }
 
 // deleteConfig handles DELETE requests to the config endpoint by completely removing the config option
-func deleteConfig(s state.State, r *http.Request) response.Response {
+func deleteConfig(s microTypes.State, r *http.Request) microTypes.Response {
 	var configRequest types.DeleteConfigRequest
 	configResponse := types.DeleteConfigResponse{}
 	handler, err := parseConfigRequest(r, &configRequest)
 	if err != nil {
 		configResponse.Error = err.Error()
-		return response.SyncResponse(false, &configResponse)
+		return microTypes.SyncResponse(false, &configResponse)
 	}
 
 	securitylog.Log(
@@ -125,7 +123,7 @@ func deleteConfig(s state.State, r *http.Request) response.Response {
 	err = config.DeleteConfig(r.Context(), s, configRequest.Key)
 	if err != nil {
 		configResponse.Error = fmt.Sprintf("Error occurred while deleting config: %v", err)
-		return response.SyncResponse(false, &configResponse)
+		return microTypes.SyncResponse(false, &configResponse)
 	}
 
 	if handler != nil {
@@ -136,7 +134,7 @@ func deleteConfig(s state.State, r *http.Request) response.Response {
 		}
 	}
 
-	return response.SyncResponse(true, &configResponse)
+	return microTypes.SyncResponse(true, &configResponse)
 }
 
 // parseConfigRequest validates requests to the config endpoint. If the request is made for
@@ -193,7 +191,7 @@ func parseConfigRequest(r *http.Request, parsedData any) (configHandler, error) 
 
 // ovnCentralIpsUpdated is a handler for changes to the "ovn.central-ips" config option change. It triggers
 // microovn.api.RegenerateEnvEndpoint to refresh controller configuration on every cluster member.
-func ovnCentralIpsUpdated(ctx context.Context, s state.State, key string, _ string) error {
+func ovnCentralIpsUpdated(ctx context.Context, s microTypes.State, key string, _ string) error {
 	errMsgPrefix := fmt.Sprintf("handling of '%s' config failed.", key)
 
 	client, err := s.Connect().Leader(false)

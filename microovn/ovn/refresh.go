@@ -3,9 +3,9 @@ package ovn
 import (
 	"context"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/node"
@@ -16,14 +16,14 @@ import (
 )
 
 // Refresh will update the existing OVN central and OVS switch configs.
-func Refresh(ctx context.Context, s state.State) {
+func Refresh(ctx context.Context, s microTypes.State) {
 	err := refresh(ctx, s)
 	if err != nil {
 		logger.Errorf("Failed to refresh configuration: %v", err)
 	}
 }
 
-func refresh(ctx context.Context, s state.State) error {
+func refresh(ctx context.Context, s microTypes.State) error {
 	// Make sure we don't have any other hooks firing.
 	muHook.Lock()
 	defer muHook.Unlock()

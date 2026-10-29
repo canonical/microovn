@@ -102,7 +102,7 @@ func dqliteMembersError(err error) error {
 	return fmt.Errorf("failed to get local dqlite members: %w", err)
 }
 
-func resolveExecutionContext(status *microTypes.Server, members []microTypes.DqliteMember) (types.InspectionExecutionContext, error) {
+func resolveExecutionContext(status *microTypes.Status, members []microTypes.DqliteMember) (types.InspectionExecutionContext, error) {
 
 	var matches []microTypes.DqliteMember
 	for _, member := range members {

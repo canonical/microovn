@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/node"
@@ -14,7 +14,7 @@ import (
 )
 
 // enabledOvnServices returns list of OVN services enabled on this MicroOVN cluster member.
-func enabledOvnServices(ctx context.Context, s state.State) ([]string, error) {
+func enabledOvnServices(ctx context.Context, s microTypes.State) ([]string, error) {
 	var enabledServices []string
 	var wrappedError error
 
@@ -44,7 +44,7 @@ func enabledOvnServices(ctx context.Context, s state.State) ([]string, error) {
 
 // reissueAllCertificates issues new certificates, using current CA, for every OVN service that is enabled
 // on this MicroOVN cluster member.
-func reissueAllCertificates(ctx context.Context, s state.State) (*types.IssueCertificateResponse, error) {
+func reissueAllCertificates(ctx context.Context, s microTypes.State) (*types.IssueCertificateResponse, error) {
 	responseData := types.IssueCertificateResponse{}
 
 	activeServices, err := enabledOvnServices(ctx, s)

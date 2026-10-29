@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/ovn/cmd"
 	ovnOvsdb "github.com/canonical/microovn/microovn/ovn/ovsdb"
@@ -21,7 +21,7 @@ const (
 
 func CollectDatabaseProbe(
 	ctx context.Context,
-	s state.State,
+	s microTypes.State,
 	scope types.InspectionScope,
 ) (types.InspectionDatabaseProbe, error) {
 	var readNB, readSB dbCfgReader
@@ -71,11 +71,11 @@ func (e dbCfgParseError) Error() string {
 
 type dbCfgReader func(context.Context) (int64, error)
 
-func dbCfgReadersCluster(s state.State) (dbCfgReader, dbCfgReader) {
+func dbCfgReadersCluster(s microTypes.State) (dbCfgReader, dbCfgReader) {
 	return dbCfgReaders(s, cmd.NBCtlCluster, cmd.SBCtlCluster)
 }
 
-func dbCfgReadersLocal(s state.State) (dbCfgReader, dbCfgReader) {
+func dbCfgReadersLocal(s microTypes.State) (dbCfgReader, dbCfgReader) {
 	return dbCfgReaders(s, cmd.NBCtl, cmd.SBCtl)
 }
 
@@ -139,7 +139,7 @@ func probeDatabaseCommunication(
 	return evidence
 }
 
-func collectSchemas(ctx context.Context, s state.State) []types.InspectionSchemaEvidence {
+func collectSchemas(ctx context.Context, s microTypes.State) []types.InspectionSchemaEvidence {
 	evidence := make([]types.InspectionSchemaEvidence, 0, 2)
 
 	for _, dbType := range []cmd.OvsdbType{
@@ -193,9 +193,9 @@ func parseDBCfg(database string, output string) (int64, error) {
 }
 
 func dbCfgReaders(
-	s state.State,
-	nbCtl func(context.Context, state.State, int, ...string) (string, error),
-	sbCtl func(context.Context, state.State, int, ...string) (string, error),
+	s microTypes.State,
+	nbCtl func(context.Context, microTypes.State, int, ...string) (string, error),
+	sbCtl func(context.Context, microTypes.State, int, ...string) (string, error),
 ) (dbCfgReader, dbCfgReader) {
 	var nbCfgArgs = []string{
 		"--timeout", "1",

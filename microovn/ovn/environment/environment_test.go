@@ -1,10 +1,9 @@
 package environment
 
 import (
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"net/url"
 	"testing"
-
-	"github.com/canonical/microcluster/v3/state"
 )
 
 const localNodeIPv4 = "10.0.0.1"
@@ -14,7 +13,7 @@ const remoteNodeIPv6 = "fe80::2"
 
 type MockState struct {
 	localNodeIP string
-	state.State
+	microTypes.State
 }
 
 func (ms MockState) Address() *url.URL {

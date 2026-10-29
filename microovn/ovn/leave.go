@@ -2,9 +2,9 @@ package ovn
 
 import (
 	"context"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/node"
 	"github.com/canonical/microovn/microovn/ovn/environment"
@@ -20,7 +20,7 @@ import (
 // Note (mkalcok): At this point, database table `services` no longer contains entries
 // for departing cluster member, so we'll try to exit/leave/stop all possible services
 // ignoring any errors from services that are not actually running.
-func Leave(ctx context.Context, s state.State, _ bool) error {
+func Leave(ctx context.Context, s microTypes.State, _ bool) error {
 	securitylog.Log(
 		securitylog.CatSys,
 		securitylog.EventSysShutdown,

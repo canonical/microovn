@@ -2,45 +2,43 @@ package api
 
 import (
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"net/http"
 
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/inspect/facts"
 	"github.com/canonical/microovn/microovn/ovn/environment"
 	"github.com/canonical/microovn/microovn/snap"
 )
 
-var InspectionSnapshotEndpoint = rest.Endpoint{
+var InspectionSnapshotEndpoint = microTypes.Endpoint{
 	Path: "inspect/snapshot",
-	Get: rest.EndpointAction{
+	Get: microTypes.EndpointAction{
 		Handler:        inspectionSnapshotGet,
 		AllowUntrusted: false,
 		ProxyTarget:    false,
 	},
 }
 
-var InspectionDatabaseEndpoint = rest.Endpoint{
+var InspectionDatabaseEndpoint = microTypes.Endpoint{
 	Path: "inspect/database",
-	Get: rest.EndpointAction{
+	Get: microTypes.EndpointAction{
 		Handler:        inspectionDatabaseGet,
 		AllowUntrusted: false,
 		ProxyTarget:    false,
 	},
 }
 
-var InspectionNetworkEndpoint = rest.Endpoint{
+var InspectionNetworkEndpoint = microTypes.Endpoint{
 	Path: "inspect/network",
-	Get: rest.EndpointAction{
+	Get: microTypes.EndpointAction{
 		Handler:        inspectionNetworkGet,
 		AllowUntrusted: false,
 		ProxyTarget:    false,
 	},
 }
 
-func inspectionSnapshotGet(s state.State, r *http.Request) response.Response {
+func inspectionSnapshotGet(s microTypes.State, r *http.Request) microTypes.Response {
 	snapshot := facts.CollectNodeSnapshot(
 		r.Context(),
 		s.Name(),
@@ -48,16 +46,16 @@ func inspectionSnapshotGet(s state.State, r *http.Request) response.Response {
 		snap.Services,
 		environment.ReadEnvironment,
 	)
-	return response.SyncResponse(true, snapshot)
+	return microTypes.SyncResponse(true, snapshot)
 }
 
-func inspectionDatabaseGet(s state.State, r *http.Request) response.Response {
+func inspectionDatabaseGet(s microTypes.State, r *http.Request) microTypes.Response {
 	scope := r.URL.Query().Get("scope")
 	if scope == "" {
-		return response.BadRequest(fmt.Errorf("missing required query parameter: scope"))
+		return microTypes.BadRequest(fmt.Errorf("missing required query parameter: scope"))
 	}
 	if scope != string(types.InspectionScopeCluster) && scope != string(types.InspectionScopeLocal) {
-		return response.BadRequest(fmt.Errorf("invalid scope: %s", scope))
+		return microTypes.BadRequest(fmt.Errorf("invalid scope: %s", scope))
 	}
 	probe, err := facts.CollectDatabaseProbe(
 		r.Context(),
@@ -65,16 +63,16 @@ func inspectionDatabaseGet(s state.State, r *http.Request) response.Response {
 		types.InspectionScope(scope),
 	)
 	if err != nil {
-		return response.BadRequest(err)
+		return microTypes.BadRequest(err)
 	}
 
-	return response.SyncResponse(true, probe)
+	return microTypes.SyncResponse(true, probe)
 }
 
-func inspectionNetworkGet(s state.State, r *http.Request) response.Response {
+func inspectionNetworkGet(s microTypes.State, r *http.Request) microTypes.Response {
 	probe := facts.CollectNetworkProbe(
 		r.Context(),
 		s,
 	)
-	return response.SyncResponse(true, probe)
+	return microTypes.SyncResponse(true, probe)
 }
