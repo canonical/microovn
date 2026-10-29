@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/canonical/microovn/microovn/database"
 )
 
 // SetConfig function inserts or updates rows in the "config" table of the MicroOVNs database.
-func SetConfig(ctx context.Context, s state.State, key string, value string) error {
+func SetConfig(ctx context.Context, s microTypes.State, key string, value string) error {
 	// Upsert config value in the database
 	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		exists, err := database.ConfigItemExists(ctx, tx, key)
@@ -32,7 +32,7 @@ func SetConfig(ctx context.Context, s state.State, key string, value string) err
 
 // GetConfig function retrieves items from the config table of the MicroOVN's database. In case that a row
 // with the given key does not exist in the table, both returned item and error are nil.
-func GetConfig(ctx context.Context, s state.State, key string) (*database.ConfigItem, error) {
+func GetConfig(ctx context.Context, s microTypes.State, key string) (*database.ConfigItem, error) {
 	var err error
 	var item *database.ConfigItem
 	err = s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -57,7 +57,7 @@ func GetConfig(ctx context.Context, s state.State, key string) (*database.Config
 
 // DeleteConfig removes an item with the specified key from the config table of the MicroOVN's database.
 // If the item is not present in the table, this function returns successfully.
-func DeleteConfig(ctx context.Context, s state.State, key string) error {
+func DeleteConfig(ctx context.Context, s microTypes.State, key string) error {
 	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		exists, err := database.ConfigItemExists(ctx, tx, key)
 		if err != nil {

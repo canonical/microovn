@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"math"
 	"os"
 	"slices"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/netplan"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
@@ -39,7 +39,7 @@ const BgpBridgeMapping = "microovn-bgp-bridge-mapping"
 // getOvnIntegrationBridge returns current value of "external-ids:ovn-bridge" from
 // the Open_vSwitch table in the OVS database. It returns default value 'br-int' if the
 // key does not exist in external-ids.
-func getOvnIntegrationBridge(ctx context.Context, s state.State) (string, error) {
+func getOvnIntegrationBridge(ctx context.Context, s microTypes.State) (string, error) {
 	brName, err := vsctlGetIfExists(ctx, s, "Open_vSwitch", ".", "external-ids", "ovn-bridge")
 	if brName == "" {
 		brName = "br-int"
@@ -50,26 +50,26 @@ func getOvnIntegrationBridge(ctx context.Context, s state.State) (string, error)
 // getPhysnetName returns physical network name that can be used for setting "ovn-bridge-mappings"
 // in OVS and "network_name" for Logical Switch Ports to get connectivity to external network via
 // specific interface. This name is unique and consistent for each host and interface.
-func getPhysnetName(s state.State, interfaceName string) string {
+func getPhysnetName(s microTypes.State, interfaceName string) string {
 	return fmt.Sprintf("physnet_%s_%s", s.Name(), interfaceName)
 }
 
 // getLrName returns name for the Logical Router to be used for BGP redirecting. This name is
 // unique and consistent for each host.
-func getLrName(s state.State) string {
+func getLrName(s microTypes.State) string {
 	return fmt.Sprintf("lr-%s-microovn", s.Name())
 }
 
 // getLsName returns name for the of the Logical Switch that should be used for connection with external
 // network. Argument "iface" is the name of the physical interface that provides this connectivity. This
 // name is unique for each host and interface.
-func getLsName(s state.State, iface string) string {
+func getLsName(s microTypes.State, iface string) string {
 	return fmt.Sprintf("ls-%s-%s", s.Name(), iface)
 }
 
 // getLsNameChassisMatch returns a string that can be used to match
 // names of all Logical Switches used for BGP redirecting on local chassis
-func getLsNameChassisMatch(s state.State) string {
+func getLsNameChassisMatch(s microTypes.State) string {
 	dummyIface := "FOO"
 	match, _ := strings.CutSuffix(getLsName(s, dummyIface), dummyIface)
 	return match
@@ -78,7 +78,7 @@ func getLsNameChassisMatch(s state.State) string {
 // getLrpName returns name of the Logical Router Port that should be connected to the Logical Switch that
 // provides connectivity to external network. Argument "iface" is a name of a physical interface that provides
 // this connectivity. This name is unique and consistent for each host and interface.
-func getLrpName(s state.State, iface string) string {
+func getLrpName(s microTypes.State, iface string) string {
 	return fmt.Sprintf("lrp-%s-%s", s.Name(), iface)
 }
 
@@ -114,7 +114,7 @@ func generateBGPRouterID(s string) string {
 // but it will prevent the risk of ASN collisions, unless the total number of cluster members joins exceeds the size of the
 // input ASN range. For this reason, a warning is logged if the member ID exceeds the size of the ASN range.
 // Returns the generated ASN as a string, or an error if unable to retrieve the cluster member ID.
-func generateAsnFromClusterMemberID(ctx context.Context, s state.State, asnRange [2]uint64) (string, error) {
+func generateAsnFromClusterMemberID(ctx context.Context, s microTypes.State, asnRange [2]uint64) (string, error) {
 	minAsn := asnRange[0]
 	maxAsn := asnRange[1]
 	rangeSize := maxAsn - minAsn + 1
@@ -155,7 +155,7 @@ func generateAsnFromClusterMemberID(ctx context.Context, s state.State, asnRange
 // specified table. Returned string has whitespace and quotations trimmed.
 // If the 'ovs-vsctl' command failed due to the "key" not being found in "column",
 // this function returns empty string without error.
-func vsctlGetIfExists(ctx context.Context, s state.State, table string, record string, column string, key string) (string, error) {
+func vsctlGetIfExists(ctx context.Context, s microTypes.State, table string, record string, column string, key string) (string, error) {
 	args := []string{"get", table, record}
 	if column != "" {
 		if key != "" {
@@ -229,7 +229,7 @@ func getUsedVrfTableIDs(ctx context.Context) (map[int]bool, error) {
 	usedTableIDs := map[int]bool{253: true, 254: true, 255: true}
 
 	// Check system VRF tables to avoid conflicts with existing VRFs
-	vrfOutput, err := shared.RunCommandContext(
+	vrfOutput, err := shared.RunCommand(
 		ctx,
 		"sh",
 		"-c",
@@ -239,7 +239,7 @@ func getUsedVrfTableIDs(ctx context.Context) (map[int]bool, error) {
 	}
 
 	// Check non-empty routing tables in the system to avoid conflicts
-	routeOutput, err := shared.RunCommandContext(
+	routeOutput, err := shared.RunCommand(
 		ctx,
 		"sh",
 		"-c",
@@ -266,7 +266,7 @@ func getUsedVrfTableIDs(ctx context.Context) (map[int]bool, error) {
 // It finds the currently used Table IDs from system routing tables, and returns the lowest available ID,
 // with a minimum value of 10 if no ID is in use.
 // Returns error if unable to query the database or system or the possible table IDs are all in use.
-func findAvailableVrfTableID(ctx context.Context, s state.State) (string, error) {
+func findAvailableVrfTableID(ctx context.Context, s microTypes.State) (string, error) {
 	const minID = 10
 
 	usedTableIDs, err := getUsedVrfTableIDs(ctx)
@@ -288,7 +288,7 @@ func findAvailableVrfTableID(ctx context.Context, s state.State) (string, error)
 // Physical interface defined in the external connection will be plugged to this bridge and the bridge will
 // be named "<iface>-br". Additionally, a physical network name will be constructed with getPhysnetName() and
 // will be added to "ovn-bridge-mappings" in the OVS database.
-func createExternalBridges(ctx context.Context, s state.State, extConnections []types.BgpExternalConnection) error {
+func createExternalBridges(ctx context.Context, s microTypes.State, extConnections []types.BgpExternalConnection) error {
 	for _, extConnection := range extConnections {
 		bridgeName := fmt.Sprintf("br-%s", extConnection.Iface)
 		physnet := getPhysnetName(s, extConnection.Iface)
@@ -325,7 +325,7 @@ func createExternalBridges(ctx context.Context, s state.State, extConnections []
 // createExternalNetworks creates a single Logical Router and connects it to each external network defined
 // in "extConnections" argument. The connection is facilitated via Logical switches, each external network
 // is represented by its own switch.
-func createExternalNetworks(ctx context.Context, s state.State, extConnections []types.BgpExternalConnection) error {
+func createExternalNetworks(ctx context.Context, s microTypes.State, extConnections []types.BgpExternalConnection) error {
 	// Create Logical Router
 	lrName := getLrName(s)
 	_, err := ovnCmd.NBCtlCluster(ctx,
@@ -391,7 +391,7 @@ func createExternalNetworks(ctx context.Context, s state.State, extConnections [
 // createVrf instructs OVN to set up VRF to redistribute NAT and Load Balancer addresses for each Logical Router Port
 // that's associated with external connections defined in "extConnections" argument. Only one VRF is set up with table
 // ID specified by "tableID" argument. All LRPs redistribute their addresses to this VRF.
-func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExternalConnection, tableID string) error {
+func createVrf(ctx context.Context, s microTypes.State, extConnections []types.BgpExternalConnection, tableID string) error {
 	lrName := getLrName(s)
 
 	// Check if the VRF kernel module is loaded
@@ -426,7 +426,7 @@ func createVrf(ctx context.Context, s state.State, extConnections []types.BgpExt
 	return nil
 }
 
-func generateVeth(ctx context.Context, s state.State, extConnections []types.BgpExternalConnection, tableID string) error {
+func generateVeth(ctx context.Context, s microTypes.State, extConnections []types.BgpExternalConnection, tableID string) error {
 
 	vrfName := getVrfName(tableID)
 
@@ -489,11 +489,11 @@ func generateVeth(ctx context.Context, s state.State, extConnections []types.Bgp
 	// - VRF binding may not be applied
 	for _, iface := range vrfInterfaces {
 		// Ensure interface is bound to the VRF
-		_, err = shared.RunCommandContext(ctx, "ip", "link", "set", "dev", iface, "master", vrfName)
+		_, err = shared.RunCommand(ctx, "ip", "link", "set", "dev", iface, "master", vrfName)
 		if err != nil {
 			return fmt.Errorf("failed to bind interface '%s' to VRF '%s': %v", iface, vrfName, err)
 		}
-		_, err = shared.RunCommandContext(ctx, "ip", "link", "set", "dev", iface, "up")
+		_, err = shared.RunCommand(ctx, "ip", "link", "set", "dev", iface, "up")
 		if err != nil {
 			return fmt.Errorf("failed to bring up interface '%s': %v", iface, err)
 		}
@@ -504,7 +504,7 @@ func generateVeth(ctx context.Context, s state.State, extConnections []types.Bgp
 
 // redirectBgp creates a port in OVS, moves it to the VRF specified by "tableID" and configures OVN to redirect
 // BGP+BFD traffic from the associated Logical Router Ports to the newly created ports.
-func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpExternalConnection, tableID string) error {
+func redirectBgp(ctx context.Context, s microTypes.State, extConnections []types.BgpExternalConnection, tableID string) error {
 	vrfName := getVrfName(tableID)
 
 	err := generateVeth(ctx, s, extConnections, tableID)
@@ -569,7 +569,7 @@ func redirectBgp(ctx context.Context, s state.State, extConnections []types.BgpE
 //   - OVN bridge mappings
 //
 // Other OVN resources remain untouched.
-func teardownAll(ctx context.Context, s state.State) error {
+func teardownAll(ctx context.Context, s microTypes.State) error {
 	var allErrors error
 	// Find and remove Logical Router used for BGP redirect
 	logicalRouter := getLrName(s)
@@ -680,13 +680,13 @@ func teardownAll(ctx context.Context, s state.State) error {
 
 	// Backup and reset Bird's config
 	backupConfig := fmt.Sprintf("%s_%d", paths.BirdConfigFile(), time.Now().Unix())
-	_, err = shared.RunCommandContext(ctx, "cp", paths.BirdConfigFile(), backupConfig)
+	_, err = shared.RunCommand(ctx, "cp", paths.BirdConfigFile(), backupConfig)
 	if err != nil {
 		allErrors = errors.Join(allErrors, fmt.Errorf(
 			"failed to backup Bird config. Will not proceed with its removal: %v", err),
 		)
 	} else {
-		_, err = shared.RunCommandContext(ctx, "cp", paths.BirdDefaultConfig(), paths.BirdConfigDir())
+		_, err = shared.RunCommand(ctx, "cp", paths.BirdDefaultConfig(), paths.BirdConfigDir())
 		if err != nil {
 			allErrors = errors.Join(allErrors, fmt.Errorf("failed to reset Bird config: %v", err))
 		}

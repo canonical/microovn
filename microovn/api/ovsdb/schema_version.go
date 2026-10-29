@@ -9,10 +9,7 @@ import (
 	"strings"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
 	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/gorilla/mux"
 
 	"github.com/canonical/microovn/microovn/api/types"
@@ -31,28 +28,28 @@ var supportedDBs = map[string]ovnCmd.OvsdbType{
 }
 
 // ExpectedSchemaVersion defines endpoints for /1.0/ovsdb/schema/<db-name>/expected
-var ExpectedSchemaVersion = rest.Endpoint{
+var ExpectedSchemaVersion = microTypes.Endpoint{
 	Path: "ovsdb/schema/{db}/expected",
-	Get:  rest.EndpointAction{Handler: getExpectedSchemaVersion, AllowUntrusted: false, ProxyTarget: false},
+	Get:  microTypes.EndpointAction{Handler: getExpectedSchemaVersion, AllowUntrusted: false, ProxyTarget: false},
 }
 
 // AllExpectedSchemaVersions defines endpoints for /1.0/ovsdb/schema/<db-name>/expected/all
-var AllExpectedSchemaVersions = rest.Endpoint{
+var AllExpectedSchemaVersions = microTypes.Endpoint{
 	Path: "ovsdb/schema/{db}/expected/all",
-	Get:  rest.EndpointAction{Handler: getAllExpectedSchemaVersions, AllowUntrusted: false, ProxyTarget: false},
+	Get:  microTypes.EndpointAction{Handler: getAllExpectedSchemaVersions, AllowUntrusted: false, ProxyTarget: false},
 }
 
 // ActiveSchemaVersion defines endpoints for /1.0/ovsdb/schema/<db-name>/active
-var ActiveSchemaVersion = rest.Endpoint{
+var ActiveSchemaVersion = microTypes.Endpoint{
 	Path: "ovsdb/schema/{db}/active",
-	Get:  rest.EndpointAction{Handler: getActiveSchemaVersion, AllowUntrusted: false, ProxyTarget: false},
+	Get:  microTypes.EndpointAction{Handler: getActiveSchemaVersion, AllowUntrusted: false, ProxyTarget: false},
 }
 
 // getExpectedSchemaVersion implements GET method for /1.0/ovsdb/schema/<db-name>/expected. It returns
 // expected schema version of the specified database on this MicroOVN node. Expected schema version is
 // determined by looking at the schema file that is bundled with OVN/OVS packages.
 // URL variable <db-name> is expected to be one of the keys from supportedDBs.
-func getExpectedSchemaVersion(s state.State, r *http.Request) response.Response {
+func getExpectedSchemaVersion(s microTypes.State, r *http.Request) microTypes.Response {
 	dbSpec, errResponse := parseDbSpec(r)
 	if errResponse != nil {
 		return errResponse
@@ -61,16 +58,16 @@ func getExpectedSchemaVersion(s state.State, r *http.Request) response.Response 
 	expectedVersion, err := ovsdb.ExpectedOvsdbSchemaVersion(r.Context(), s, dbSpec)
 	if err != nil {
 		logger.Errorf("Failed to get expected OVSDB schema version for '%s' database: %s", dbSpec.FriendlyName, err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 
-	return response.SyncResponse(true, expectedVersion)
+	return microTypes.SyncResponse(true, expectedVersion)
 }
 
 // getAllExpectedSchemaVersions implements GET method for /1.0/ovsdb/schema/<db-name>/expected/all.
 // It returns expected schema version for the given database from each node in the deployment.
 // The response is in the format of types.OvsdbSchemaReport
-func getAllExpectedSchemaVersions(s state.State, r *http.Request) response.Response {
+func getAllExpectedSchemaVersions(s microTypes.State, r *http.Request) microTypes.Response {
 	dbSpec, errResponse := parseDbSpec(r)
 	if errResponse != nil {
 		return errResponse
@@ -80,7 +77,7 @@ func getAllExpectedSchemaVersions(s state.State, r *http.Request) response.Respo
 	localExpectedVersion, err := ovsdb.ExpectedOvsdbSchemaVersion(r.Context(), s, dbSpec)
 	if err != nil {
 		logger.Errorf("Failed to get expected OVSDB schema version for '%s' database: %s", dbSpec.FriendlyName, err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 
 	responseData := types.OvsdbSchemaReport{
@@ -95,7 +92,7 @@ func getAllExpectedSchemaVersions(s state.State, r *http.Request) response.Respo
 	clusterClient, err := s.Connect().Cluster(false)
 	if err != nil {
 		logger.Errorf("Failed to get a client for every cluster member: %s", err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 
 	// Fetch expected schema versions from each cluster member.
@@ -112,7 +109,7 @@ func getAllExpectedSchemaVersions(s state.State, r *http.Request) response.Respo
 		return nil
 	})
 
-	return response.SyncResponse(true, &responseData)
+	return microTypes.SyncResponse(true, &responseData)
 }
 
 // getActiveSchemaVersion implements GET method for /1.0/ovsdb/schema/<db-name>/active. It returns
@@ -121,11 +118,11 @@ func getAllExpectedSchemaVersions(s state.State, r *http.Request) response.Respo
 //
 // If the node receives request for Northbound or Southbound DB schema version, but the not is not running
 // these central services, the request will be forwarded to a node that does run them.
-func getActiveSchemaVersion(s state.State, r *http.Request) response.Response {
+func getActiveSchemaVersion(s microTypes.State, r *http.Request) microTypes.Response {
 	hasCentral, err := node.HasServiceActive(r.Context(), s, types.SrvCentral)
 	if err != nil {
 		logger.Errorf("Failed to check if central is active on this node: %s", err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 
 	dbSpec, errResponse := parseDbSpec(r)
@@ -143,28 +140,28 @@ func getActiveSchemaVersion(s state.State, r *http.Request) response.Response {
 	activeSchema, err := ovnCmd.OvsdbClient(r.Context(), s, dbSpec, 10, 30, "get-schema-version", dbSpec.SocketURL)
 	if err != nil {
 		logger.Errorf("Failed to get active schema version for '%s' database: %s", dbSpec.FriendlyName, err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 
-	return response.SyncResponse(true, strings.TrimSpace(activeSchema))
+	return microTypes.SyncResponse(true, strings.TrimSpace(activeSchema))
 }
 
 // forwardActiveSchemaVersion forwards request to get active OVSDB schema version to a host that runs "central"
 // services.
 // Each host that is registered with "central" service is queried until one of the returns non-error response. First
 // successful response is returned to the caller.
-// If none of the "central" nodes return non-error message, this function returns response.ErrorResponse with code 500.
-func forwardActiveSchemaVersion(s state.State, r *http.Request, dbSpec *ovnCmd.OvsdbSpec) response.Response {
+// If none of the "central" nodes return non-error message, this function returns microTypes.ErrorResponse with code 500.
+func forwardActiveSchemaVersion(s microTypes.State, r *http.Request, dbSpec *ovnCmd.OvsdbSpec) microTypes.Response {
 	centralNodes, err := node.FindService(r.Context(), s, "central")
 	if err != nil {
 		logger.Errorf("Failed to find central node: %s", err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 
 	clusterClients, err := s.Connect().Cluster(false)
 	if err != nil {
 		logger.Errorf("Failed to get cluster clients: %v", err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 
 	for _, _client := range clusterClients {
@@ -186,38 +183,38 @@ func forwardActiveSchemaVersion(s state.State, r *http.Request, dbSpec *ovnCmd.O
 						_node.Name,
 					)
 				} else {
-					return response.SyncResponse(true, &result)
+					return microTypes.SyncResponse(true, &result)
 				}
 			}
 		}
 	}
 
 	logger.Error("None of the central nodes responded to the forwarded query")
-	return response.InternalError(errors.New("internal server error"))
+	return microTypes.InternalError(errors.New("internal server error"))
 }
 
 // parseDbSpec is a helper function that returns OvsdbSpec based on the database name
 // specified in the request's URL variable.
 //
 // For example: If request "r" has URL /schema/sb/active, this function  returns OvsdbSpec based on OvsdbTypeSBLocal.
-func parseDbSpec(r *http.Request) (*ovnCmd.OvsdbSpec, response.Response) {
+func parseDbSpec(r *http.Request) (*ovnCmd.OvsdbSpec, microTypes.Response) {
 	requestedDB, err := url.PathUnescape(mux.Vars(r)["db"])
 	if err != nil {
 		logger.Errorf("Failed to parse requested DB name from url '%s'", r.URL)
-		return nil, response.InternalError(errors.New("internal server error"))
+		return nil, microTypes.InternalError(errors.New("internal server error"))
 	}
 	requestedDB = strings.ToLower(requestedDB)
 
 	dbType, ok := supportedDBs[requestedDB]
 
 	if !ok {
-		return nil, response.BadRequest(fmt.Errorf("DB '%s' not supported", requestedDB))
+		return nil, microTypes.BadRequest(fmt.Errorf("DB '%s' not supported", requestedDB))
 	}
 
 	dbSpec, err := ovnCmd.NewOvsdbSpec(dbType)
 	if err != nil {
 		logger.Errorf("%s", err)
-		return nil, response.InternalError(errors.New("internal server error"))
+		return nil, microTypes.InternalError(errors.New("internal server error"))
 	}
 	return dbSpec, nil
 }

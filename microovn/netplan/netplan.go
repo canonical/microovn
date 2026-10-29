@@ -102,7 +102,7 @@ func (c *Config) CleanupVirtualEthernets(ctx context.Context) error {
 		if deletedPeers[iface] {
 			continue
 		}
-		_, err := shared.RunCommandContext(ctx, "ip", "link", "delete", "dev", iface)
+		_, err := shared.RunCommand(ctx, "ip", "link", "delete", "dev", iface)
 		if err != nil {
 			if !strings.Contains(err.Error(), "Cannot find device") {
 				return fmt.Errorf("failed remove interface '%s': %v", iface, err)
@@ -118,12 +118,12 @@ func (c *Config) CleanupVirtualEthernets(ctx context.Context) error {
 // depending on the "delete" argument
 func (c *Config) CleanupVRFs(ctx context.Context, delete bool) error {
 	for vrf, vrfData := range c.Network.Vrfs {
-		_, err := shared.RunCommandContext(ctx, "ip", "route", "flush", "table", vrfData.Table)
+		_, err := shared.RunCommand(ctx, "ip", "route", "flush", "table", vrfData.Table)
 		if err != nil {
 			return fmt.Errorf("failed to flush vrf '%s': %v", vrf, err)
 		}
 		if delete {
-			_, err = shared.RunCommandContext(ctx, "ip", "link ", "delete", "dev", vrf)
+			_, err = shared.RunCommand(ctx, "ip", "link ", "delete", "dev", vrf)
 			if err != nil {
 				return fmt.Errorf("failed to delete vrf '%s': %v", vrf, err)
 			}
@@ -145,13 +145,13 @@ func WriteToNetplan(ctx context.Context, filename string, config Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to write file: %v", err)
 	}
-	_, err = shared.RunCommandContext(ctx, "mv", filepath, "/etc/netplan")
+	_, err = shared.RunCommand(ctx, "mv", filepath, "/etc/netplan")
 	return err
 }
 
 // Apply uses dbus to trigger the netplan apply command
 func Apply(ctx context.Context) error {
-	_, err := shared.RunCommandContext(ctx, "dbus-send", "--system", "--type=method_call", "--print-reply", "--dest=io.netplan.Netplan", "/io/netplan/Netplan", "io.netplan.Netplan.Apply")
+	_, err := shared.RunCommand(ctx, "dbus-send", "--system", "--type=method_call", "--print-reply", "--dest=io.netplan.Netplan", "/io/netplan/Netplan", "io.netplan.Netplan.Apply")
 	if err != nil {
 		if strings.Contains(err.Error(), "The 'ovs-vsctl' tool is required to setup OpenVSwitch interfaces.") {
 			// Give a nicer error message
@@ -188,7 +188,7 @@ func Cleanup(ctx context.Context, filename string) error {
 		return nil
 	}
 
-	_, err := shared.RunCommandContext(ctx, "mv", filepath, tmpfilepath)
+	_, err := shared.RunCommand(ctx, "mv", filepath, tmpfilepath)
 	if err != nil {
 		return fmt.Errorf("failed to move netplan config: %v", err)
 	}
@@ -207,7 +207,7 @@ func Cleanup(ctx context.Context, filename string) error {
 		}
 	}
 
-	_, err = shared.RunCommandContext(ctx, "rm", tmpfilepath)
+	_, err = shared.RunCommand(ctx, "rm", tmpfilepath)
 	if err != nil {
 		return fmt.Errorf("failed to delete netplan config: %v", err)
 	}

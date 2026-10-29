@@ -29,7 +29,7 @@ func _ovsdbSchemaRequiresAttention(
 	}
 	result, _ := ovsdbSchemaRequiresAttention(activeSchema, expectedSchemas)
 	if result != expectedResult {
-		t.Fatalf("ovsdbSchemaRequiresAttention(%s, %q) returned %t, "+
+		t.Fatalf("ovsdbSchemaRequiresAttention(%s, %#v) returned %t, "+
 			"expected %t.",
 			activeSchema, expectedSchemas, result, expectedResult)
 	}

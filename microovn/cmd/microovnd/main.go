@@ -3,13 +3,17 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
+	"crypto/x509"
+	"errors"
 	"log/slog"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/canonical/microcluster/v3/microcluster"
 	"github.com/canonical/microcluster/v3/microcluster/types"
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/spf13/cobra"
 
 	"github.com/canonical/microovn/microovn/api"
@@ -89,19 +93,55 @@ func (c *cmdDaemon) Run(_ *cobra.Command, _ []string) error {
 	shutdownCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	h := &state.Hooks{}
+	h := &types.Hooks{}
 	h.PostBootstrap = ovn.Bootstrap
 	h.PreJoin = ovn.Join
-	h.OnNewMember = func(ctx context.Context, s state.State, newMember types.ClusterMemberLocal) error {
+	h.OnNewMember = func(ctx context.Context, s types.State, newMember types.ClusterMemberLocal) error {
 		ovn.Refresh(ctx, s)
 		return nil
 	}
 	h.PreRemove = ovn.Leave
-	h.PostRemove = func(ctx context.Context, s state.State, _ bool) error {
+	h.PostRemove = func(ctx context.Context, s types.State, _ bool) error {
 		ovn.Refresh(ctx, s)
 		return nil
 	}
 	h.OnStart = ovn.Start
+	h.OnAuthenticate = func(ctx context.Context, s types.State, r *http.Request, trustedCerts map[string]x509.Certificate) (bool, error) {
+		if r.TLS == nil {
+			return false, errors.New("no TLS connection state")
+		}
+
+		if len(r.TLS.PeerCertificates) == 0 {
+			return false, errors.New("no certificate present in request")
+		}
+
+		// Only consider the first certificate in the request. The client is
+		// expected to present exactly one certificate identifying itself; any
+		// additional certificates must not be used for authentication.
+		peerCertificate := r.TLS.PeerCertificates[0]
+
+		now := time.Now()
+		if now.Before(peerCertificate.NotBefore) {
+			return false, errors.New("certificate is not yet valid")
+		}
+
+		if now.After(peerCertificate.NotAfter) {
+			return false, errors.New("certificate has expired")
+		}
+
+		logger := m.LoggerFromContext(ctx)
+
+		// Check whether client certificate is in the map of trusted certs.
+		for fingerprint, v := range trustedCerts {
+			if subtle.ConstantTimeCompare(peerCertificate.Raw, v.Raw) == 1 {
+				logger.Debug("Matched trusted cert", slog.String("fingerprint", fingerprint), slog.String("subject", v.Subject.String()))
+				return true, nil
+			}
+		}
+
+		// Certificate not in truststore.
+		return false, nil
+	}
 
 	daemonArgs := microcluster.DaemonArgs{
 		Version:          version.MajorVersion(version.OvnVersion),
