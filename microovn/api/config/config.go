@@ -57,7 +57,7 @@ func setConfig(s state.State, r *http.Request) response.Response {
 	if handler != nil {
 		err = handler(r.Context(), s, configRequest.Key, configRequest.Value)
 		if err != nil {
-			logger.Errorf(err.Error())
+			logger.Errorf("%s", err.Error())
 			configResponse.Error = fmt.Sprintf("Error occurred while handling config change: %v", err)
 			return response.SyncResponse(false, &configResponse)
 		}
@@ -111,7 +111,7 @@ func deleteConfig(s state.State, r *http.Request) response.Response {
 	if handler != nil {
 		err = handler(r.Context(), s, configRequest.Key, "")
 		if err != nil {
-			logger.Errorf(err.Error())
+			logger.Errorf("%s", err.Error())
 			configResponse.Error = fmt.Sprintf("Error occurred while handling config change: %v", err)
 		}
 	}
@@ -175,7 +175,7 @@ func ovnCentralIpsUpdated(ctx context.Context, s state.State, key string, _ stri
 	refreshResponse, err := microOvnClient.RegenerateEnvironment(ctx, client)
 	if err != nil || !refreshResponse.Success {
 		logger.Errorf("failed to refresh OVN environment. %v", err)
-		logger.Errorf(strings.Join(refreshResponse.Errors, "\n"))
+		logger.Errorf("%s", strings.Join(refreshResponse.Errors, "\n"))
 		errMsg := fmt.Sprintf(
 			"%s Failed to trigger environment update in the OVN cluster. "+
 				"Cluster may be in inconsistent state! Please see logs for more details.",

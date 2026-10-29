@@ -39,7 +39,7 @@ type schemaStatus struct {
 // packages. This value can be used to check whether current OVN/OVS processes are using up-to-date database
 // schemas.
 func ExpectedOvsdbSchemaVersion(ctx context.Context, _ state.State, dbSpec *ovnCmd.OvsdbSpec) (string, error) {
-	targetDbVersion, err := shared.RunCommandContext(
+	targetDbVersion, err := shared.RunCommand(
 		ctx,
 		"ovsdb-tool",
 		"schema-version",
@@ -78,7 +78,7 @@ func getLiveSchemaStatus(ctx context.Context, s state.State, dbSpec *ovnCmd.Ovsd
 		return schemaStatus{}, fmt.Errorf("failed to get expected DB schema version: '%s'", err.Error())
 	}
 
-	_, err = shared.RunCommandContext(
+	_, err = shared.RunCommand(
 		ctx,
 		"ovsdb-tool",
 		"compare-versions",

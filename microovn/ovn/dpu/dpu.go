@@ -26,7 +26,7 @@ type DevlinkJSON struct {
 // detectDPU uses devlink to find if microovn is running on a DPU and if so
 // returns the PCI address
 func detectDPU(ctx context.Context) (string, error) {
-	out, err := shared.RunCommandContext(ctx, "devlink", "port", "show", "-jp")
+	out, err := shared.RunCommand(ctx, "devlink", "port", "show", "-jp")
 	if err != nil {
 		return "", fmt.Errorf("failed to run devlink: %w", err)
 	}
@@ -76,7 +76,7 @@ func parseLspciSerial(lspciOutput string) string {
 // getSerialNumber parses lspci and gets the serial number for the DPU, given a
 // specific PCI address.
 func getDPUSerial(ctx context.Context, pci string) (string, error) {
-	out, err := shared.RunCommandContext(ctx, "lspci", "-vvv", "-s", pci)
+	out, err := shared.RunCommand(ctx, "lspci", "-vvv", "-s", pci)
 	if err != nil {
 		return "", fmt.Errorf("failed to run lspci -vvv -s %s: %w", pci, err)
 	}

@@ -2,6 +2,7 @@
 package snap
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/canonical/lxd/shared"
@@ -19,7 +20,7 @@ func Start(service string, enable bool) error {
 		args = append(args, "--enable")
 	}
 
-	_, err := shared.RunCommand("snapctl", args...)
+	_, err := shared.RunCommand(context.Background(), "snapctl", args...)
 	if err != nil {
 		return err
 	}
@@ -39,7 +40,7 @@ func Stop(service string, disable bool) error {
 		args = append(args, "--disable")
 	}
 
-	_, err := shared.RunCommand("snapctl", args...)
+	_, err := shared.RunCommand(context.Background(), "snapctl", args...)
 	if err != nil {
 		return err
 	}
@@ -54,7 +55,7 @@ func Restart(service string) error {
 		fmt.Sprintf("microovn.%s", service),
 	}
 
-	_, err := shared.RunCommand("snapctl", args...)
+	_, err := shared.RunCommand(context.Background(), "snapctl", args...)
 	if err != nil {
 		return err
 	}
@@ -70,7 +71,7 @@ func Reload(service string) error {
 		fmt.Sprintf("microovn.%s", service),
 	}
 
-	_, err := shared.RunCommand("snapctl", args...)
+	_, err := shared.RunCommand(context.Background(), "snapctl", args...)
 	if err != nil {
 		return err
 	}
