@@ -92,7 +92,7 @@ func NewOvsdbSpec(dbType OvsdbType) (*OvsdbSpec, error) {
 // SocketURL specified in "db" parameter does not need to necessarily exist before this function is executed,
 // creation of the database socket (db.SocketURL) will be awaited as well.
 func WaitForDBState(ctx context.Context, _ state.State, db *OvsdbSpec, dbState string, timeout int) error {
-	_, err := shared.RunCommandContext(
+	_, err := shared.RunCommand(
 		ctx,
 		"ovsdb-client",
 		"--timeout",
@@ -145,7 +145,7 @@ func ovnDBCtl(ctx context.Context, s state.State, dbType OvsdbType, timeout int,
 	// try command 3 times if it is failing
 	for attempts := 0; attempts < 3; attempts++ {
 		var output string
-		output, err = shared.RunCommandContext(ctx, baseCmd, args...)
+		output, err = shared.RunCommand(ctx, baseCmd, args...)
 		if err == nil {
 			return output, nil
 		}
@@ -204,7 +204,7 @@ func VSCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 	// try command 3 times if it is failing
 	for attempts := 0; attempts < 3; attempts++ {
 		var output string
-		output, err = shared.RunCommandContext(ctx, "ovs-vsctl", args...)
+		output, err = shared.RunCommand(ctx, "ovs-vsctl", args...)
 		if err == nil {
 			return output, nil
 		}
@@ -218,7 +218,7 @@ func VSCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 func AppCtl(ctx context.Context, _ state.State, target string, args ...string) (string, error) {
 	arguments := []string{"-t", target}
 	arguments = append(arguments, args...)
-	return shared.RunCommandContext(
+	return shared.RunCommand(
 		ctx,
 		"ovn-appctl",
 		arguments...,

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/canonical/lxd/lxd/util"
-	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/validate"
 	"github.com/canonical/microcluster/v2/microcluster"
@@ -91,7 +91,7 @@ func (c *cmdInit) Run(_ *cobra.Command, _ []string) error {
 
 	// User interaction.
 	mode := "existing"
-	customEncapsulationIPSupported := shared.ValueInSlice("custom_encapsulation_ip", microovnAPI.Extensions())
+	customEncapsulationIPSupported := slices.Contains(microovnAPI.Extensions(), "custom_encapsulation_ip")
 
 	if isUninitialized {
 		// Get system name.
