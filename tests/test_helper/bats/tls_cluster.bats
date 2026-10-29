@@ -38,11 +38,37 @@ teardown() {
         host_time="$(date --rfc-3339=seconds)"
         for container in $TEST_CONTAINERS; do
             echo "# Synchronizing time on $container with the host"
-            lxc_exec "$container" "timedatectl set-time '$host_time'"
+            vm_timedatectl "$container" "set-time '$host_time'"
             run lxc_exec "$container" "microovn certificates regenerate-ca"
         done
     fi
     unset RESET_TIME
+}
+
+# vm_timedatectl VM COMMAND
+#
+# Run a timedatectl command on a LXD VM. timedatectl relies on the timedate1
+# D-Bus service (systemd-timedated), which can be slow to activate on first
+# use in a freshly-booted VM on a busy CI runner. That makes timedatectl fail
+# with "Failed to activate service 'org.freedesktop.timedate1'". Start the
+# service explicitly and retry the command to avoid that timeout.
+vm_timedatectl() {
+    local vm=$1; shift
+    local command=$1; shift
+
+    lxc_exec "$vm" "systemctl start systemd-timedated" >/dev/null 2>&1
+
+    local attempt
+    for attempt in $(seq 1 5); do
+        if lxc_exec "$vm" "timedatectl $command"; then
+            return 0
+        fi
+
+        echo "# timedatectl $command failed, retrying ($attempt/5)" >&3
+        sleep 3
+    done
+
+    return 1
 }
 
 tls_cluster_register_test_functions() {
@@ -473,9 +499,9 @@ tls_cluster_ca_auto_renew() {
     for container in $TEST_CONTAINERS; do
         # disable systemctl timer so that we can trigger refresh manually
         lxc_exec "$container" "systemctl disable --now $refresh_timer"
-        lxc_exec "$container" "timedatectl set-ntp no"
-        lxc_exec "$container" "timedatectl set-time +9y360d"
-        lxc_exec "$container" "timedatectl set-time 02:01:00"
+        vm_timedatectl "$container" "set-ntp no"
+        vm_timedatectl "$container" "set-time +9y360d"
+        vm_timedatectl "$container" "set-time 02:01:00"
     done
     export RESET_TIME="yes"
 
