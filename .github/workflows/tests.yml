@@ -157,7 +157,13 @@ jobs:
           sudo snap set lxd daemon.group=adm
           sudo lxd init --auto --storage-backend=zfs --storage-create-loop=14
           snap list
-          sudo apt install -y linux-modules-extra-$(uname -r)
+          # linux-modules-extra (provides the VRF kernel module used by the BGP
+          # tests) is only needed on kernels older than 7.0. On newer kernels its
+          # modules are folded into linux-modules, which ships with the kernel.
+          if (( $(uname -r | cut -d. -f1) < 7 )); then
+            sudo apt-get update
+            sudo apt-get install -y "linux-modules-extra-$(uname -r)"
+          fi
 
       - name: Run system tests
         run: MICROOVN_COVERAGE_ENABLED=yes make tests/${{ matrix.test-file }}
