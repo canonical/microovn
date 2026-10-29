@@ -89,7 +89,7 @@ func (c *cmdCertificatesList) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	if caInfo.Error != "" {
-		return fmt.Errorf(caInfo.Error)
+		return fmt.Errorf("%s", caInfo.Error)
 	}
 	expectedCertificates.Ca = &caCertInfo{
 		Cert:      paths.PkiCaCertFile(),
