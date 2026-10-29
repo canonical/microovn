@@ -6,11 +6,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"os"
 	"time"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/bgp"
@@ -37,7 +37,7 @@ type CoreClusterMember struct {
 // NOTE: this function does not update the environment file,
 // if central is disabled then the environment files for the other nodes will be
 // incorrect, please call with a method of updating the clusters env files afterwards
-func DisableService(ctx context.Context, s state.State, service types.SrvName, allowLastCentral bool) error {
+func DisableService(ctx context.Context, s microTypes.State, service types.SrvName, allowLastCentral bool) error {
 	securitylog.Log(
 		securitylog.CatAuthz,
 		securitylog.EventAdminActivity,
@@ -103,7 +103,7 @@ func DisableService(ctx context.Context, s state.State, service types.SrvName, a
 // NOTE: this function does not update the environment file,
 // if central is enabled then the environment files for the other nodes will be
 // incorrect, please call with a method of updating the clusters env files afterwards
-func EnableService(ctx context.Context, s state.State, service types.SrvName, extraConfig *types.ExtraServiceConfig) error {
+func EnableService(ctx context.Context, s microTypes.State, service types.SrvName, extraConfig *types.ExtraServiceConfig) error {
 	securitylog.Log(
 		securitylog.CatAuthz,
 		securitylog.EventAdminActivity,
@@ -162,7 +162,7 @@ func EnableService(ctx context.Context, s state.State, service types.SrvName, ex
 }
 
 // ListServices - List services in database (desired state).
-func ListServices(ctx context.Context, s state.State) (types.Services, error) {
+func ListServices(ctx context.Context, s microTypes.State) (types.Services, error) {
 	services := types.Services{}
 
 	// Get the services from the database.
@@ -190,7 +190,7 @@ func ListServices(ctx context.Context, s state.State) (types.Services, error) {
 
 // HasServiceActive function accepts service names (like "central" or "switch") and returns true/false based
 // on whether the selected service is running on this node.
-func HasServiceActive(ctx context.Context, s state.State, serviceName types.SrvName) (bool, error) {
+func HasServiceActive(ctx context.Context, s microTypes.State, serviceName types.SrvName) (bool, error) {
 	serviceActive := false
 
 	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -215,7 +215,7 @@ func HasServiceActive(ctx context.Context, s state.State, serviceName types.SrvN
 }
 
 // FindService returns list of cluster members that have the specified service enabled.
-func FindService(ctx context.Context, s state.State, service types.SrvName) ([]CoreClusterMember, error) {
+func FindService(ctx context.Context, s microTypes.State, service types.SrvName) ([]CoreClusterMember, error) {
 	var membersWithService []CoreClusterMember
 
 	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -263,7 +263,7 @@ func FindService(ctx context.Context, s state.State, service types.SrvName) ([]C
 // ServiceWarnings - checks the desired state and aims to find out if there are
 // any problems with it, such as an inefficent or error prone number of nodes.
 // This function returns a set of warnings to be handled
-func ServiceWarnings(ctx context.Context, s state.State) (types.WarningSet, error) {
+func ServiceWarnings(ctx context.Context, s microTypes.State) (types.WarningSet, error) {
 	output := types.WarningSet{}
 	centrals, err := FindService(ctx, s, types.SrvCentral)
 	if err != nil {
@@ -286,7 +286,7 @@ func ServiceWarnings(ctx context.Context, s state.State) (types.WarningSet, erro
 // joinCentral safely starts the central services child services while also
 // generating certificates to ensure secure connection with other central
 // nodes in the database
-func joinCentral(ctx context.Context, s state.State) error {
+func joinCentral(ctx context.Context, s microTypes.State) error {
 	// Generate certificate for OVN Central services
 	err := certificates.GenerateNewServiceCertificate(ctx, s, "ovnnb", certificates.CertificateTypeServer)
 	if err != nil {
@@ -310,7 +310,7 @@ func joinCentral(ctx context.Context, s state.State) error {
 
 // leaveCentral safely stops the central service's child services, and leaves
 // the central database cluster safely.
-func leaveCentral(ctx context.Context, s state.State, lastMember bool) {
+func leaveCentral(ctx context.Context, s microTypes.State, lastMember bool) {
 	// Leave SB and NB clusters
 	logger.Info("Leaving OVN Northbound cluster")
 	_, err := ovnCmd.AppCtl(ctx, s, paths.OvnNBControlSock(), "cluster/leave", "OVN_Northbound")
@@ -360,7 +360,7 @@ func leaveCentral(ctx context.Context, s state.State, lastMember bool) {
 	deactivateService(ctx, types.SrvCentral, true)
 }
 
-func leaveChassis(ctx context.Context, s state.State) {
+func leaveChassis(ctx context.Context, s microTypes.State) {
 	chassisName := s.Name()
 
 	// Gracefully exit OVN controller causing chassis to be automatically removed.
@@ -373,7 +373,7 @@ func leaveChassis(ctx context.Context, s state.State) {
 	deactivateService(ctx, types.SrvChassis, true)
 }
 
-func joinChassis(ctx context.Context, s state.State) error {
+func joinChassis(ctx context.Context, s microTypes.State) error {
 	// Generate certificate for OVN chassis (controller)
 	err := certificates.GenerateNewServiceCertificate(ctx, s, "ovn-controller", certificates.CertificateTypeServer)
 	if err != nil {
@@ -383,7 +383,7 @@ func joinChassis(ctx context.Context, s state.State) error {
 }
 
 // DisableAllServices is a function to disable alot of services
-func DisableAllServices(ctx context.Context, s state.State) error {
+func DisableAllServices(ctx context.Context, s microTypes.State) error {
 	for _, service := range types.ServiceNames {
 		err := DisableService(ctx, s, service, false)
 		if err != nil {
@@ -456,7 +456,7 @@ func deactivateService(ctx context.Context, service types.SrvName, disable bool)
 
 // ActivateEnabledServices iterates through all enabled services on the nodes
 // and ensures the corresponding snap services are active
-func ActivateEnabledServices(ctx context.Context, s state.State, enable bool) error {
+func ActivateEnabledServices(ctx context.Context, s microTypes.State, enable bool) error {
 	return activateEnabledServices(ctx, s.Name(), enable, s.Database().Transaction, activateService)
 }
 

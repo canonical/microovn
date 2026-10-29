@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"net"
 	"net/netip"
 	"os"
@@ -15,7 +16,6 @@ import (
 	"time"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/config"
 	"github.com/canonical/microovn/microovn/database"
@@ -33,7 +33,7 @@ OVN_LOCAL_IP="{{ .localAddr }}"
 
 // NetworkProtocol returns appropriate network protocol that should be used
 // by OVN services.
-func NetworkProtocol(ctx context.Context, s state.State) string {
+func NetworkProtocol(ctx context.Context, s microTypes.State) string {
 	_, _, err := certificates.GetCA(ctx, s)
 	if err != nil {
 		return "tcp"
@@ -42,7 +42,7 @@ func NetworkProtocol(ctx context.Context, s state.State) string {
 }
 
 // IsExternalCentralConfigured returns True if the config option "ovn.central-ips" was explicitly configured
-func IsExternalCentralConfigured(ctx context.Context, s state.State) (bool, error) {
+func IsExternalCentralConfigured(ctx context.Context, s microTypes.State) (bool, error) {
 	ovnRemoteConfig, err := config.GetConfig(ctx, s, "ovn.central-ips")
 	if err != nil {
 		return false, err
@@ -53,7 +53,7 @@ func IsExternalCentralConfigured(ctx context.Context, s state.State) (bool, erro
 // remoteAddressesFromConfig attempts to retrieve a list of IP addresses that should be used for
 // connecting to ovn-central services from the config option "ovn.central-ips". The return value is nil
 // if the config option is not set in the database.
-func remoteAddressesFromConfig(ctx context.Context, s state.State) ([]string, error) {
+func remoteAddressesFromConfig(ctx context.Context, s microTypes.State) ([]string, error) {
 	ovnRemoteConfig, err := config.GetConfig(ctx, s, "ovn.central-ips")
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func remoteAddressesFromConfig(ctx context.Context, s state.State) ([]string, er
 
 // defaultRemoteAddresses generates a list of IP addresses that should be used for connecting to ovn-central services
 // by returning addresses of MicroOVN cluster members with service "central" enabled.
-func defaultRemoteAddresses(ctx context.Context, s state.State) ([]string, error) {
+func defaultRemoteAddresses(ctx context.Context, s microTypes.State) ([]string, error) {
 	var addrList []string
 	err := s.Database().Transaction(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		serviceName := "central"
@@ -114,7 +114,7 @@ func defaultRemoteAddresses(ctx context.Context, s state.State) ([]string, error
 // primarily returns addresses configured via the "ovn.central-ips" config option
 // and falls back to IP addresses of MicroOVN nodes with "central" service enabled
 // if the config option is not set.
-func CentralIps(ctx context.Context, s state.State) ([]string, error) {
+func CentralIps(ctx context.Context, s microTypes.State) ([]string, error) {
 	// Attempt to primarily get the list of ovn-central node IPs from the config.
 	addrList, err := remoteAddressesFromConfig(ctx, s)
 	if err != nil {
@@ -134,7 +134,7 @@ func CentralIps(ctx context.Context, s state.State) ([]string, error) {
 
 // initialNbSbHost returns an IP address or a hostname that should be used by
 // a Northbound and Southbound database to connect to the rest of the cluster.
-func initialNbSbHost(s state.State, addrList []string) (string, error) {
+func initialNbSbHost(s microTypes.State, addrList []string) (string, error) {
 	var initialNode string
 	localAddr := s.Address().Hostname()
 
@@ -166,7 +166,7 @@ func initialNbSbHost(s state.State, addrList []string) (string, error) {
 // cluster services. Its return value can be used to tell processes (i.e. ovn-controller)
 // about the location of OVN central services.
 // Example: "ssl:10.0.0.1:6641,ssl:10.0.0.2:6641,ssl:10.0.0.3:6641"
-func ConnectionString(ctx context.Context, s state.State, addrList []string, port int) (string, error) {
+func ConnectionString(ctx context.Context, s microTypes.State, addrList []string, port int) (string, error) {
 	// Transform the list of bare IP addresses into the format understood by the OVN, "<protocol>:<IP>:<PORT>"
 	addresses := make([]string, 0, len(addrList))
 	protocol := NetworkProtocol(ctx, s)
@@ -184,7 +184,7 @@ func ConnectionString(ctx context.Context, s state.State, addrList []string, por
 }
 
 // GenerateEnvironment generates the OVN environment file.
-func GenerateEnvironment(ctx context.Context, s state.State) error {
+func GenerateEnvironment(ctx context.Context, s microTypes.State) error {
 	centralIps, err := CentralIps(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to get OVN central IPs: %w", err)

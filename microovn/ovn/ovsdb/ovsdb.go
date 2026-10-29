@@ -11,7 +11,6 @@ import (
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
 	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
-	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	microovnClient "github.com/canonical/microovn/microovn/client"
@@ -38,8 +37,8 @@ type schemaStatus struct {
 // ExpectedOvsdbSchemaVersion returns version of the database schema that was shipped with current OVN/OVS
 // packages. This value can be used to check whether current OVN/OVS processes are using up-to-date database
 // schemas.
-func ExpectedOvsdbSchemaVersion(ctx context.Context, _ state.State, dbSpec *ovnCmd.OvsdbSpec) (string, error) {
-	targetDbVersion, err := shared.RunCommandContext(
+func ExpectedOvsdbSchemaVersion(ctx context.Context, _ microTypes.State, dbSpec *ovnCmd.OvsdbSpec) (string, error) {
+	targetDbVersion, err := shared.RunCommand(
 		ctx,
 		"ovsdb-tool",
 		"schema-version",
@@ -54,7 +53,7 @@ func ExpectedOvsdbSchemaVersion(ctx context.Context, _ state.State, dbSpec *ovnC
 
 // getLiveSchemaStatus returns information about schema status of the database specified by the "dbSpec" argument.
 // For more information about the returned value, see: schemaStatus.
-func getLiveSchemaStatus(ctx context.Context, s state.State, dbSpec *ovnCmd.OvsdbSpec) (schemaStatus, error) {
+func getLiveSchemaStatus(ctx context.Context, s microTypes.State, dbSpec *ovnCmd.OvsdbSpec) (schemaStatus, error) {
 	var status schemaStatus
 
 	localDbVersion, err := ovnCmd.OvsdbClient(
@@ -78,7 +77,7 @@ func getLiveSchemaStatus(ctx context.Context, s state.State, dbSpec *ovnCmd.Ovsd
 		return schemaStatus{}, fmt.Errorf("failed to get expected DB schema version: '%s'", err.Error())
 	}
 
-	_, err = shared.RunCommandContext(
+	_, err = shared.RunCommand(
 		ctx,
 		"ovsdb-tool",
 		"compare-versions",
@@ -113,7 +112,7 @@ func getLiveSchemaStatus(ctx context.Context, s state.State, dbSpec *ovnCmd.Ovsd
 // It does not matter which node triggers the schema upgrade as long as it's running a OVN central service. Therefore,
 // a node with "central" service active and the lowest ID is chosen. A node ID is an internal value of a MicroOVN, and
 // it's kept consistent across the cluster via the underlying MicroCluster library.
-func isNodeUpgradeLeader(ctx context.Context, s state.State) (bool, error) {
+func isNodeUpgradeLeader(ctx context.Context, s microTypes.State) (bool, error) {
 	membersWithCentral, err := node.FindService(ctx, s, "central")
 	if err != nil {
 		return false, fmt.Errorf("failed to determine which member is OVSDB cluster upgrade leader: '%s'", err)
@@ -131,7 +130,7 @@ func isNodeUpgradeLeader(ctx context.Context, s state.State) (bool, error) {
 // expected schema version on current member.
 // This function scans every cluster member, regardless of whether they are running "central" services or not. This
 // ensures that even cluster members that are running on "chassis" service are prepared for the schema upgrade.
-func isClusterUpgradeReady(ctx context.Context, s state.State, dbSpec *ovnCmd.OvsdbSpec, targetVersion string) (bool, error) {
+func isClusterUpgradeReady(ctx context.Context, s microTypes.State, dbSpec *ovnCmd.OvsdbSpec, targetVersion string) (bool, error) {
 	clusterClient, err := s.Connect().Cluster(false)
 	if err != nil {
 		return false, fmt.Errorf("failed to get a client for every cluster member: %w", err)
@@ -194,7 +193,7 @@ func isClusterUpgradeReady(ctx context.Context, s state.State, dbSpec *ovnCmd.Ov
 //	will return error if other database is specified in the 'dbType' argument.
 //
 // Note2: This function has no effect on a node that does not run OVN "central" services, and it will return silently.
-func UpgradeCentralDB(ctx context.Context, s state.State, dbType ovnCmd.OvsdbType) error {
+func UpgradeCentralDB(ctx context.Context, s microTypes.State, dbType ovnCmd.OvsdbType) error {
 	dbSpec, err := ovnCmd.NewOvsdbSpec(dbType)
 	if err != nil {
 		return fmt.Errorf("failed create DB specification: '%s'", err.Error())

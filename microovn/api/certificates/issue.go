@@ -3,14 +3,12 @@ package certificates
 import (
 	"errors"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/gorilla/mux"
 
 	"github.com/canonical/microovn/microovn/api/types"
@@ -19,20 +17,20 @@ import (
 )
 
 // IssueCertificatesEndpoint defines endpoint for /1.0/certificates/<service-name>.
-var IssueCertificatesEndpoint = rest.Endpoint{
+var IssueCertificatesEndpoint = microTypes.Endpoint{
 	Path: "certificates/{service}",
-	Put:  rest.EndpointAction{Handler: issueCertificatesPut, AllowUntrusted: false, ProxyTarget: true},
+	Put:  microTypes.EndpointAction{Handler: issueCertificatesPut, AllowUntrusted: false, ProxyTarget: true},
 }
 
 // issueCertificatesPut implements PUT method for /1.0/certificates/<service-name> endpoint. The function parses
 // service name from the request URL and if the service is currently enabled on this cluster member, it
 // issues new certificate for it.
-func issueCertificatesPut(s state.State, r *http.Request) response.Response {
+func issueCertificatesPut(s microTypes.State, r *http.Request) microTypes.Response {
 	// Get requested service name
 	requestedService, err := url.PathUnescape(mux.Vars(r)["service"])
 	if err != nil {
 		logger.Errorf("Failed to parse service name from URL '%s'", r.URL)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 	securitylog.Log(
 		securitylog.CatAuthn,
@@ -47,7 +45,7 @@ func issueCertificatesPut(s state.State, r *http.Request) response.Response {
 	eligibleServices, err := enabledOvnServices(r.Context(), s)
 	if err != nil {
 		logger.Errorf("Failed to lookup local services eligible for certificate refresh: %s", err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 
 	isCertificateAllowed := false
@@ -66,7 +64,7 @@ func issueCertificatesPut(s state.State, r *http.Request) response.Response {
 			strings.Join(eligibleServices, ", "),
 		)
 		logger.Warn(missingMsg)
-		return response.NotFound(errors.New(missingMsg))
+		return microTypes.NotFound(errors.New(missingMsg))
 	}
 
 	// Attempt to issue new certificate and return response object
@@ -76,10 +74,10 @@ func issueCertificatesPut(s state.State, r *http.Request) response.Response {
 	if err != nil {
 		result.Failed = []string{requestedService}
 		logger.Errorf("Failed to reissue certificate for '%s' service: %s", requestedService, err)
-		return response.SyncResponse(false, &result)
+		return microTypes.SyncResponse(false, &result)
 	}
 
 	result.Success = []string{requestedService}
 
-	return response.SyncResponse(true, &result)
+	return microTypes.SyncResponse(true, &result)
 }

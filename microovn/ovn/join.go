@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/database"
@@ -20,7 +20,7 @@ import (
 )
 
 // Join will join an existing OVN deployment.
-func Join(ctx context.Context, s state.State, initConfig map[string]string) error {
+func Join(ctx context.Context, s microTypes.State, initConfig map[string]string) error {
 	// Make sure we don't have any other hooks firing.
 	muHook.Lock()
 	defer muHook.Unlock()

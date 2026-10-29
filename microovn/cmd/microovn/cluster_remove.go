@@ -11,7 +11,8 @@ type cmdClusterRemove struct {
 	common  *CmdControl
 	cluster *cmdCluster
 
-	flagForce bool
+	flagForce   bool
+	flagAddress string
 }
 
 func (c *cmdClusterRemove) Command() *cobra.Command {
@@ -23,6 +24,7 @@ func (c *cmdClusterRemove) Command() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&c.flagForce, "force", "f", false, "Forcibly remove the cluster member")
+	cmd.Flags().StringVar(&c.flagAddress, "address", "", "Optional fallback address of the cluster member to remove")
 
 	return cmd
 }
@@ -33,7 +35,7 @@ func (c *cmdClusterRemove) Run(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = m.RemoveClusterMember(context.Background(), args[0], c.flagForce)
+	err = m.RemoveClusterMember(context.Background(), args[0], c.flagAddress, c.flagForce)
 	if err != nil {
 		return err
 	}

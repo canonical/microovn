@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"os"
 	"path/filepath"
 	"slices"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/canonical/microovn/microovn/ovn/environment"
 
 	"github.com/canonical/microovn/microovn/ovn/paths"
@@ -94,8 +94,8 @@ func NewOvsdbSpec(dbType OvsdbType) (*OvsdbSpec, error) {
 // specified state. If database does not reach this state within timeout, this function returns error.
 // SocketURL specified in "db" parameter does not need to necessarily exist before this function is executed,
 // creation of the database socket (db.SocketURL) will be awaited as well.
-func WaitForDBState(ctx context.Context, _ state.State, db *OvsdbSpec, dbState string, timeout int) error {
-	_, err := shared.RunCommandContext(
+func WaitForDBState(ctx context.Context, _ microTypes.State, db *OvsdbSpec, dbState string, timeout int) error {
+	_, err := shared.RunCommand(
 		ctx,
 		"ovsdb-client",
 		"--timeout",
@@ -118,7 +118,7 @@ func WaitForDBState(ctx context.Context, _ state.State, db *OvsdbSpec, dbState s
 //
 // Argument `db` is usually either `OVN_Northbound` or `OVN_Southbound`
 // Argument 'port' is usually '6641' for the Northbound database and `6642` for the Southbound database
-func WaitForClusterDBState(ctx context.Context, s state.State, db string, dbState string, port int) error {
+func WaitForClusterDBState(ctx context.Context, s microTypes.State, db string, dbState string, port int) error {
 	var err error
 	nbIPs, err := environment.CentralIps(ctx, s)
 	if err != nil {
@@ -130,7 +130,7 @@ func WaitForClusterDBState(ctx context.Context, s state.State, db string, dbStat
 	dbConnected := false
 	for _, ip := range nbIPs {
 		socketURL := fmt.Sprintf("ssl:%s:%d", ip, port)
-		_, err = shared.RunCommandContext(
+		_, err = shared.RunCommand(
 			ctx,
 			filepath.Join(paths.Wrappers(), "ovsdb-client"),
 			"-t", "10",
@@ -160,7 +160,7 @@ func WaitForClusterDBState(ctx context.Context, s state.State, db string, dbStat
 // ovn-nbctl/ovn-sbctl commands. Before the command is executed, this function
 // ensures that underlying database is in connected state. If the database does
 // not reach "connected" state before specified timeout, an error is returned.
-func ovnDBCtl(ctx context.Context, s state.State, dbType OvsdbType, timeout int, args ...string) (string, error) {
+func ovnDBCtl(ctx context.Context, s microTypes.State, dbType OvsdbType, timeout int, args ...string) (string, error) {
 	var baseCmd string
 
 	switch dbType {
@@ -189,7 +189,7 @@ func ovnDBCtl(ctx context.Context, s state.State, dbType OvsdbType, timeout int,
 	// try command 3 times if it is failing
 	for attempts := 0; attempts < 3; attempts++ {
 		var output string
-		output, err = shared.RunCommandContext(ctx, baseCmd, args...)
+		output, err = shared.RunCommand(ctx, baseCmd, args...)
 		if err == nil {
 			return output, nil
 		}
@@ -206,7 +206,7 @@ func ovnDBCtl(ctx context.Context, s state.State, dbType OvsdbType, timeout int,
 // database is in connected state. If the database does not reach "connected"
 // state before timeout (defined in DefaultDBConnectWait), an error is returned
 // and command is not executed.
-func NBCtl(ctx context.Context, s state.State, args ...string) (string, error) {
+func NBCtl(ctx context.Context, s microTypes.State, args ...string) (string, error) {
 	return ovnDBCtl(ctx, s, OvsdbTypeNBLocal, DefaultDBConnectWait, args...)
 }
 
@@ -217,7 +217,7 @@ func NBCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 // is a list of arguments that are passed directly to the shell command.
 //
 // Warning: This function will fail if local MicroOVN node is not bootstrapped.
-func NBCtlCluster(ctx context.Context, s state.State, args ...string) (string, error) {
+func NBCtlCluster(ctx context.Context, s microTypes.State, args ...string) (string, error) {
 	if !slices.Contains(args, "--timeout") && !slices.Contains(args, "-t") {
 		args = append([]string{"--timeout", "30"}, args...)
 	}
@@ -231,7 +231,7 @@ func NBCtlCluster(ctx context.Context, s state.State, args ...string) (string, e
 	// try command 3 times if it is failing
 	for attempts := 0; attempts < 3; attempts++ {
 		var output string
-		output, err = shared.RunCommandContext(ctx, filepath.Join(paths.Wrappers(), "ovn-nbctl"), args...)
+		output, err = shared.RunCommand(ctx, filepath.Join(paths.Wrappers(), "ovn-nbctl"), args...)
 		if err == nil {
 			return output, nil
 		}
@@ -248,7 +248,7 @@ func NBCtlCluster(ctx context.Context, s state.State, args ...string) (string, e
 // connected state. If the database does not reach "connected" state before
 // timeout (defined in DefaultDBConnectWait), an error is returned and command
 // is not executed.
-func SBCtl(ctx context.Context, s state.State, args ...string) (string, error) {
+func SBCtl(ctx context.Context, s microTypes.State, args ...string) (string, error) {
 	return ovnDBCtl(ctx, s, OvsdbTypeSBLocal, DefaultDBConnectWait, args...)
 }
 
@@ -260,7 +260,7 @@ func SBCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 // connected state. If the database does not reach "connected" state before
 // timeout (defined in DefaultDBConnectWait), an error is returned and command
 // is not executed.
-func VSCtl(ctx context.Context, s state.State, args ...string) (string, error) {
+func VSCtl(ctx context.Context, s microTypes.State, args ...string) (string, error) {
 
 	dbSpec, err := NewOvsdbSpec(OvsdbTypeSwitchLocal)
 	if err != nil {
@@ -279,7 +279,7 @@ func VSCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 	// try command 3 times if it is failing
 	for attempts := 0; attempts < 3; attempts++ {
 		var output string
-		output, err = shared.RunCommandContext(ctx, "ovs-vsctl", args...)
+		output, err = shared.RunCommand(ctx, "ovs-vsctl", args...)
 		if err == nil {
 			return output, nil
 		}
@@ -290,10 +290,10 @@ func VSCtl(ctx context.Context, s state.State, args ...string) (string, error) {
 // AppCtl is a convenience function that wraps execution of 'ovn-appctl' command. It requires argument
 // 'target' which will be substituted to the '-t' argument of 'ovn-appctl'. Rest of the 'args' will be passed
 // to the ovn-appctl unchanged.
-func AppCtl(ctx context.Context, _ state.State, target string, args ...string) (string, error) {
+func AppCtl(ctx context.Context, _ microTypes.State, target string, args ...string) (string, error) {
 	arguments := []string{"-t", target}
 	arguments = append(arguments, args...)
-	return shared.RunCommandContext(
+	return shared.RunCommand(
 		ctx,
 		"ovn-appctl",
 		arguments...,
@@ -304,7 +304,7 @@ func AppCtl(ctx context.Context, _ state.State, target string, args ...string) (
 // targeted at running OVN Controller process. The '-t' argument of 'ovs-appctl' will be
 // configured automatically. Any arguments supplied in 'args' will be passed to the 'ovs-appctl'
 // unchanged.
-func ControllerCtl(ctx context.Context, _ state.State, args ...string) (string, error) {
+func ControllerCtl(ctx context.Context, _ microTypes.State, args ...string) (string, error) {
 	arguments := []string{"-t", "ovn-controller"}
 	arguments = append(arguments, args...)
 
@@ -324,7 +324,7 @@ func ControllerCtl(ctx context.Context, _ state.State, args ...string) (string, 
 // "ovsdb-client" command with timeout of <resultTimeout> seconds.
 // Argument "args" should contain array of strings with subcommand and other arguments that will be passed directly
 // to the "ovsdb-client". Note that it is not necessary to pass "-t" argument, as the timeout is automatically included.
-func OvsdbClient(ctx context.Context, s state.State, dbSpec *OvsdbSpec, connectTimeout int, resultTimeout int, args ...string) (string, error) {
+func OvsdbClient(ctx context.Context, s microTypes.State, dbSpec *OvsdbSpec, connectTimeout int, resultTimeout int, args ...string) (string, error) {
 	err := WaitForDBState(ctx, s, dbSpec, OvsdbConnected, connectTimeout)
 	if err != nil {
 		return "", err

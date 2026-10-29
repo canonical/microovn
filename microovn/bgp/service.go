@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"os"
 	"path/filepath"
 	"text/template"
 
 	"github.com/canonical/lxd/shared"
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/ovn/paths"
 	"github.com/canonical/microovn/microovn/snap"
@@ -115,7 +115,7 @@ protocol bgp microovn_{{ .Iface }} {
 // EnableService starts BGP service managed by MicroOVN. If external connections are specified in the
 // "extraConfig" parameter, it also sets up additional OVS ports (one for each external connection) and
 // redirects BGP+BFD traffic from the external networks to them.
-func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraBgpConfig) error {
+func EnableService(ctx context.Context, s microTypes.State, extraConfig *types.ExtraBgpConfig) error {
 	if extraConfig != nil {
 		err := extraConfig.Validate()
 		if err != nil {
@@ -202,7 +202,7 @@ func EnableService(ctx context.Context, s state.State, extraConfig *types.ExtraB
 }
 
 // DisableService stops and disables BGP services managed by MicroOVN.
-func DisableService(ctx context.Context, s state.State) error {
+func DisableService(ctx context.Context, s microTypes.State) error {
 	var allErrors error
 
 	err := snap.Stop(ctx, BirdService, true)
@@ -224,7 +224,7 @@ func DisableService(ctx context.Context, s state.State) error {
 // Each BGP daemon is connected to the VRF table specified by "tableID". It will announce routes from the VRF
 // to its peers, and it will insert routes announced by its peers into the same VRF.
 // All BGP daemons will be configured with the provided local ASN.
-func configureBirdBgp(ctx context.Context, s state.State, extConnections []types.BgpExternalConnection, tableID string, asn string) error {
+func configureBirdBgp(ctx context.Context, s microTypes.State, extConnections []types.BgpExternalConnection, tableID string, asn string) error {
 	vrfName := getVrfName(tableID)
 
 	configFile, err := os.OpenFile(paths.BirdConfigFile(), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
@@ -243,7 +243,7 @@ func configureBirdBgp(ctx context.Context, s state.State, extConnections []types
 		return fmt.Errorf("failed to render Bird configuration template: %w", err)
 	}
 
-	out, err := shared.RunCommandContext(ctx, filepath.Join(paths.Wrappers(), "birdc"), "configure")
+	out, err := shared.RunCommand(ctx, filepath.Join(paths.Wrappers(), "birdc"), "configure")
 	if err != nil {
 		return fmt.Errorf("failed to apply Bird configuration: %w: %s", err, out)
 	}

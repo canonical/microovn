@@ -3,12 +3,11 @@ package ovn
 import (
 	"context"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"path/filepath"
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
-
-	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/node"
 	ovnCluster "github.com/canonical/microovn/microovn/ovn/cluster"
@@ -20,7 +19,7 @@ import (
 )
 
 // Start will update the existing OVN central and OVS switch configs.
-func Start(ctx context.Context, s state.State) error {
+func Start(ctx context.Context, s microTypes.State) error {
 	securitylog.Log(
 		securitylog.CatSys,
 		securitylog.EventSysStartup,
@@ -91,7 +90,7 @@ func Start(ctx context.Context, s state.State) error {
 		}()
 	}
 
-	_, err = shared.RunCommandContext(ctx, filepath.Join(paths.Wrappers(), "refresh-expiring-certs"))
+	_, err = shared.RunCommand(ctx, filepath.Join(paths.Wrappers(), "refresh-expiring-certs"))
 	if err != nil {
 		logger.Warnf("Failed to execute refresh-expiring-certs script. '%s'", err)
 	}
