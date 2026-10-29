@@ -4,13 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"net/http"
 	"net/url"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/gorilla/mux"
 
 	"github.com/canonical/microovn/microovn/api/types"
@@ -18,10 +16,10 @@ import (
 )
 
 // ServiceControlCmd - /1.0/services/service endpoint.
-var ServiceControlCmd = rest.Endpoint{
+var ServiceControlCmd = microTypes.Endpoint{
 	Path:   "service/{service}",
-	Delete: rest.EndpointAction{Handler: disableService, AllowUntrusted: false, ProxyTarget: true},
-	Put:    rest.EndpointAction{Handler: enableService, AllowUntrusted: false, ProxyTarget: true},
+	Delete: microTypes.EndpointAction{Handler: disableService, AllowUntrusted: false, ProxyTarget: true},
+	Put:    microTypes.EndpointAction{Handler: enableService, AllowUntrusted: false, ProxyTarget: true},
 }
 
 // enableService - function to handle to service control put request,
@@ -29,36 +27,36 @@ var ServiceControlCmd = rest.Endpoint{
 //
 // This will return a response which contains a WarningSet for the
 // current desired state and a response string on the operation
-func enableService(s state.State, r *http.Request) response.Response {
+func enableService(s microTypes.State, r *http.Request) microTypes.Response {
 	requestedService, err := url.PathUnescape(mux.Vars(r)["service"])
 	if err != nil {
 		logger.Errorf("Failed to get service: %s", err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 	if !types.CheckValidService(requestedService) {
-		return response.InternalError(errors.New("service does not exist"))
+		return microTypes.InternalError(errors.New("service does not exist"))
 	}
 
 	var extraConfig types.ExtraServiceConfig
 	err = json.NewDecoder(r.Body).Decode(&extraConfig)
 	if err != nil {
 		logger.Errorf("Failed to decode request body: %s", err)
-		return response.BadRequest(errors.New("failed to decode request"))
+		return microTypes.BadRequest(errors.New("failed to decode request"))
 	}
 	err = node.EnableService(r.Context(), s, requestedService, &extraConfig)
 	if err != nil {
-		return response.InternalError(err)
+		return microTypes.InternalError(err)
 	}
 
 	scr := types.ServiceControlResponse{}
 	scr.Warnings, err = node.ServiceWarnings(r.Context(), s)
 	if err != nil {
 		logger.Errorf("Failed to generate warnings for service: %s: %s", requestedService, err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 	scr.Message = requestedService + " enabled"
 
-	return response.SyncResponse(true, scr)
+	return microTypes.SyncResponse(true, scr)
 }
 
 // disableService - function to handle to service control delete request,
@@ -66,35 +64,35 @@ func enableService(s state.State, r *http.Request) response.Response {
 //
 // This will return a response which contains a WarningSet for the
 // current desired state and a response string on the operation
-func disableService(s state.State, r *http.Request) response.Response {
+func disableService(s microTypes.State, r *http.Request) microTypes.Response {
 	requestedService, err := url.PathUnescape(mux.Vars(r)["service"])
 	if err != nil {
 		logger.Errorf("Failed to get service: %s", err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 
 	if !types.CheckValidService(requestedService) {
-		return response.InternalError(errors.New("service does not exist"))
+		return microTypes.InternalError(errors.New("service does not exist"))
 	}
 
 	var requestData types.DisableServiceRequest
 	err = json.NewDecoder(r.Body).Decode(&requestData)
 	if err != nil {
-		return response.InternalError(fmt.Errorf("failed to decode request: %w", err))
+		return microTypes.InternalError(fmt.Errorf("failed to decode request: %w", err))
 	}
 
 	err = node.DisableService(r.Context(), s, requestedService, requestData.AllowDisableLastCentral)
 	if err != nil {
-		return response.InternalError(err)
+		return microTypes.InternalError(err)
 	}
 
 	scr := types.ServiceControlResponse{}
 	scr.Warnings, err = node.ServiceWarnings(r.Context(), s)
 	if err != nil {
 		logger.Errorf("Failed to generate warnings for service: %s: %s", requestedService, err)
-		return response.InternalError(errors.New("internal server error"))
+		return microTypes.InternalError(errors.New("internal server error"))
 	}
 	scr.Message = requestedService + " disabled"
 
-	return response.SyncResponse(true, scr)
+	return microTypes.SyncResponse(true, scr)
 }

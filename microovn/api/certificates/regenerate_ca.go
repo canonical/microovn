@@ -7,10 +7,7 @@ import (
 	"net/http"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
 	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
-	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	microovnClient "github.com/canonical/microovn/microovn/client"
@@ -19,27 +16,27 @@ import (
 )
 
 // RegenerateCaEndpoint defines endpoint for /1.0/ca
-var RegenerateCaEndpoint = rest.Endpoint{
+var RegenerateCaEndpoint = microTypes.Endpoint{
 	Path: "ca",
-	Put:  rest.EndpointAction{Handler: regenerateCaPut, AllowUntrusted: false, ProxyTarget: true},
-	Post: rest.EndpointAction{Handler: setCaPost, AllowUntrusted: false, ProxyTarget: true},
-	Get:  rest.EndpointAction{Handler: infoCaGet, AllowUntrusted: false, ProxyTarget: true},
+	Put:  microTypes.EndpointAction{Handler: regenerateCaPut, AllowUntrusted: false, ProxyTarget: true},
+	Post: microTypes.EndpointAction{Handler: setCaPost, AllowUntrusted: false, ProxyTarget: true},
+	Get:  microTypes.EndpointAction{Handler: infoCaGet, AllowUntrusted: false, ProxyTarget: true},
 }
 
 // infoCaGet returns additional information about CA certificate
-func infoCaGet(s state.State, r *http.Request) response.Response {
+func infoCaGet(s microTypes.State, r *http.Request) microTypes.Response {
 	autoRenew, err := certificates.IsCaRenewable(r.Context(), s)
 	if err != nil {
 		logger.Errorf("Error checking if CA is renewable: %v", err)
 		errMsg := "Failed to get CA renewability. See logs for more details."
-		return response.SyncResponse(false, types.CaInfo{AutoRenew: false, Error: errMsg})
+		return microTypes.SyncResponse(false, types.CaInfo{AutoRenew: false, Error: errMsg})
 	}
-	return response.SyncResponse(true, types.CaInfo{AutoRenew: autoRenew})
+	return microTypes.SyncResponse(true, types.CaInfo{AutoRenew: autoRenew})
 }
 
 // regenerateCaPut implements PUT method for /1.0/ca endpoint. The function issues new CA certificate
 // and triggers re-issue of all service certificates on all MicroOVN cluster members
-func regenerateCaPut(s state.State, r *http.Request) response.Response {
+func regenerateCaPut(s microTypes.State, r *http.Request) microTypes.Response {
 	securitylog.Log(
 		securitylog.CatAuthz,
 		securitylog.EventAdminActivity,
@@ -54,7 +51,7 @@ func regenerateCaPut(s state.State, r *http.Request) response.Response {
 		if err != nil {
 			logger.Errorf("Failed to generate new CA certificate: %v", err)
 			responseData.NewCa = false
-			return response.SyncResponse(false, &responseData)
+			return microTypes.SyncResponse(false, &responseData)
 		}
 
 		responseData.NewCa = CaUpdate
@@ -66,7 +63,7 @@ func regenerateCaPut(s state.State, r *http.Request) response.Response {
 // setCaPost implements POST method for /1.0/ca endpoint. The function updates CA certificate
 // from data provided by the user and triggers re-issue of all service certificates on all MicroOVN
 // cluster members
-func setCaPost(s state.State, r *http.Request) response.Response {
+func setCaPost(s microTypes.State, r *http.Request) microTypes.Response {
 	securitylog.Log(
 		securitylog.CatAuthz,
 		securitylog.EventAdminActivity,
@@ -83,14 +80,14 @@ func setCaPost(s state.State, r *http.Request) response.Response {
 		if err != nil {
 			logger.Errorf("Failed to decode CA certificate and key from the request: %v", err)
 			responseData.NewCa = false
-			return response.SyncResponse(false, &responseData)
+			return microTypes.SyncResponse(false, &responseData)
 		}
 
 		CaUpdate, err := certificates.SetNewCACertificate(r.Context(), s, customCaRequest.Certificate, customCaRequest.PrivateKey)
 		if err != nil {
 			logger.Errorf("Failed to set custom user-provided CA certificate: %v", err)
 			responseData.NewCa = false
-			return response.SyncResponse(false, &responseData)
+			return microTypes.SyncResponse(false, &responseData)
 		}
 
 		responseData.NewCa = CaUpdate
@@ -99,20 +96,20 @@ func setCaPost(s state.State, r *http.Request) response.Response {
 	return updateOvnClusterCertificates(s, r, responseData)
 }
 
-func updateOvnClusterCertificates(s state.State, r *http.Request, responseData *types.RegenerateCaResponse) response.Response {
+func updateOvnClusterCertificates(s microTypes.State, r *http.Request, responseData *types.RegenerateCaResponse) microTypes.Response {
 	var err error
 	// If this is the initial node that received the request, notify the rest of the nodes
 	// in the cluster to update their OVN certificates
 	if !microTypes.IsNotification(r) {
 		if !responseData.NewCa {
 			logger.Info("Cluster certificates do not need updating")
-			return response.SyncResponse(true, &responseData)
+			return microTypes.SyncResponse(true, &responseData)
 		}
 		// Get clients for rest of the cluster members
 		cluster, err := s.Connect().Cluster(true)
 		if err != nil {
 			logger.Errorf("Failed to get a client for every cluster member: %v", err)
-			return response.SyncResponse(false, &responseData)
+			return microTypes.SyncResponse(false, &responseData)
 		}
 
 		// Bump rest of the cluster members to reissue their certificates with new CA
@@ -132,7 +129,7 @@ func updateOvnClusterCertificates(s state.State, r *http.Request, responseData *
 			return nil
 		})
 		if err != nil {
-			return response.SmartError(err)
+			return microTypes.SmartError(err)
 		}
 	}
 
@@ -140,7 +137,7 @@ func updateOvnClusterCertificates(s state.State, r *http.Request, responseData *
 	err = certificates.DumpCA(r.Context(), s)
 	if err != nil {
 		logger.Errorf("%v", err)
-		return response.SyncResponse(false, &responseData)
+		return microTypes.SyncResponse(false, &responseData)
 	}
 
 	reissuedCertificates, err := reissueAllCertificates(r.Context(), s)
@@ -149,5 +146,5 @@ func updateOvnClusterCertificates(s state.State, r *http.Request, responseData *
 	}
 	responseData.ReissuedCertificates[s.Name()] = *reissuedCertificates
 
-	return response.SyncResponse(true, &responseData)
+	return microTypes.SyncResponse(true, &responseData)
 }

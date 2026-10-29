@@ -4,17 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"slices"
 	"strings"
 
-	"github.com/canonical/microcluster/v3/state"
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/ovn/cmd"
 )
 
 func CollectNetworkProbe(
 	ctx context.Context,
-	s state.State,
+	s microTypes.State,
 ) types.InspectionNetworkProbe {
 	probe := types.InspectionNetworkProbe{
 		Scope: types.InspectionScopeCluster,
@@ -260,7 +260,7 @@ func buildDHCPOptionEvidence(dhcpOptions []dhcp, ports []logicSwitchPort) []type
 	return evidence
 }
 
-func collectDHCP(ctx context.Context, s state.State) ([]types.InspectionDHCPOptionEvidence, []types.InspectionCollectionError) {
+func collectDHCP(ctx context.Context, s microTypes.State) ([]types.InspectionDHCPOptionEvidence, []types.InspectionCollectionError) {
 	var evidence []types.InspectionDHCPOptionEvidence
 	var errors []types.InspectionCollectionError
 
@@ -301,7 +301,7 @@ func collectDHCP(ctx context.Context, s state.State) ([]types.InspectionDHCPOpti
 	return evidence, errors
 }
 
-func probeDHCPOptions(ctx context.Context, s state.State) (string, error) {
+func probeDHCPOptions(ctx context.Context, s microTypes.State) (string, error) {
 	var args = []string{
 		"--timeout", "1",
 		"--format=json", "--columns=_uuid,cidr,options,external_ids",
@@ -310,7 +310,7 @@ func probeDHCPOptions(ctx context.Context, s state.State) (string, error) {
 	return cmd.NBCtlCluster(ctx, s, 1, args...)
 }
 
-func probeLogicalSwitchPorts(ctx context.Context, s state.State) (string, error) {
+func probeLogicalSwitchPorts(ctx context.Context, s microTypes.State) (string, error) {
 	var args = []string{
 		"--timeout", "1",
 		"--format=json", "--columns=name,dhcpv4_options",

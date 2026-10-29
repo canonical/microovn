@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/canonical/lxd/shared/i18n"
 	"github.com/canonical/microcluster/v3/microcluster"
 	"github.com/canonical/microovn/microovn/inspect"
 	"github.com/spf13/cobra"
@@ -33,7 +32,7 @@ func (f *outputFormat) Set(v string) error {
 		*f = outputFormat(v)
 		return nil
 	default:
-		return fmt.Errorf(i18n.G("Invalid format %q"), v)
+		return fmt.Errorf("invalid format %q", v)
 	}
 }
 
@@ -51,7 +50,7 @@ func (c *cmdInspect) Command() *cobra.Command {
 	c.flagOutputFormat = formatText
 
 	cmd.Flags().BoolVarP(&c.flagVerbose, "verbose", "v", false, "Show full inspection results")
-	cmd.Flags().VarP(&c.flagOutputFormat, "format", "f", i18n.G("Format (text|json)"))
+	cmd.Flags().VarP(&c.flagOutputFormat, "format", "f", "Format (text|json)")
 	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		c.common.ExitCode = 2
 		return err
@@ -64,10 +63,10 @@ func (c *cmdInspect) Run(cmd *cobra.Command, args []string) error {
 	c.common.ExitCode = 2
 
 	if len(args) != 0 {
-		return errors.New(i18n.G("inspect accepts no positional arguments"))
+		return errors.New("inspect accepts no positional arguments")
 	}
 	if c.flagVerbose && c.flagOutputFormat == formatJSON {
-		return errors.New(i18n.G("--verbose and --format=json cannot be used together"))
+		return errors.New("--verbose and --format=json cannot be used together")
 	}
 
 	m, err := microcluster.App(microcluster.Args{StateDir: c.common.FlagStateDir})

@@ -22,7 +22,7 @@ func Start(ctx context.Context, service string, enable bool) error {
 		args = append(args, "--enable")
 	}
 
-	_, err := shared.RunCommandContext(ctx, "snapctl", args...)
+	_, err := shared.RunCommand(ctx, "snapctl", args...)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func Stop(ctx context.Context, service string, disable bool) error {
 		args = append(args, "--disable")
 	}
 
-	_, err := shared.RunCommandContext(ctx, "snapctl", args...)
+	_, err := shared.RunCommand(ctx, "snapctl", args...)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func Restart(ctx context.Context, service string) error {
 		fmt.Sprintf("microovn.%s", service),
 	}
 
-	_, err := shared.RunCommandContext(ctx, "snapctl", args...)
+	_, err := shared.RunCommand(ctx, "snapctl", args...)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func Reload(ctx context.Context, service string) error {
 		fmt.Sprintf("microovn.%s", service),
 	}
 
-	_, err := shared.RunCommandContext(ctx, "snapctl", args...)
+	_, err := shared.RunCommand(ctx, "snapctl", args...)
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func Services(ctx context.Context) (io.Reader, error) {
 		"services",
 	}
 
-	output, err := shared.RunCommandContext(ctx, "snapctl", args...)
+	output, err := shared.RunCommand(ctx, "snapctl", args...)
 	if err != nil {
 		return nil, err
 	}

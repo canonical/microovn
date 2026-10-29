@@ -2,7 +2,7 @@
 package api
 
 import (
-	"github.com/canonical/microcluster/v3/microcluster/rest"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"github.com/canonical/microovn/microovn/api/config"
 	"github.com/canonical/microovn/microovn/api/ovsdb"
 
@@ -13,14 +13,14 @@ import (
 )
 
 // Server is an extension to the default microcluster server, which serves the supplied endpoints over "/1.0"
-var Server = map[string]rest.Server{
+var Server = map[string]microTypes.Server{
 	"microovn": {
 		CoreAPI:   true,
 		ServeUnix: true,
-		Resources: []rest.Resources{
+		Resources: []microTypes.Resources{
 			{
 				PathPrefix: types.APIVersion,
-				Endpoints: []rest.Endpoint{
+				Endpoints: []microTypes.Endpoint{
 					services.ListCmd,
 					services.ServiceControlCmd,
 					InspectionSnapshotEndpoint,

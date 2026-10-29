@@ -6,14 +6,14 @@ package cluster
 import (
 	"context"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 
-	"github.com/canonical/microcluster/v3/state"
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 	"github.com/canonical/microovn/microovn/ovn/environment"
 )
 
 // UpdateOvnListenConfig configures the OVN NB and SB databases to listen on the appropriate ports.
-func UpdateOvnListenConfig(ctx context.Context, s state.State) error {
+func UpdateOvnListenConfig(ctx context.Context, s microTypes.State) error {
 	nbDB, err := ovnCmd.NewOvsdbSpec(ovnCmd.OvsdbTypeNBLocal)
 	if err != nil {
 		return fmt.Errorf("failed to get path to OVN NB database socket: %w", err)
@@ -56,7 +56,7 @@ func UpdateOvnListenConfig(ctx context.Context, s state.State) error {
 // UpdateOvnControllerRemoteConfig updates the value of "external_ids:remote-ovn" in the
 // Open vSwitch database. This value tells the OVN controller the location of OVN Southbound
 // database endpoints to which it should connect.
-func UpdateOvnControllerRemoteConfig(ctx context.Context, s state.State) error {
+func UpdateOvnControllerRemoteConfig(ctx context.Context, s microTypes.State) error {
 	// Reconfigure OVS to use OVN.
 	centralIps, err := environment.CentralIps(ctx, s)
 	if err != nil {

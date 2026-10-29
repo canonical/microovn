@@ -11,10 +11,7 @@ import (
 	"strings"
 
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/microcluster/rest"
-	"github.com/canonical/microcluster/v3/microcluster/rest/response"
 	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
-	"github.com/canonical/microcluster/v3/state"
 
 	"github.com/canonical/microovn/microovn/api/types"
 	"github.com/canonical/microovn/microovn/bgp"
@@ -24,28 +21,28 @@ import (
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 )
 
-var BgpSetupEndpoint = rest.Endpoint{
+var BgpSetupEndpoint = microTypes.Endpoint{
 	Path: "bgp/setup",
-	Post: rest.EndpointAction{Handler: setupBgpHandler, AllowUntrusted: false, ProxyTarget: true},
+	Post: microTypes.EndpointAction{Handler: setupBgpHandler, AllowUntrusted: false, ProxyTarget: true},
 }
 
-var BgpCheckInterfaceEndpoint = rest.Endpoint{
+var BgpCheckInterfaceEndpoint = microTypes.Endpoint{
 	Path: "bgp/check-interface",
-	Get:  rest.EndpointAction{Handler: checkInterfaceHandler, AllowUntrusted: false, ProxyTarget: true},
+	Get:  microTypes.EndpointAction{Handler: checkInterfaceHandler, AllowUntrusted: false, ProxyTarget: true},
 }
 
-func setupBgpHandler(s state.State, r *http.Request) response.Response {
+func setupBgpHandler(s microTypes.State, r *http.Request) microTypes.Response {
 	resp := types.SetupBgpResponse{}
 
 	if !microTypes.IsNotification(r) {
 		var req types.SetupBgpRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
-			return response.BadRequest(errors.New("failed to decode request body"))
+			return microTypes.BadRequest(errors.New("failed to decode request body"))
 		}
 
 		if err := req.Validate(); err != nil {
-			return response.BadRequest(err)
+			return microTypes.BadRequest(err)
 		}
 
 		ifaceName := req.ExternalConnection
@@ -55,7 +52,7 @@ func setupBgpHandler(s state.State, r *http.Request) response.Response {
 
 		err = config.SetConfig(r.Context(), s, types.BgpConfigKeyCluster, "true")
 		if err != nil {
-			return response.InternalError(fmt.Errorf("failed to save BGP cluster config: %w", err))
+			return microTypes.InternalError(fmt.Errorf("failed to save BGP cluster config: %w", err))
 		}
 
 		if req.ExternalConnection != "" {
@@ -64,33 +61,33 @@ func setupBgpHandler(s state.State, r *http.Request) response.Response {
 			err = config.SetConfig(r.Context(), s, types.BgpConfigKeyBridge, req.Bridge)
 		}
 		if err != nil {
-			return response.InternalError(fmt.Errorf("failed to save BGP interface/bridge config: %w", err))
+			return microTypes.InternalError(fmt.Errorf("failed to save BGP interface/bridge config: %w", err))
 		}
 
 		if req.Asn != "" {
 			err = config.SetConfig(r.Context(), s, types.BgpConfigKeyAsn, req.Asn)
 			if err != nil {
-				return response.InternalError(fmt.Errorf("failed to save BGP ASN config: %w", err))
+				return microTypes.InternalError(fmt.Errorf("failed to save BGP ASN config: %w", err))
 			}
 		}
 		if req.AsnRange[0] != 0 || req.AsnRange[1] != 0 {
 			err = config.SetConfig(r.Context(), s, types.BgpConfigKeyAsnRange,
 				fmt.Sprintf("%d-%d", req.AsnRange[0], req.AsnRange[1]))
 			if err != nil {
-				return response.InternalError(fmt.Errorf("failed to save BGP ASN range config: %w", err))
+				return microTypes.InternalError(fmt.Errorf("failed to save BGP ASN range config: %w", err))
 			}
 		}
 		if req.ConnectionIP4Range != "" {
 			err = config.SetConfig(r.Context(), s, types.BgpConfigKeyConnectionIP4Range, req.ConnectionIP4Range)
 			if err != nil {
-				return response.InternalError(fmt.Errorf("failed to save BGP connection IP range config: %w", err))
+				return microTypes.InternalError(fmt.Errorf("failed to save BGP connection IP range config: %w", err))
 			}
 		}
 
 		cluster, err := s.Connect().Cluster(true)
 		if err != nil {
 			logger.Errorf("Failed to get a client for every cluster member: %v", err)
-			return response.InternalError(fmt.Errorf("failed to get cluster clients: %w", err))
+			return microTypes.InternalError(fmt.Errorf("failed to get cluster clients: %w", err))
 		}
 
 		var interfaceErrors []string
@@ -108,14 +105,14 @@ func setupBgpHandler(s state.State, r *http.Request) response.Response {
 			return nil
 		})
 		if err != nil {
-			return response.SmartError(err)
+			return microTypes.SmartError(err)
 		}
 
 		if len(interfaceErrors) > 0 {
 			resp.Success = false
 			resp.Message = "Interface/bridge check failed on some nodes"
 			resp.Errors = interfaceErrors
-			return response.SyncResponse(false, &resp)
+			return microTypes.SyncResponse(false, &resp)
 		}
 
 		err = cluster.Query(r.Context(), true, func(ctx context.Context, c microTypes.Client) error {
@@ -135,7 +132,7 @@ func setupBgpHandler(s state.State, r *http.Request) response.Response {
 			return nil
 		})
 		if err != nil {
-			return response.SmartError(err)
+			return microTypes.SmartError(err)
 		}
 	}
 
@@ -153,18 +150,18 @@ func setupBgpHandler(s state.State, r *http.Request) response.Response {
 		resp.Message = "BGP setup completed on all nodes"
 	}
 
-	return response.SyncResponse(true, &resp)
+	return microTypes.SyncResponse(true, &resp)
 }
 
-func checkInterfaceHandler(s state.State, r *http.Request) response.Response {
+func checkInterfaceHandler(s microTypes.State, r *http.Request) microTypes.Response {
 	ifaceName := r.URL.Query().Get("name")
 	if ifaceName == "" {
-		return response.BadRequest(errors.New("missing 'name' query parameter"))
+		return microTypes.BadRequest(errors.New("missing 'name' query parameter"))
 	}
 
 	exists := interfaceExists(ifaceName)
 
-	return response.SyncResponse(true, map[string]bool{"exists": exists})
+	return microTypes.SyncResponse(true, map[string]bool{"exists": exists})
 }
 
 func interfaceExists(name string) bool {
@@ -172,7 +169,7 @@ func interfaceExists(name string) bool {
 	return err == nil
 }
 
-func CheckBgpInterfaceFromClusterConfig(ctx context.Context, s state.State) error {
+func CheckBgpInterfaceFromClusterConfig(ctx context.Context, s microTypes.State) error {
 	ifaceItem, _ := config.GetConfig(ctx, s, types.BgpConfigKeyInterface)
 	if ifaceItem != nil && ifaceItem.Value != "" {
 		if !interfaceExists(ifaceItem.Value) {
@@ -192,7 +189,7 @@ func CheckBgpInterfaceFromClusterConfig(ctx context.Context, s state.State) erro
 	return fmt.Errorf("no BGP interface or bridge configured in cluster setup")
 }
 
-func EnableBgpOnNodeFromClusterConfig(ctx context.Context, s state.State) error {
+func EnableBgpOnNodeFromClusterConfig(ctx context.Context, s microTypes.State) error {
 	bgpConfig := &types.ExtraBgpConfig{}
 
 	ifaceItem, err := config.GetConfig(ctx, s, types.BgpConfigKeyInterface)
@@ -245,7 +242,7 @@ const ovsBgpVrfKey = "microovn-bgp-vrf"
 const ovsBgpAsnKey = "microovn-bgp-asn"
 const ovsBgpAsnRangeKey = "microovn-bgp-asn-range"
 
-func EnableBgpFromOVSExternalIDs(ctx context.Context, s state.State) error {
+func EnableBgpFromOVSExternalIDs(ctx context.Context, s microTypes.State) error {
 	switchActive, err := microOvnNode.HasServiceActive(ctx, s, types.SrvSwitch)
 	if err != nil {
 		return fmt.Errorf("failed to check switch service status: %w", err)
@@ -311,7 +308,7 @@ func EnableBgpFromOVSExternalIDs(ctx context.Context, s state.State) error {
 	return nil
 }
 
-func findBridgesByExternalID(ctx context.Context, s state.State, key, value string) ([]string, error) {
+func findBridgesByExternalID(ctx context.Context, s microTypes.State, key, value string) ([]string, error) {
 	output, err := ovnCmd.VSCtl(ctx, s, "--bare", "--columns", "name",
 		"find", "bridge", fmt.Sprintf("external-ids:%s=%s", key, value),
 	)

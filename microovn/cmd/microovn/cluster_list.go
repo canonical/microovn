@@ -6,7 +6,6 @@ import (
 
 	"github.com/canonical/lxd/shared"
 	lxdCmd "github.com/canonical/lxd/shared/cmd"
-	"github.com/canonical/lxd/shared/i18n"
 	"github.com/canonical/microcluster/v3/microcluster"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +23,7 @@ func (c *cmdClusterList) Command() *cobra.Command {
 		RunE:  c.Run,
 	}
 
-	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", "table", i18n.G("Format (csv|json|table|yaml|compact)")+"``")
+	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", "table", "Format (csv|json|table|yaml|compact)"+"``")
 
 	return cmd
 }

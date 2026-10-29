@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	microTypes "github.com/canonical/microcluster/v3/microcluster/types"
 	"strings"
 
 	"github.com/canonical/lxd/shared"
 	"github.com/canonical/lxd/shared/logger"
-	"github.com/canonical/microcluster/v3/state"
 
 	ovnCmd "github.com/canonical/microovn/microovn/ovn/cmd"
 )
@@ -26,7 +26,7 @@ type DevlinkJSON struct {
 // detectDPU uses devlink to find if microovn is running on a DPU and if so
 // returns the PCI address
 func detectDPU(ctx context.Context) (string, error) {
-	out, err := shared.RunCommandContext(ctx, "devlink", "port", "show", "-jp")
+	out, err := shared.RunCommand(ctx, "devlink", "port", "show", "-jp")
 	if err != nil {
 		return "", fmt.Errorf("failed to run devlink: %w", err)
 	}
@@ -76,7 +76,7 @@ func parseLspciSerial(lspciOutput string) string {
 // getSerialNumber parses lspci and gets the serial number for the DPU, given a
 // specific PCI address.
 func getDPUSerial(ctx context.Context, pci string) (string, error) {
-	out, err := shared.RunCommandContext(ctx, "lspci", "-vvv", "-s", pci)
+	out, err := shared.RunCommand(ctx, "lspci", "-vvv", "-s", pci)
 	if err != nil {
 		return "", fmt.Errorf("failed to run lspci -vvv -s %s: %w", pci, err)
 	}
@@ -91,7 +91,7 @@ func getDPUSerial(ctx context.Context, pci string) (string, error) {
 }
 
 // setDPUSerial writes the external-id the ovn-cms-options.
-func setOVNDPUSerial(ctx context.Context, s state.State, serial string) error {
+func setOVNDPUSerial(ctx context.Context, s microTypes.State, serial string) error {
 	out, err := ovnCmd.VSCtl(ctx, s, "get", "Open_vSwitch", ".", "external-ids:ovn-cms-options")
 	if err != nil && !strings.Contains(fmt.Sprintf("%v", err), "ovs-vsctl: no key") {
 		return err
@@ -118,7 +118,7 @@ func setOVNDPUSerial(ctx context.Context, s state.State, serial string) error {
 
 // DPUSetup checks if microovn is running on a DPU and if so it extracts the
 // serial number and puts it into the ovn-cms-option for card-serial-numbers.
-func DPUSetup(ctx context.Context, s state.State) error {
+func DPUSetup(ctx context.Context, s microTypes.State) error {
 	pci, err := detectDPU(ctx)
 	if err != nil {
 		if strings.Contains(err.Error(), "executable file not found") {

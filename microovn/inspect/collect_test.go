@@ -55,7 +55,7 @@ func TestResolveExecutionContext(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		status        *microTypes.Server
+		status        *microTypes.Status
 		members       []microTypes.DqliteMember
 		wantNode      string
 		wantRole      types.InspectionMemberRole
@@ -64,7 +64,7 @@ func TestResolveExecutionContext(t *testing.T) {
 	}{
 		{
 			name:          "matches voter by name",
-			status:        &microTypes.Server{Name: "node1", Address: statusAddress},
+			status:        &microTypes.Status{Name: "node1", Address: statusAddress},
 			members:       []microTypes.DqliteMember{{Name: "node1", Address: "10.0.0.1:9000", Role: "voter"}},
 			wantNode:      "node1",
 			wantRole:      "voter",
@@ -72,26 +72,26 @@ func TestResolveExecutionContext(t *testing.T) {
 		},
 		{
 			name:     "falls back to normalized host address",
-			status:   &microTypes.Server{Name: "renamed", Address: statusAddress},
+			status:   &microTypes.Status{Name: "renamed", Address: statusAddress},
 			members:  []microTypes.DqliteMember{{Name: "node1", Address: "10.0.0.1:9000", Role: "stand-by"}},
 			wantNode: "node1",
 			wantRole: "standby",
 		},
 		{
 			name:      "rejects ambiguous name",
-			status:    &microTypes.Server{Name: "node1", Address: statusAddress},
+			status:    &microTypes.Status{Name: "node1", Address: statusAddress},
 			members:   []microTypes.DqliteMember{{Name: "node1", Role: "voter"}, {Name: "node1", Role: "stand-by"}},
 			wantError: true,
 		},
 		{
 			name:      "rejects unsupported role",
-			status:    &microTypes.Server{Name: "node1", Address: statusAddress},
+			status:    &microTypes.Status{Name: "node1", Address: statusAddress},
 			members:   []microTypes.DqliteMember{{Name: "node1", Role: "pending"}},
 			wantError: true,
 		},
 		{
 			name:      "rejects missing member",
-			status:    &microTypes.Server{Name: "node1", Address: statusAddress},
+			status:    &microTypes.Status{Name: "node1", Address: statusAddress},
 			wantError: true,
 		},
 	}
