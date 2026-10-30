@@ -191,7 +191,7 @@ parts:
       - --prefix=
       - --enable-build-raft
     stage-packages:
-      - libuv1
+      - libuv1t64
       - libsqlite3-0
       - liblz4-1
     build-packages:
@@ -238,8 +238,18 @@ parts:
       - ovn-central
       - ovn-host
       - openvswitch-switch
-      - openvswitch-switch-dpdk
-      - libdpdk-dev
+      - on amd64:
+        - openvswitch-switch-dpdk
+        - libdpdk-dev
+      - on arm64:
+        - openvswitch-switch-dpdk
+        - libdpdk-dev
+      - on ppc64el:
+        - openvswitch-switch-dpdk
+        - libdpdk-dev
+      - on riscv64:
+        - openvswitch-switch-dpdk
+        - libdpdk-dev
     organize:
       usr/bin/: bin/
       usr/sbin/: bin/
@@ -279,7 +289,9 @@ parts:
 
         mkdir -p "${CRAFT_PART_INSTALL}/bin/"
         mv "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch/ovs-vswitchd" "${CRAFT_PART_INSTALL}/bin/"
-        mv "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch-dpdk/ovs-vswitchd-dpdk" "${CRAFT_PART_INSTALL}/bin/ovs-vswitchd-dpdk"
+        if [ -f "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch-dpdk/ovs-vswitchd-dpdk" ]; then
+            mv "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch-dpdk/ovs-vswitchd-dpdk" "${CRAFT_PART_INSTALL}/bin/ovs-vswitchd-dpdk"
+        fi
 
   # Main part
   microovn:
@@ -288,8 +300,14 @@ parts:
       - dqlite
       - ovn
     build-snaps:
-      # golangci-lint is currently not available on all architectures.
-      # (alexmurray/golangci-lint-snap#3)
+      # golangci-lint 2.15.0 (which supports go1.27.2's export-data format) is
+      # not yet published for arm64/ppc64el, and is unavailable on riscv64.
+      # The older 2.13.2 on arm64/ppc64el is built with go1.27.0 and cannot
+      # typecheck go1.27.2 code, so skip linting there.
+      - to arm64:
+        - go/1.25/stable
+      - to ppc64el:
+        - go/1.25/stable
       - to riscv64:
         - go/1.25/stable
       - else:
