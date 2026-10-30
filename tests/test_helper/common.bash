@@ -89,14 +89,17 @@ function get_pid_start_time() {
     lxc_exec "$container" "stat -c %Y /proc/${pid}"
 }
 
-# wait_until WAIT_COND [ WAIT_FAILED ]
+# wait_until WAIT_COND [ WAIT_FAILED [ WAIT_TIMEOUT ] ]
 #
-# Execute WAIT_COND until it returns 0, waiting up to WAIT_TIMEOUT seconds.
+# Execute WAIT_COND until it returns 0, waiting up to the number of seconds
+# given as the optional WAIT_TIMEOUT argument, or the value of the WAIT_TIMEOUT
+# environment variable if that argument is not provided.
 #
 # Execute WAIT_FAILED on failure, if provided.
 wait_until() {
     local wait_cond=$1; shift
     local wait_failed=${1:-false}
+    local timeout=${2:-$WAIT_TIMEOUT}
 
     _log_wait() {
         local how_soon=$1; shift
@@ -108,12 +111,12 @@ wait_until() {
     if $wait_cond; then _log_wait quickly; return 0; fi
 
     local d
-    for d in $(seq 1 "$WAIT_TIMEOUT"); do
+    for d in $(seq 1 "$timeout"); do
         sleep 1
         if $wait_cond; then _log_wait "after $d seconds"; return 0; fi
     done
 
-    printf '%q: wait failed after %s seconds\n' "$wait_cond" $d
+    printf '%q: wait failed after %s seconds\n' "$wait_cond" "$timeout"
     $wait_failed
     return 1
 }
