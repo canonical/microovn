@@ -186,7 +186,7 @@ function wait_vms_ready() {
     local vms=$*
     local vm
     for vm in $vms; do
-        wait_until "lxd_agent_ready $vm"
+        wait_until "lxd_agent_ready $vm" false 120
         _wait_instance_ready "$vm"
     done
 }
