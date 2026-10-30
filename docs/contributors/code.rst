@@ -370,7 +370,7 @@ Any leftover containers will be named according to:
 .. _Bash Automated Testing System (BATS): https://bats-core.readthedocs.io/en/stable/
 .. _golangci-lint: https://golangci-lint.run/
 .. _Go Coverage Documentation: https://go.dev/doc/build-cover#working
-.. _LXD environment: https://documentation.ubuntu.com/lxd/en/latest/environment/
-.. _LXD getting started guides: https://documentation.ubuntu.com/lxd/en/latest/getting_started/
-.. _LXD remotes: https://documentation.ubuntu.com/lxd/en/latest/remotes/
+.. _LXD environment: https://canonical.com/lxd/docs/latest/environment/
+.. _LXD getting started guides: https://canonical.com/lxd/docs/latest/getting_started/
+.. _LXD remotes: https://canonical.com/lxd/docs/latest/remotes/
 .. _our GitHub repository: https://github.com/canonical/microovn
