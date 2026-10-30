@@ -191,7 +191,7 @@ parts:
       - --prefix=
       - --enable-build-raft
     stage-packages:
-      - libuv1
+      - libuv1t64
       - libsqlite3-0
       - liblz4-1
     build-packages:
@@ -238,8 +238,18 @@ parts:
       - ovn-central
       - ovn-host
       - openvswitch-switch
-      - openvswitch-switch-dpdk
-      - libdpdk-dev
+      - on amd64:
+        - openvswitch-switch-dpdk
+        - libdpdk-dev
+      - on arm64:
+        - openvswitch-switch-dpdk
+        - libdpdk-dev
+      - on ppc64el:
+        - openvswitch-switch-dpdk
+        - libdpdk-dev
+      - on riscv64:
+        - openvswitch-switch-dpdk
+        - libdpdk-dev
     organize:
       usr/bin/: bin/
       usr/sbin/: bin/
@@ -279,7 +289,9 @@ parts:
 
         mkdir -p "${CRAFT_PART_INSTALL}/bin/"
         mv "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch/ovs-vswitchd" "${CRAFT_PART_INSTALL}/bin/"
-        mv "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch-dpdk/ovs-vswitchd-dpdk" "${CRAFT_PART_INSTALL}/bin/ovs-vswitchd-dpdk"
+        if [ -f "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch-dpdk/ovs-vswitchd-dpdk" ]; then
+            mv "${CRAFT_PART_INSTALL}/usr/lib/openvswitch-switch-dpdk/ovs-vswitchd-dpdk" "${CRAFT_PART_INSTALL}/bin/ovs-vswitchd-dpdk"
+        fi
 
   # Main part
   microovn:
