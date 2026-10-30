@@ -1,5 +1,34 @@
 MICROOVN_RUNDIR=/var/snap/microovn/common/run
 
+# wait_for_snap_idle CONTAINER [ MAX_RETRY ]
+#
+# Wait until every snap change on CONTAINER has reached a terminal state
+# (Done/Error/Undone), i.e. no install/refresh/connect/restart change is still
+# pending or running. Without this, a subsequent snap command that triggers its
+# own change can fail with
+# 'snap "microovn" has "service-control" change in progress'.
+# NB: matching only "Doing" is not enough — a queued change reports "Do"/"Wait"
+# and would still block the next snap command.
+#
+# Retries for a maximum of MAX_RETRY attempts (1 second apart), defaulting
+# to 30. Returns 0 once snapd is idle, 1 on timeout.
+function wait_for_snap_idle() {
+    local container=$1; shift
+    local max_retry=${1:-30}
+
+    local attempt
+    for (( attempt = 1; attempt <= max_retry; attempt++ )); do
+        if ! lxc_exec "$container" "snap changes | awk 'NR > 1 && \$2 != \"Done\" && \$2 != \"Error\" && \$2 != \"Undone\"' | grep -q ."; then
+            return 0
+        fi
+        echo "# ($container) Waiting for snapd to settle ($attempt/$max_retry)" >&3
+        sleep 1
+    done
+
+    echo "# ($container) snapd still has changes in progress after $max_retry attempts" >&3
+    return 1
+}
+
 function install_microovn() {
     local snap_file=$1; shift
     local containers=$*
@@ -51,7 +80,12 @@ function install_microovn() {
 
             sleep 1
         done
+        # Ensure snapd has settled any install/refresh/connect changes before
+        # restarting the daemon, otherwise the restart can fail with
+        # 'snap "microovn" has "service-control" change in progress'.
+        wait_for_snap_idle "$container"
         lxc_exec "$container" "snap restart microovn.daemon"
+        wait_for_snap_idle "$container"
     done
 }
 
@@ -72,6 +106,7 @@ function install_microovn_from_store() {
     for container in $containers; do
         echo "# Installing MicroOVN from SnapStore ('$channel_pretty_name' channel) in container $container" >&3
         lxc_exec "$container" "snap install microovn $source_channel"
+        wait_for_snap_idle "$container"
     done
 }
 
