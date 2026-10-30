@@ -300,8 +300,14 @@ parts:
       - dqlite
       - ovn
     build-snaps:
-      # golangci-lint is currently not available on all architectures.
-      # (alexmurray/golangci-lint-snap#3)
+      # golangci-lint 2.15.0 (which supports go1.27.2's export-data format) is
+      # not yet published for arm64/ppc64el, and is unavailable on riscv64.
+      # The older 2.13.2 on arm64/ppc64el is built with go1.27.0 and cannot
+      # typecheck go1.27.2 code, so skip linting there.
+      - to arm64:
+        - go/1.25/stable
+      - to ppc64el:
+        - go/1.25/stable
       - to riscv64:
         - go/1.25/stable
       - else:
