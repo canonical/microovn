@@ -34,7 +34,7 @@ func GetServices(ctx context.Context, c microTypes.Client) (types.Services, erro
 // ReissueCertificate sends request to local MicroOVN cluster member to re-issue new certificate for
 // selected service.
 func ReissueCertificate(ctx context.Context, c microTypes.Client, serviceName string) (types.IssueCertificateResponse, error) {
-	queryCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
 	response := types.IssueCertificateResponse{}
@@ -49,7 +49,7 @@ func ReissueCertificate(ctx context.Context, c microTypes.Client, serviceName st
 // ReissueAllCertificate sends request to local MicroOVN cluster member to re-issue new certificates for every
 // enabled OVN service present.
 func ReissueAllCertificate(ctx context.Context, c microTypes.Client) (types.IssueCertificateResponse, error) {
-	queryCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
 	response := types.IssueCertificateResponse{}
@@ -64,7 +64,7 @@ func ReissueAllCertificate(ctx context.Context, c microTypes.Client) (types.Issu
 // RegenerateCA sends request to completely rebuild the OVN PKI. It causes new CA certificate to be issued and shared
 // between MicroOVN cluster members, and it triggers re-issue of all OVN service certificates on all cluster members.
 func RegenerateCA(ctx context.Context, c microTypes.Client) (types.RegenerateCaResponse, error) {
-	queryCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
 	response := types.NewRegenerateCaResponse()
@@ -80,7 +80,7 @@ func RegenerateCA(ctx context.Context, c microTypes.Client) (types.RegenerateCaR
 // SetCA sends a request to set a user-provided CA certificate and private key.
 // It triggers re-issue of all OVN service certificates on all MicroOVN cluster members.
 func SetCA(ctx context.Context, c microTypes.Client, certPEM, keyPEM string) (types.RegenerateCaResponse, error) {
-	queryCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	queryCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 
 	response := types.NewRegenerateCaResponse()
