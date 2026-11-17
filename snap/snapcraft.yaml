@@ -275,6 +275,7 @@ parts:
         # external symlinks provided by the openssl package dependency.
         # (External symlinks, i.e. pointing at something in /, are not allowed.)
       - lib/*/librte_*.so*
+      - lib/*/dpdk/**
       - lib/*/libethdev.so*
       - lib/*/libvhost.so*
       - lib/*/libevent-2.1.so*
