@@ -268,6 +268,7 @@ parts:
       - bin/ovs-ofctl
       - bin/ovs-vsctl
       - bin/ovs-vswitchd
+      - bin/ovs-vswitchd-dpdk*
       - bin/ovsdb-client
       - bin/ovsdb-server
       - bin/ovsdb-tool
