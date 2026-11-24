@@ -82,6 +82,9 @@ func main() {
 	var cmdConfig = cmdConfig{common: &commonCmd}
 	app.AddCommand(cmdConfig.Command())
 
+	var cmdDaemonConfig = cmdDaemonConfig{common: &commonCmd}
+	app.AddCommand(cmdDaemonConfig.Command())
+
 	var cmdSetup = cmdSetup{common: &commonCmd}
 	app.AddCommand(cmdSetup.Command())
 
