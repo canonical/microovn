@@ -4,3 +4,7 @@ microovn-lxd-template.tar.gz
 
 # collected coverage data
 .coverage/
+
+# Canonical Workshop
+.workshop.lock
+.workshop/

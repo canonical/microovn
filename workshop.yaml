@@ -1,0 +1,68 @@
+name: microovn
+base: ubuntu@24.04
+
+# MicroOVN is snap-deployed OVN with built-in clustering. The build artifact is
+# the snap, built with `make` (snapcraft + LXD) per docs/contributors/code.rst.
+# The Go source is a cgo project (go-dqlite / sqlite3), so the fast code checks
+# below need a C toolchain + a recent libdqlite.
+#
+# This workshop covers the code checks a developer runs between snap builds
+# (unit test / vet / fmt / tidy / lint). Run `workshop run -- deps` once after
+# each launch / refresh / restore to install the C toolchain and build
+# libdqlite (idempotent). `make` (the snap build) and the BATS functional
+# tests (`make check-system`) need snapcraft + nested LXD inside the container
+# and are not wired here yet.
+
+sdks:
+  - name: go
+    channel: "1.27"
+
+actions:
+  deps: |
+    set -e
+    sudo apt-get update
+    sudo apt-get install -y make gcc pkg-config autoconf automake libtool \
+      libuv1-dev libsqlite3-dev liblz4-dev git ca-certificates
+
+    # Ubuntu ships libdqlite 1.16 (too old for go-dqlite v3), so build it from
+    # source. This mirrors the snap's dqlite part: canonical/dqlite (default
+    # branch) and the -Wno-error discard-qualifiers flag from snapcraft.yaml's
+    # dqlite build-environment.
+    if ! pkg-config --exists dqlite 2>/dev/null || [ ! -f /usr/local/include/dqlite.h ]; then
+      rm -rf /tmp/dqlite
+      git clone --depth 1 https://github.com/canonical/dqlite /tmp/dqlite
+      cd /tmp/dqlite
+      autoreconf -i
+      CFLAGS="-Wno-error=discarded-qualifiers" ./configure --enable-build-raft
+      make -j"$(nproc)"
+      sudo make install
+      sudo ldconfig
+    fi
+
+    echo "deps ready (CGO_ENABLED=$(go env CGO_ENABLED))"
+
+  test-unit: |
+    cd /project/microovn
+    go test ./...
+
+  vet: |
+    cd /project/microovn
+    go vet ./...
+
+  fmt-check: |
+    cd /project/microovn
+    test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+  tidy: |
+    cd /project/microovn
+    go mod tidy
+
+  lint-sh: |
+    command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+    cd /project
+    make check-lint
+
+  lint-go: |
+    cd /project/microovn
+    command -v golangci-lint >/dev/null || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+    "$(go env GOPATH)/bin/golangci-lint" run
